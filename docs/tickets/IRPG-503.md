@@ -55,6 +55,7 @@
 
 - 최초 구현 SHA `86b5ce6f3c4a473a9ddfab0b73a9618a7f3e05a1`의 [push 실행](https://github.com/happypod/games01/actions/runs/29565062156)과 [pull request 실행](https://github.com/happypod/games01/actions/runs/29565157162)은 `npm ci`에서 누락된 optional WASM peer를 발견해 실패했다.
 - `package.json`만 있는 Node.js 24.13.0 / npm 11.6.2 환경에서 잠금 파일을 다시 생성해 `@emnapi/core`와 `@emnapi/runtime`을 루트 optional peer로 정규화했다.
+- [`actions/upload-artifact@v6`](https://github.com/actions/upload-artifact/releases/tag/v6.0.0)은 Node.js 24 런타임을 사용하며, GitHub-hosted runner에서 기존 입력과 artifact 계약을 그대로 유지함을 확인했다.
 - 저장 규칙, 게임 상태, 전투 수식, UI 계약은 바꾸지 않았고 정적 CI 감사에서 workflow 범위와 실패 진단 경로를 승인했다.
 
 ## Test evidence
@@ -68,3 +69,4 @@
 - [pull request run 29566034688](https://github.com/happypod/games01/actions/runs/29566034688) / [verify job 87838749728](https://github.com/happypod/games01/actions/runs/29566034688/job/87838749728): event `pull_request`, conclusion `success`
 - 두 원격 실행 모두 `npm ci`, Chromium `--with-deps`, `npm run verify`를 통과했다.
 - `playwright-report` artifact: push artifact `8401137699` 198,424 bytes, pull request artifact `8401144574` 233,003 bytes, retention 14일
+- v6 유지보수 head [`beb73b8b9f4763592ce406b964a51f28bcdd5fdb`](https://github.com/happypod/games01/commit/beb73b8b9f4763592ce406b964a51f28bcdd5fdb): [push run 29581371205](https://github.com/happypod/games01/actions/runs/29581371205)와 [pull request run 29581372983](https://github.com/happypod/games01/actions/runs/29581372983) 모두 `success`, `Upload Playwright report` 단계 성공, artifact `8407151103`·`8407161950` 생성, check annotation 0건
