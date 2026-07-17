@@ -14,6 +14,7 @@ import {
   saveGameAtRevision,
   type BootstrapResult,
 } from '../game/persistence'
+import { commitPortableSave, type SaveImportPreview } from '../game/saveTransfer'
 import type {
   AdvanceReport,
   CommandResult,
@@ -26,6 +27,11 @@ const TICK_MS = 250
 const AUTOSAVE_MS = 5_000
 const LOCK_RETRY_MS = 1_000
 const WRITER_LOCK_NAME = 'emberwatch.writer.v1'
+
+interface HeldWriterLock {
+  owner: symbol
+  release: () => void
+}
 
 export interface GameController {
   state: GameState
@@ -41,6 +47,7 @@ export interface GameController {
   chooseStage: (stage: number) => void
   prestige: () => void
   reset: () => void
+  restoreSave: (preview: SaveImportPreview) => { success: boolean; message: string }
   dismissOfflineReport: () => void
 }
 
@@ -70,8 +77,9 @@ export function useGame(): GameController {
   const revisionRef = useRef<number | null>(initialBootstrap.revision)
   const saveBlockedRef = useRef(initialBootstrap.saveBlocked)
   const writerRef = useRef(false)
+  const writerOwnerRef = useRef<symbol | null>(null)
   const conflictBlockedRef = useRef(false)
-  const releaseLockRef = useRef<(() => void) | null>(null)
+  const heldLockRef = useRef<HeldWriterLock | null>(null)
 
   const commit = useCallback((next: GameState) => {
     stateRef.current = next
@@ -101,6 +109,7 @@ export function useGame(): GameController {
     (message: string, retry: boolean, snapshot?: BootstrapResult) => {
       const latest = snapshot ?? bootstrapGame(window.localStorage, Date.now(), 'reader')
       writerRef.current = false
+      writerOwnerRef.current = null
       conflictBlockedRef.current = !retry
       applyBootstrap(latest, 'reader')
       if (!retry) {
@@ -108,8 +117,8 @@ export function useGame(): GameController {
         setSaveHealthy(false)
       }
       setNotice(message)
-      releaseLockRef.current?.()
-      releaseLockRef.current = null
+      heldLockRef.current?.release()
+      heldLockRef.current = null
     },
     [applyBootstrap],
   )
@@ -143,12 +152,13 @@ export function useGame(): GameController {
 
     let active = true
     let requestPending = false
+    const owner = Symbol(WRITER_LOCK_NAME)
 
     const attemptWriterLock = () => {
       if (
         !active ||
         requestPending ||
-        writerRef.current ||
+        (writerRef.current && writerOwnerRef.current === owner) ||
         conflictBlockedRef.current
       ) {
         return
@@ -164,6 +174,7 @@ export function useGame(): GameController {
           }
 
           writerRef.current = true
+          writerOwnerRef.current = owner
           const writer = bootstrapGame(window.localStorage, Date.now(), 'writer')
           if (writer.saveBlocked) {
             stopWriting('저장 충돌로 writer 시작을 중단했습니다.', false)
@@ -172,10 +183,23 @@ export function useGame(): GameController {
           applyBootstrap(writer, 'writer')
 
           await new Promise<void>((resolve) => {
-            releaseLockRef.current = resolve
+            if (!active || writerOwnerRef.current !== owner) {
+              resolve()
+              return
+            }
+            heldLockRef.current = { owner, release: resolve }
           })
-          releaseLockRef.current = null
-          writerRef.current = false
+          if (heldLockRef.current?.owner === owner) heldLockRef.current = null
+          if (writerOwnerRef.current === owner) {
+            writerOwnerRef.current = null
+            writerRef.current = false
+            if (active) {
+              applyBootstrap(
+                bootstrapGame(window.localStorage, Date.now(), 'reader'),
+                'reader',
+              )
+            }
+          }
         })
         .catch(() => {
           if (!active) return
@@ -189,13 +213,15 @@ export function useGame(): GameController {
         })
     }
 
-    attemptWriterLock()
+    queueMicrotask(attemptWriterLock)
     const retryTimer = window.setInterval(attemptWriterLock, LOCK_RETRY_MS)
     return () => {
       active = false
       window.clearInterval(retryTimer)
-      releaseLockRef.current?.()
-      releaseLockRef.current = null
+      if (heldLockRef.current?.owner === owner) {
+        heldLockRef.current.release()
+        heldLockRef.current = null
+      }
     }
   }, [applyBootstrap, lockManager, stopWriting])
 
@@ -323,6 +349,43 @@ export function useGame(): GameController {
     setSaveHealthy(true)
   }, [commit, readOnly, ready, stopWriting])
 
+  const restoreSave = useCallback(
+    (preview: SaveImportPreview) => {
+      if (!ready || readOnly || !writerRef.current) {
+        const message = '읽기 전용 탭에서는 저장을 가져올 수 없습니다.'
+        setNotice(message)
+        return { success: false, message }
+      }
+      const expectedRevision = revisionRef.current
+      const imported = commitPortableSave(
+        window.localStorage,
+        preview,
+        expectedRevision,
+        Date.now(),
+      )
+      if (imported.status !== 'saved') {
+        const message =
+          imported.status === 'conflict'
+            ? `미리보기 중 저장 revision이 ${expectedRevision ?? 0}에서 ${imported.currentRevision ?? 0}(으)로 변경되었습니다.`
+            : '가져온 저장을 안전하게 기록하지 못했습니다.'
+        stopWriting(
+          message,
+          imported.status === 'conflict',
+        )
+        return { success: false, message }
+      }
+      revisionRef.current = imported.revision
+      saveBlockedRef.current = false
+      commit(imported.state)
+      setOfflineReport(null)
+      setRecoveredFromInvalidSave(false)
+      setSaveHealthy(true)
+      setNotice('백업 저장을 안전하게 가져왔습니다.')
+      return { success: true, message: '백업 저장을 안전하게 가져왔습니다.' }
+    },
+    [commit, readOnly, ready, stopWriting],
+  )
+
   return {
     state,
     offlineReport,
@@ -337,6 +400,7 @@ export function useGame(): GameController {
     chooseStage,
     prestige,
     reset,
+    restoreSave,
     dismissOfflineReport: () => setOfflineReport(null),
   }
 }

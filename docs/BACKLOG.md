@@ -30,7 +30,7 @@
 | IRPG-301 | v1 로컬 저장·decoder | P0 | Done | 002 | ENG-SAVE | 정상 왕복과 손상 저장 fallback이 동작한다. |
 | IRPG-302 | 자동 저장·8시간 오프라인 | P0 | Done | 101,301 | ENG-SAVE | 0초·역행·8시간 상한·중복 재개가 안전하다. |
 | IRPG-303 | A/B 슬롯·revision·migration | P1 | Done | 301 | ENG-SAVE | 두 슬롯 중 최신 유효본을 읽고 v1 fixture를 변환한다. |
-| IRPG-304 | 내보내기·가져오기 | P1 | Ready | 303 | ENG-SAVE, UX-FEEDBACK | 잘못된 가져오기가 현재 저장을 덮어쓰지 않는다. |
+| IRPG-304 | 내보내기·가져오기 | P1 | Done | 303,305 | ENG-SAVE, UX-FEEDBACK | 검증·미리보기·확인 전에는 현재 A/B 저장을 바꾸지 않는다. |
 | IRPG-305 | 다중 탭 충돌 방지 | P2 | Done | 303 | ENG-SAVE, FE-GAME, QA-E2E | writer lock과 revision guard로 두 번째 탭을 읽기 전용 처리한다. |
 | IRPG-401 | 전투·영웅·성장 UI | P0 | Done | 103,202 | FE-GAME, UX-FEEDBACK | 상태와 HUD가 일치하고 구매 불가 버튼이 비활성화된다. |
 | IRPG-402 | 오프라인·복구·저장 피드백 | P0 | Done | 302,401 | FE-GAME | 오프라인 합계와 저장 오류·복구 상태가 표시된다. |

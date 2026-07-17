@@ -2,6 +2,7 @@ import { BattleArena } from './components/BattleArena'
 import { HeroPanel } from './components/HeroPanel'
 import { OfflineReport } from './components/OfflineReport'
 import { PrestigePanel } from './components/PrestigePanel'
+import { SaveTransferPanel } from './components/SaveTransferPanel'
 import { SkillPanel } from './components/SkillPanel'
 import { UpgradePanel } from './components/UpgradePanel'
 import { formatNumber } from './game/format'
@@ -97,6 +98,13 @@ export function App() {
           state={game.state}
           onPrestige={requestPrestige}
           disabled={controlsDisabled}
+        />
+
+        <SaveTransferPanel
+          state={game.state}
+          exportDisabled={!game.ready}
+          importDisabled={controlsDisabled}
+          onRestore={game.restoreSave}
         />
 
         <footer>

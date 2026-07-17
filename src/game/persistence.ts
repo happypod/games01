@@ -124,7 +124,7 @@ function normalizeGameState(value: GameState): GameState {
   return state
 }
 
-function decodeGameState(value: unknown): GameState | null {
+export function decodeGameState(value: unknown): GameState | null {
   return isGameState(value) ? normalizeGameState(value) : null
 }
 
@@ -268,13 +268,34 @@ function commitGame(
   const targetKey = latest?.key === SAVE_SLOT_A_KEY ? SAVE_SLOT_B_KEY : SAVE_SLOT_A_KEY
   const revision = (currentRevision ?? 0) + 1
   const serialized = JSON.stringify(createEnvelope(normalizeGameState(state), revision))
+  let previousTargetRaw: string | null
+
+  try {
+    previousTargetRaw = storage.getItem(targetKey)
+  } catch {
+    return { status: 'blocked', currentRevision }
+  }
+
+  const restoreTarget = () => {
+    try {
+      if (previousTargetRaw === null) storage.removeItem(targetKey)
+      else storage.setItem(targetKey, previousTargetRaw)
+      return storage.getItem(targetKey) === previousTargetRaw
+    } catch {
+      return false
+    }
+  }
 
   try {
     storage.setItem(targetKey, serialized)
     const written = storage.getItem(targetKey)
-    if (written !== serialized) return { status: 'blocked', currentRevision }
+    if (written !== serialized) {
+      restoreTarget()
+      return { status: 'blocked', currentRevision }
+    }
     const verified = written === null ? null : parseSaveEnvelope(written)
     if (verified === null || verified.revision !== revision) {
+      restoreTarget()
       return { status: 'blocked', currentRevision }
     }
     try {
@@ -284,6 +305,7 @@ function commitGame(
     }
     return { status: 'saved', revision }
   } catch {
+    restoreTarget()
     return { status: 'blocked', currentRevision }
   }
 }

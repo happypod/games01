@@ -21,9 +21,15 @@ class MemoryStorage {
   ignoreNextWrite = false
   truncateNextWrite = false
   failReadKey: string | null = null
+  failReadAfterNextWrite = false
+  private failNextReadKey: string | null = null
   failRemoveKey: string | null = null
 
   getItem(key: string) {
+    if (this.failNextReadKey === key) {
+      this.failNextReadKey = null
+      throw new Error('simulated post-write read failure')
+    }
     if (this.failReadKey === key) throw new Error('simulated read failure')
     return this.values.get(key) ?? null
   }
@@ -43,6 +49,10 @@ class MemoryStorage {
       return
     }
     this.values.set(key, value)
+    if (this.failReadAfterNextWrite) {
+      this.failReadAfterNextWrite = false
+      this.failNextReadKey = key
+    }
   }
 
   removeItem(key: string) {
@@ -233,7 +243,21 @@ describe('A/B game persistence', () => {
     expect(storage.getItem(SAVE_SLOT_B_KEY)).toBeNull()
   })
 
-  it('falls back after a truncated target write without mutating the winner', () => {
+  it('rolls back the target slot when read-back fails after a successful write', () => {
+    const storage = new MemoryStorage()
+    expect(saveGameAtRevision(storage, withGold(100, 10), null)).toMatchObject({ revision: 1 })
+    const stableRaw = storage.getItem(SAVE_SLOT_A_KEY)
+    storage.failReadAfterNextWrite = true
+
+    expect(saveGameAtRevision(storage, withGold(200, 999), 1)).toEqual({
+      status: 'blocked',
+      currentRevision: 1,
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(stableRaw)
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBeNull()
+  })
+
+  it('rolls back a truncated target write without mutating the winner', () => {
     const storage = new MemoryStorage()
     expect(saveGame(storage, withGold(100, 10))).toBe(true)
     const winnerRaw = storage.getItem(SAVE_SLOT_A_KEY)
@@ -244,7 +268,7 @@ describe('A/B game persistence', () => {
 
     const recovered = bootstrapGame(storage, 100)
     expect(recovered.state.player.gold).toBe(10)
-    expect(recovered.recoveredFromInvalidSave).toBe(true)
+    expect(recovered.recoveredFromInvalidSave).toBe(false)
   })
 
   it('preserves a valid legacy save when migration writing fails and retries idempotently', () => {

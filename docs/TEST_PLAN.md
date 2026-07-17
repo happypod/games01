@@ -15,6 +15,7 @@
 |---|---:|---|
 | 엔진 단위 | 구현 | 최초 상태, 보상, 결정론, 경과 시간 상한, 구매 원자성, 스킬 잠금, 스테이지, 환생, 숫자 불변식 |
 | 저장 통합 | 구현 | A/B 교대, revision 선택·동률, 부분 쓰기, 손상 fallback, 미래 포맷 차단, v1 migration, 오프라인 1회 적용, 초기화 |
+| 저장 전송 | 구현 | portable checksum·버전·크기, preview no-write, stale CAS, target rollback, export/import 브라우저 왕복 |
 | UI 컴포넌트 | 구현 | 첫 화면 landmark와 주요 패널, 구매 불가 상태 |
 | 밸런스 스모크 | 구현 | 자동 재투자 45분 내 첫 환생 관문 |
 | 브라우저 E2E | 구현 | 신규 시작, UI 강화, 실제 reload, 1분 오프라인 보고, 같은 구간 중복 방지, page/console error |
@@ -34,6 +35,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 | 스테이지·패배 | 선택 범위와 장시간 엔진 | 보스 패배 후 피드백 |
 | 환생 유지·초기화 | 영구·임시 필드 비교 | 확인 대화상자와 예상 보상 |
 | 저장 복구 | A/B fallback·부분 쓰기·미래 포맷·v1 migration | 실제 저장 차단 환경 |
+| 저장 백업 | checksum·크기·schema·stale revision·read-back rollback, Playwright 다운로드·취소·복원 | 다른 기기 파일 이동 |
 | 오프라인 중복 방지 | 같은 시각 재부팅, Playwright 닫기·재접속·재새로고침 | 탭 숨김과 OS 절전 복귀 |
 | 다중 탭 충돌 | stale revision 원문 불변, reader 무쓰기, 동일 revision 충돌 차단, 두 페이지 lock 인계 | 비정상 브라우저 종료 복구 |
 | 반응형·접근성 | semantic role smoke | 360px, 키보드, 스크린리더 |
