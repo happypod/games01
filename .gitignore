@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.npm-cache/
+.playwright-browsers/
+playwright-report/
+test-results/
+blob-report/
+*.local
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,328 @@
+import {
+  MAX_OFFLINE_MS,
+  MAX_STAGE,
+  SKILL_DEFINITIONS,
+  UPGRADE_DEFINITIONS,
+  getEnemyDefinition,
+} from './content'
+import { advanceGame, createInitialState } from './engine'
+import { getHeroStats } from './formulas'
+import { SAVE_VERSION, SKILL_IDS, UPGRADE_IDS } from './types'
+import type { AdvanceReport, GameState, StorageLike } from './types'
+
+export const SAVE_FORMAT_VERSION = 2 as const
+export const LEGACY_SAVE_KEY = 'emberwatch.save.v1'
+export const SAVE_SLOT_A_KEY = 'emberwatch.save.v2.a'
+export const SAVE_SLOT_B_KEY = 'emberwatch.save.v2.b'
+export const SAVE_SLOT_KEYS = [SAVE_SLOT_A_KEY, SAVE_SLOT_B_KEY] as const
+
+/** @deprecated v1 단일 키 fixture와 호환하기 위한 별칭입니다. */
+export const SAVE_KEY = LEGACY_SAVE_KEY
+
+type SaveSlotKey = (typeof SAVE_SLOT_KEYS)[number]
+
+export interface SaveEnvelopeV2 {
+  formatVersion: typeof SAVE_FORMAT_VERSION
+  revision: number
+  savedAt: number
+  state: GameState
+}
+
+export interface BootstrapResult {
+  state: GameState
+  offlineReport: AdvanceReport | null
+  recoveredFromInvalidSave: boolean
+  saveHealthy: boolean
+  saveBlocked: boolean
+}
+
+type SlotRead =
+  | { key: SaveSlotKey; status: 'empty' }
+  | { key: SaveSlotKey; status: 'invalid' }
+  | { key: SaveSlotKey; status: 'future' }
+  | { key: SaveSlotKey; status: 'error' }
+  | { key: SaveSlotKey; status: 'valid'; envelope: SaveEnvelopeV2 }
+
+type LegacyRead =
+  | { status: 'empty' }
+  | { status: 'invalid' }
+  | { status: 'error' }
+  | { status: 'valid'; state: GameState }
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const isSafeNonNegativeInteger = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+
+function hasNumericKeys<T extends readonly string[]>(value: unknown, keys: T): boolean {
+  return isRecord(value) && keys.every((key) => isSafeNonNegativeInteger(value[key]))
+}
+
+export function isGameState(value: unknown): value is GameState {
+  if (!isRecord(value) || value.schemaVersion !== SAVE_VERSION) return false
+  const player = value.player
+  const battle = value.battle
+  const stats = value.stats
+  if (!isRecord(player) || !isRecord(battle) || !isRecord(stats)) return false
+
+  return (
+    isSafeNonNegativeInteger(value.lastSavedAt) &&
+    isSafeNonNegativeInteger(player.level) &&
+    player.level >= 1 &&
+    isSafeNonNegativeInteger(player.xp) &&
+    isSafeNonNegativeInteger(player.gold) &&
+    isSafeNonNegativeInteger(player.essence) &&
+    isSafeNonNegativeInteger(player.currentHp) &&
+    isSafeNonNegativeInteger(player.skillPoints) &&
+    hasNumericKeys(player.upgrades, UPGRADE_IDS) &&
+    hasNumericKeys(player.skills, SKILL_IDS) &&
+    isSafeNonNegativeInteger(battle.stage) &&
+    battle.stage >= 1 &&
+    isSafeNonNegativeInteger(battle.highestStage) &&
+    battle.highestStage >= 1 &&
+    isSafeNonNegativeInteger(battle.enemyHp) &&
+    isSafeNonNegativeInteger(battle.roundRemainderMs) &&
+    isSafeNonNegativeInteger(battle.powerStrikeCooldownMs) &&
+    isSafeNonNegativeInteger(battle.kills) &&
+    isSafeNonNegativeInteger(battle.defeats) &&
+    isSafeNonNegativeInteger(stats.goldEarned) &&
+    isSafeNonNegativeInteger(stats.enemiesDefeated) &&
+    isSafeNonNegativeInteger(stats.prestiges)
+  )
+}
+
+function normalizeGameState(value: GameState): GameState {
+  const state = structuredClone(value)
+  state.battle.stage = Math.min(MAX_STAGE, Math.max(1, state.battle.stage))
+  state.battle.highestStage = Math.min(
+    MAX_STAGE,
+    Math.max(state.battle.stage, state.battle.highestStage),
+  )
+  const enemy = getEnemyDefinition(state.battle.stage)
+  state.battle.enemyHp = Math.min(enemy.maxHp, Math.max(1, state.battle.enemyHp))
+  state.battle.roundRemainderMs = Math.min(999, state.battle.roundRemainderMs)
+  state.player.level = Math.min(999, state.player.level)
+  for (const id of UPGRADE_IDS) {
+    state.player.upgrades[id] = Math.min(
+      UPGRADE_DEFINITIONS[id].maxLevel,
+      state.player.upgrades[id],
+    )
+  }
+  for (const id of SKILL_IDS) {
+    state.player.skills[id] = Math.min(SKILL_DEFINITIONS[id].maxRank, state.player.skills[id])
+  }
+  state.player.currentHp = Math.min(getHeroStats(state).maxHp, Math.max(1, state.player.currentHp))
+  return state
+}
+
+function decodeGameState(value: unknown): GameState | null {
+  return isGameState(value) ? normalizeGameState(value) : null
+}
+
+/** v1 단일 키의 raw GameState를 읽는 migration 진입점입니다. */
+export function parseSave(raw: string): GameState | null {
+  try {
+    return decodeGameState(JSON.parse(raw) as unknown)
+  } catch {
+    return null
+  }
+}
+
+export function parseSaveEnvelope(raw: string): SaveEnvelopeV2 | null {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (
+      !isRecord(parsed) ||
+      parsed.formatVersion !== SAVE_FORMAT_VERSION ||
+      !isSafeNonNegativeInteger(parsed.revision) ||
+      parsed.revision < 1 ||
+      !isSafeNonNegativeInteger(parsed.savedAt)
+    ) {
+      return null
+    }
+
+    const state = decodeGameState(parsed.state)
+    if (state === null || state.lastSavedAt !== parsed.savedAt) return null
+    return {
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: parsed.revision,
+      savedAt: parsed.savedAt,
+      state,
+    }
+  } catch {
+    return null
+  }
+}
+
+function hasFutureSaveFormat(raw: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return (
+      isRecord(parsed) &&
+      isSafeNonNegativeInteger(parsed.formatVersion) &&
+      parsed.formatVersion > SAVE_FORMAT_VERSION
+    )
+  } catch {
+    return false
+  }
+}
+
+function readSlot(storage: StorageLike, key: SaveSlotKey): SlotRead {
+  try {
+    const raw = storage.getItem(key)
+    if (raw === null) return { key, status: 'empty' }
+    const envelope = parseSaveEnvelope(raw)
+    if (envelope === null && hasFutureSaveFormat(raw)) return { key, status: 'future' }
+    return envelope === null
+      ? { key, status: 'invalid' }
+      : { key, status: 'valid', envelope }
+  } catch {
+    return { key, status: 'error' }
+  }
+}
+
+function readSlots(storage: StorageLike): [SlotRead, SlotRead] {
+  return [readSlot(storage, SAVE_SLOT_A_KEY), readSlot(storage, SAVE_SLOT_B_KEY)]
+}
+
+function selectLatestSlot(slots: readonly SlotRead[]): Extract<SlotRead, { status: 'valid' }> | null {
+  const valid = slots.filter(
+    (slot): slot is Extract<SlotRead, { status: 'valid' }> => slot.status === 'valid',
+  )
+  if (valid.length === 0) return null
+
+  return valid.reduce((latest, candidate) => {
+    if (candidate.envelope.revision !== latest.envelope.revision) {
+      return candidate.envelope.revision > latest.envelope.revision ? candidate : latest
+    }
+    if (candidate.envelope.savedAt !== latest.envelope.savedAt) {
+      return candidate.envelope.savedAt > latest.envelope.savedAt ? candidate : latest
+    }
+    return candidate.key === SAVE_SLOT_A_KEY ? candidate : latest
+  })
+}
+
+function hasConflictingRevisionTie(slots: readonly SlotRead[]): boolean {
+  const valid = slots.filter(
+    (slot): slot is Extract<SlotRead, { status: 'valid' }> => slot.status === 'valid',
+  )
+  const [first, second] = valid
+  if (valid.length !== 2 || first === undefined || second === undefined) return false
+  return (
+    first.envelope.revision === second.envelope.revision &&
+    JSON.stringify(first.envelope.state) !== JSON.stringify(second.envelope.state)
+  )
+}
+
+function readLegacySave(storage: StorageLike): LegacyRead {
+  try {
+    const raw = storage.getItem(LEGACY_SAVE_KEY)
+    if (raw === null) return { status: 'empty' }
+    const state = parseSave(raw)
+    return state === null ? { status: 'invalid' } : { status: 'valid', state }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
+function createEnvelope(state: GameState, revision: number): SaveEnvelopeV2 {
+  return {
+    formatVersion: SAVE_FORMAT_VERSION,
+    revision,
+    savedAt: state.lastSavedAt,
+    state,
+  }
+}
+
+export function saveGame(storage: StorageLike, state: GameState): boolean {
+  if (!isGameState(state)) return false
+  const slots = readSlots(storage)
+  if (slots.some((slot) => slot.status === 'error' || slot.status === 'future')) return false
+
+  const latest = selectLatestSlot(slots)
+  if (latest?.envelope.revision === Number.MAX_SAFE_INTEGER) return false
+  const targetKey = latest?.key === SAVE_SLOT_A_KEY ? SAVE_SLOT_B_KEY : SAVE_SLOT_A_KEY
+  const revision = (latest?.envelope.revision ?? 0) + 1
+  const serialized = JSON.stringify(createEnvelope(normalizeGameState(state), revision))
+
+  try {
+    storage.setItem(targetKey, serialized)
+    const written = storage.getItem(targetKey)
+    if (written !== serialized) return false
+    const verified = written === null ? null : parseSaveEnvelope(written)
+    if (verified === null || verified.revision !== revision) return false
+    try {
+      storage.removeItem(LEGACY_SAVE_KEY)
+    } catch {
+      // v2 슬롯 기록은 성공했으므로 legacy 정리 실패는 저장 실패로 취급하지 않습니다.
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function clearSave(storage: StorageLike): boolean {
+  let success = true
+  for (const key of [LEGACY_SAVE_KEY, ...SAVE_SLOT_KEYS]) {
+    try {
+      storage.removeItem(key)
+    } catch {
+      success = false
+    }
+  }
+  return success
+}
+
+function failedBootstrap(now: number): BootstrapResult {
+  return {
+    state: createInitialState(now),
+    offlineReport: null,
+    recoveredFromInvalidSave: true,
+    saveHealthy: false,
+    saveBlocked: true,
+  }
+}
+
+export function bootstrapGame(storage: StorageLike, now = Date.now()): BootstrapResult {
+  const slots = readSlots(storage)
+  if (slots.some((slot) => slot.status === 'error' || slot.status === 'future')) {
+    return failedBootstrap(now)
+  }
+
+  const latest = selectLatestSlot(slots)
+  const hadInvalidSlot = slots.some((slot) => slot.status === 'invalid')
+  let loaded: GameState | null = latest?.envelope.state ?? null
+  let recoveredFromInvalidSave = hadInvalidSlot || hasConflictingRevisionTie(slots)
+
+  if (loaded === null) {
+    const legacy = readLegacySave(storage)
+    if (legacy.status === 'error') return failedBootstrap(now)
+    if (legacy.status === 'valid') loaded = legacy.state
+    if (legacy.status === 'invalid') recoveredFromInvalidSave = true
+  }
+
+  if (loaded === null) {
+    const state = createInitialState(now)
+    return {
+      state,
+      offlineReport: null,
+      recoveredFromInvalidSave,
+      saveHealthy: saveGame(storage, state),
+      saveBlocked: false,
+    }
+  }
+
+  const elapsedMs = Math.min(MAX_OFFLINE_MS, Math.max(0, now - loaded.lastSavedAt))
+  const result = advanceGame(loaded, elapsedMs)
+  result.state.lastSavedAt = now
+  const saveHealthy = saveGame(storage, result.state)
+  return {
+    state: result.state,
+    offlineReport: elapsedMs >= 5_000 ? result.report : null,
+    recoveredFromInvalidSave,
+    saveHealthy,
+    saveBlocked: false,
+  }
+}
