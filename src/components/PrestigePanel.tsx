@@ -6,9 +6,10 @@ import type { GameState } from '../game/types'
 interface PrestigePanelProps {
   state: GameState
   onPrestige: () => void
+  disabled?: boolean
 }
 
-export function PrestigePanel({ state, onPrestige }: PrestigePanelProps) {
+export function PrestigePanel({ state, onPrestige, disabled = false }: PrestigePanelProps) {
   const unlocked = state.battle.highestStage >= PRESTIGE_STAGE
   const reward = getPrestigeReward(state.battle.highestStage)
   return (
@@ -22,7 +23,7 @@ export function PrestigePanel({ state, onPrestige }: PrestigePanelProps) {
       </div>
       <div className="prestige-panel__action">
         <span>예상 보상 <strong>{formatNumber(reward)} 정수</strong></span>
-        <button type="button" disabled={!unlocked} onClick={onPrestige}>
+        <button type="button" disabled={disabled || !unlocked} onClick={onPrestige}>
           {unlocked ? '환생하기' : `${PRESTIGE_STAGE} 스테이지 필요`}
         </button>
       </div>

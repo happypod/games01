@@ -11,9 +11,10 @@ const SKILL_GLYPHS: Record<SkillId, string> = {
 interface SkillPanelProps {
   state: GameState
   onBuy: (id: SkillId) => void
+  disabled?: boolean
 }
 
-export function SkillPanel({ state, onBuy }: SkillPanelProps) {
+export function SkillPanel({ state, onBuy, disabled = false }: SkillPanelProps) {
   return (
     <section className="panel collection-panel" aria-labelledby="skill-title">
       <div className="panel__header panel__header--compact">
@@ -40,7 +41,7 @@ export function SkillPanel({ state, onBuy }: SkillPanelProps) {
               <button
                 type="button"
                 onClick={() => onBuy(id)}
-                disabled={!unlocked || isMax || state.player.skillPoints < cost}
+                disabled={disabled || !unlocked || isMax || state.player.skillPoints < cost}
                 aria-label={`${definition.name} 랭크 상승, 비용 ${cost} 스킬 포인트`}
               >
                 {isMax ? 'MAX' : <><span>각인</span><small>{cost} SP</small></>}

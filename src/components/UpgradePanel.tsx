@@ -12,9 +12,10 @@ const UPGRADE_GLYPHS: Record<UpgradeId, string> = {
 interface UpgradePanelProps {
   state: GameState
   onBuy: (id: UpgradeId) => void
+  disabled?: boolean
 }
 
-export function UpgradePanel({ state, onBuy }: UpgradePanelProps) {
+export function UpgradePanel({ state, onBuy, disabled = false }: UpgradePanelProps) {
   return (
     <section className="panel collection-panel" aria-labelledby="upgrade-title">
       <div className="panel__header panel__header--compact">
@@ -40,7 +41,7 @@ export function UpgradePanel({ state, onBuy }: UpgradePanelProps) {
               <button
                 type="button"
                 onClick={() => onBuy(id)}
-                disabled={isMax || !canAfford}
+                disabled={disabled || isMax || !canAfford}
                 aria-label={`${definition.name} 강화, 비용 ${formatNumber(cost)} 골드`}
               >
                 {isMax ? 'MAX' : <><span>강화</span><small>{formatNumber(cost)} G</small></>}

@@ -94,6 +94,7 @@ h2 { font-size: 20px; letter-spacing: -.02em; }
 .save-error { color: #e9877d; }
 .text-button { border: 0; background: transparent; color: #8f857c; font-size: 11px; padding: 6px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .text-button:hover { color: var(--ink); }
+.text-button:disabled { opacity: .45; cursor: not-allowed; }
 
 .warning-banner { border: 1px solid rgba(238,125,61,.28); background: rgba(104,43,25,.34); color: #f3c5a6; border-radius: 8px; padding: 12px 15px; margin: -10px 0 20px; font-size: 12px; }
 

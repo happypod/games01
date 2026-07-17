@@ -34,7 +34,15 @@ export interface BootstrapResult {
   recoveredFromInvalidSave: boolean
   saveHealthy: boolean
   saveBlocked: boolean
+  revision: number | null
 }
+
+export type SaveCommitResult =
+  | { status: 'saved'; revision: number }
+  | { status: 'conflict'; currentRevision: number | null }
+  | { status: 'blocked'; currentRevision: number | null }
+
+export type BootstrapMode = 'writer' | 'reader'
 
 type SlotRead =
   | { key: SaveSlotKey; status: 'empty' }
@@ -235,32 +243,65 @@ function createEnvelope(state: GameState, revision: number): SaveEnvelopeV2 {
   }
 }
 
-export function saveGame(storage: StorageLike, state: GameState): boolean {
-  if (!isGameState(state)) return false
+function commitGame(
+  storage: StorageLike,
+  state: GameState,
+  expectedRevision?: number | null,
+): SaveCommitResult {
+  if (!isGameState(state)) return { status: 'blocked', currentRevision: null }
   const slots = readSlots(storage)
-  if (slots.some((slot) => slot.status === 'error' || slot.status === 'future')) return false
+  if (slots.some((slot) => slot.status === 'error' || slot.status === 'future')) {
+    return { status: 'blocked', currentRevision: null }
+  }
 
   const latest = selectLatestSlot(slots)
-  if (latest?.envelope.revision === Number.MAX_SAFE_INTEGER) return false
+  const currentRevision = latest?.envelope.revision ?? null
+  if (expectedRevision !== undefined && expectedRevision !== currentRevision) {
+    return { status: 'conflict', currentRevision }
+  }
+  if (expectedRevision !== undefined && hasConflictingRevisionTie(slots)) {
+    return { status: 'blocked', currentRevision }
+  }
+  if (currentRevision === Number.MAX_SAFE_INTEGER) {
+    return { status: 'blocked', currentRevision }
+  }
   const targetKey = latest?.key === SAVE_SLOT_A_KEY ? SAVE_SLOT_B_KEY : SAVE_SLOT_A_KEY
-  const revision = (latest?.envelope.revision ?? 0) + 1
+  const revision = (currentRevision ?? 0) + 1
   const serialized = JSON.stringify(createEnvelope(normalizeGameState(state), revision))
 
   try {
     storage.setItem(targetKey, serialized)
     const written = storage.getItem(targetKey)
-    if (written !== serialized) return false
+    if (written !== serialized) return { status: 'blocked', currentRevision }
     const verified = written === null ? null : parseSaveEnvelope(written)
-    if (verified === null || verified.revision !== revision) return false
+    if (verified === null || verified.revision !== revision) {
+      return { status: 'blocked', currentRevision }
+    }
     try {
       storage.removeItem(LEGACY_SAVE_KEY)
     } catch {
       // v2 슬롯 기록은 성공했으므로 legacy 정리 실패는 저장 실패로 취급하지 않습니다.
     }
-    return true
+    return { status: 'saved', revision }
   } catch {
-    return false
+    return { status: 'blocked', currentRevision }
   }
+}
+
+/**
+ * 단일 writer가 보장된 migration·테스트용 호환 API입니다.
+ * 브라우저 런타임은 반드시 saveGameAtRevision을 사용합니다.
+ */
+export function saveGame(storage: StorageLike, state: GameState): boolean {
+  return commitGame(storage, state).status === 'saved'
+}
+
+export function saveGameAtRevision(
+  storage: StorageLike,
+  state: GameState,
+  expectedRevision: number | null,
+): SaveCommitResult {
+  return commitGame(storage, state, expectedRevision)
 }
 
 export function clearSave(storage: StorageLike): boolean {
@@ -282,16 +323,22 @@ function failedBootstrap(now: number): BootstrapResult {
     recoveredFromInvalidSave: true,
     saveHealthy: false,
     saveBlocked: true,
+    revision: null,
   }
 }
 
-export function bootstrapGame(storage: StorageLike, now = Date.now()): BootstrapResult {
+export function bootstrapGame(
+  storage: StorageLike,
+  now = Date.now(),
+  mode: BootstrapMode = 'writer',
+): BootstrapResult {
   const slots = readSlots(storage)
   if (slots.some((slot) => slot.status === 'error' || slot.status === 'future')) {
     return failedBootstrap(now)
   }
 
   const latest = selectLatestSlot(slots)
+  const revision = latest?.envelope.revision ?? null
   const hadInvalidSlot = slots.some((slot) => slot.status === 'invalid')
   let loaded: GameState | null = latest?.envelope.state ?? null
   let recoveredFromInvalidSave = hadInvalidSlot || hasConflictingRevisionTie(slots)
@@ -305,24 +352,48 @@ export function bootstrapGame(storage: StorageLike, now = Date.now()): Bootstrap
 
   if (loaded === null) {
     const state = createInitialState(now)
+    if (mode === 'reader') {
+      return {
+        state,
+        offlineReport: null,
+        recoveredFromInvalidSave,
+        saveHealthy: true,
+        saveBlocked: false,
+        revision: null,
+      }
+    }
+    const committed = saveGameAtRevision(storage, state, revision)
     return {
       state,
       offlineReport: null,
       recoveredFromInvalidSave,
-      saveHealthy: saveGame(storage, state),
+      saveHealthy: committed.status === 'saved',
+      saveBlocked: committed.status !== 'saved',
+      revision: committed.status === 'saved' ? committed.revision : revision,
+    }
+  }
+
+  if (mode === 'reader') {
+    return {
+      state: loaded,
+      offlineReport: null,
+      recoveredFromInvalidSave,
+      saveHealthy: true,
       saveBlocked: false,
+      revision,
     }
   }
 
   const elapsedMs = Math.min(MAX_OFFLINE_MS, Math.max(0, now - loaded.lastSavedAt))
   const result = advanceGame(loaded, elapsedMs)
   result.state.lastSavedAt = now
-  const saveHealthy = saveGame(storage, result.state)
+  const committed = saveGameAtRevision(storage, result.state, revision)
   return {
     state: result.state,
     offlineReport: elapsedMs >= 5_000 ? result.report : null,
     recoveredFromInvalidSave,
-    saveHealthy,
-    saveBlocked: false,
+    saveHealthy: committed.status === 'saved',
+    saveBlocked: committed.status !== 'saved',
+    revision: committed.status === 'saved' ? committed.revision : revision,
   }
 }

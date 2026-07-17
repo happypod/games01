@@ -18,6 +18,7 @@
 | UI 컴포넌트 | 구현 | 첫 화면 landmark와 주요 패널, 구매 불가 상태 |
 | 밸런스 스모크 | 구현 | 자동 재투자 45분 내 첫 환생 관문 |
 | 브라우저 E2E | 구현 | 신규 시작, UI 강화, 실제 reload, 1분 오프라인 보고, 같은 구간 중복 방지, page/console error |
+| 다중 탭 E2E | 구현 | 두 번째 탭 읽기 전용, 열린 reader 동기화, writer 종료 뒤 lock 인계 |
 | 장시간 soak | 다음 | 24시간·7일 배속, NaN·정체·폭주 탐지 |
 
 IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 coverage는 statements 93.42%, branches 87.95%, functions 97.91%, lines 95.60%다. IRPG-504는 별도의 Playwright 전체 흐름 1개를 추가한다.
@@ -34,6 +35,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 | 환생 유지·초기화 | 영구·임시 필드 비교 | 확인 대화상자와 예상 보상 |
 | 저장 복구 | A/B fallback·부분 쓰기·미래 포맷·v1 migration | 실제 저장 차단 환경 |
 | 오프라인 중복 방지 | 같은 시각 재부팅, Playwright 닫기·재접속·재새로고침 | 탭 숨김과 OS 절전 복귀 |
+| 다중 탭 충돌 | stale revision 원문 불변, reader 무쓰기, 동일 revision 충돌 차단, 두 페이지 lock 인계 | 비정상 브라우저 종료 복구 |
 | 반응형·접근성 | semantic role smoke | 360px, 키보드, 스크린리더 |
 | 첫 환생 목표 | 45분 자동 전략 | 10회 이상 실제 플레이 |
 

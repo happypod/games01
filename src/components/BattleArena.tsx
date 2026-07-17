@@ -6,9 +6,10 @@ import { StatBar } from './StatBar'
 interface BattleArenaProps {
   state: GameState
   onChooseStage: (stage: number) => void
+  disabled?: boolean
 }
 
-export function BattleArena({ state, onChooseStage }: BattleArenaProps) {
+export function BattleArena({ state, onChooseStage, disabled = false }: BattleArenaProps) {
   const enemy = getEnemyDefinition(state.battle.stage)
   const hero = getHeroStats(state)
   const cooldownReady = state.battle.powerStrikeCooldownMs === 0
@@ -65,7 +66,7 @@ export function BattleArena({ state, onChooseStage }: BattleArenaProps) {
         <button
           type="button"
           onClick={() => onChooseStage(state.battle.stage - 1)}
-          disabled={state.battle.stage <= 1}
+          disabled={disabled || state.battle.stage <= 1}
         >
           ← 이전
         </button>
@@ -73,7 +74,7 @@ export function BattleArena({ state, onChooseStage }: BattleArenaProps) {
         <button
           type="button"
           onClick={() => onChooseStage(state.battle.stage + 1)}
-          disabled={state.battle.stage >= state.battle.highestStage}
+          disabled={disabled || state.battle.stage >= state.battle.highestStage}
         >
           다음 →
         </button>

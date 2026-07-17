@@ -75,8 +75,12 @@ performPrestige(state): CommandResult
 - legacy v1 raw `GameState`는 decode·정규화 후 v2 슬롯 기록이 검증된 경우에만 제거한다.
 - 알 수 없는 미래 `formatVersion`은 구버전 클라이언트가 덮어쓰지 않도록 저장을 차단한다.
 - 저장 실패는 게임 루프를 중단시키지 않고 상태 표시로 노출한다.
+- 브라우저는 `emberwatch.writer.v1` Web Lock을 bootstrap 전에 획득한 한 탭만 writer로 사용한다. 다른 탭은 오프라인 정산·tick·명령·저장 없이 검증된 최신 슬롯을 표시한다.
+- writer는 마지막 성공 revision을 추적하고 모든 쓰기에 기대 revision을 전달한다. 불일치나 동일 revision의 divergent 상태는 슬롯을 바꾸지 않고 거부한다.
+- reader는 `storage` 이벤트로 최신 snapshot을 반영하며 1초마다 lock 인계를 재시도한다. Web Locks 미지원 환경은 데이터 보호를 위해 읽기 전용이다.
+- 진행 초기화는 키를 물리적으로 지우지 않고 초기 상태를 연속 두 revision으로 기록해 단조 revision과 A/B 복구본을 모두 유지한다.
 
-다음 하드닝 단계는 내보내기·가져오기와 다중 탭 revision 충돌 감지다. 해당 범위는 `IRPG-304`, `IRPG-305` 티켓으로 관리한다.
+다음 하드닝 단계는 검증 후에만 commit하는 내보내기·가져오기다. 해당 범위는 `IRPG-304` 티켓으로 관리한다.
 
 Playwright는 저장 키나 도메인 함수를 직접 호출하지 않는다. 격리된 브라우저 context에서 고정된 `Date.now`와 실제 UI 명령을 사용해 신규 시작, 강화, reload, 페이지 종료, 오프라인 정산을 검증한다. 따라서 React 생명주기와 A/B localStorage 경로를 함께 통과한다.
 

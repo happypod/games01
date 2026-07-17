@@ -12,6 +12,7 @@ import {
   parseSave,
   parseSaveEnvelope,
   saveGame,
+  saveGameAtRevision,
 } from './persistence'
 
 class MemoryStorage {
@@ -73,6 +74,66 @@ describe('A/B game persistence', () => {
     expect(slotB).toMatchObject({ formatVersion: SAVE_FORMAT_VERSION, revision: 2 })
     expect(slotA?.state.player.gold).toBe(30)
     expect(slotB?.state.player.gold).toBe(20)
+  })
+
+  it('rejects a stale expected revision without changing either slot', () => {
+    const storage = new MemoryStorage()
+    expect(saveGameAtRevision(storage, withGold(100, 10), null)).toEqual({
+      status: 'saved',
+      revision: 1,
+    })
+    const staleView = withGold(200, 20)
+    expect(saveGameAtRevision(storage, withGold(300, 30), 1)).toEqual({
+      status: 'saved',
+      revision: 2,
+    })
+    const beforeA = storage.getItem(SAVE_SLOT_A_KEY)
+    const beforeB = storage.getItem(SAVE_SLOT_B_KEY)
+
+    expect(saveGameAtRevision(storage, staleView, 1)).toEqual({
+      status: 'conflict',
+      currentRevision: 2,
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(beforeA)
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBe(beforeB)
+  })
+
+  it('loads reader snapshots without advancing time or writing a checkpoint', () => {
+    const storage = new MemoryStorage()
+    expect(saveGameAtRevision(storage, withGold(1_000, 10), null)).toMatchObject({ revision: 1 })
+    const beforeA = storage.getItem(SAVE_SLOT_A_KEY)
+
+    const reader = bootstrapGame(storage, 61_000, 'reader')
+
+    expect(reader.state.player.gold).toBe(10)
+    expect(reader.state.lastSavedAt).toBe(1_000)
+    expect(reader.offlineReport).toBeNull()
+    expect(reader.revision).toBe(1)
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(beforeA)
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBeNull()
+  })
+
+  it('blocks guarded writes when equal revisions contain divergent states', () => {
+    const storage = new MemoryStorage()
+    const left = withGold(100, 10)
+    const right = withGold(200, 20)
+    storage.setItem(
+      SAVE_SLOT_A_KEY,
+      JSON.stringify({ formatVersion: SAVE_FORMAT_VERSION, revision: 7, savedAt: 100, state: left }),
+    )
+    storage.setItem(
+      SAVE_SLOT_B_KEY,
+      JSON.stringify({ formatVersion: SAVE_FORMAT_VERSION, revision: 7, savedAt: 200, state: right }),
+    )
+    const beforeA = storage.getItem(SAVE_SLOT_A_KEY)
+    const beforeB = storage.getItem(SAVE_SLOT_B_KEY)
+
+    expect(saveGameAtRevision(storage, withGold(300, 30), 7)).toEqual({
+      status: 'blocked',
+      currentRevision: 7,
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(beforeA)
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBe(beforeB)
   })
 
   it('loads the highest valid revision and immediately checkpoints offline progress', () => {

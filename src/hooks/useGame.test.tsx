@@ -33,4 +33,19 @@ describe('useGame persistence safety', () => {
     expect(result.current.saveHealthy).toBe(false)
     unmount()
   })
+
+  it('uses a no-write reader mode when Web Locks is unavailable', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+
+    const { result, unmount } = renderHook(() => useGame())
+
+    expect(result.current.lockSupported).toBe(false)
+    expect(result.current.ready).toBe(true)
+    expect(result.current.readOnly).toBe(true)
+    expect(result.current.notice).toContain('읽기 전용')
+
+    await act(async () => vi.advanceTimersByTimeAsync(10_000))
+    expect(setItem).not.toHaveBeenCalled()
+    unmount()
+  })
 })
