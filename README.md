@@ -19,13 +19,18 @@
 
 Node.js 22.12 이상이 필요합니다.
 
+### Windows 원클릭 실행
+
+저장소 루트의 [`게임실행.cmd`](게임실행.cmd)를 더블클릭합니다. 첫 실행에는 패키지를 자동으로 설치하고, 준비가 끝나면 실제 게임 주소를 기본 브라우저로 엽니다. 종료할 때는 실행 창에서 `Ctrl+C`를 누릅니다.
+
+### 터미널에서 실행
+
 ```bash
-npm install
-npx playwright install chromium
+npm ci
 npm run dev
 ```
 
-Linux와 CI에서는 시스템 의존성까지 설치하는 `npx playwright install --with-deps chromium`을 사용합니다.
+게임 플레이만 할 때는 Playwright 브라우저 설치가 필요하지 않습니다. 전체 품질 게이트를 처음 실행할 때는 `npx playwright install chromium`을 한 번 실행합니다. Linux와 CI에서는 시스템 의존성까지 설치하는 `npx playwright install --with-deps chromium`을 사용합니다.
 
 품질 게이트 전체 실행:
 
