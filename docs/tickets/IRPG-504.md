@@ -7,9 +7,9 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Test
+- Status: Done
 - Skill tags: QA-E2E, ENG-SAVE, REL-CI
-- Dependency: IRPG-402 Done, IRPG-503 Verify
+- Dependency: IRPG-402 Done, IRPG-503 Done
 - Owner / Reviewer: Codex / independent E2E·quality audit
 
 ## Scope
@@ -47,7 +47,7 @@
 
 - 독립 Review에서 strict typecheck 포함 범위, locator 안정성, 시계 재현성, 저장 키 비의존성, 오류 수집을 승인했다.
 - 최종 reload 전후 표시 골드가 동일하고 오프라인 dialog가 재출현하지 않아 같은 시간 구간의 보상 중복이 없음을 검증한다.
-- IRPG-503은 원격 push/PR 증거가 남을 때까지 Verify 상태를 유지한다.
+- IRPG-503의 구현 head `0972e0ebfe9bd09e584d8892c816ff28299668d8`에서 push와 pull request 품질 게이트가 모두 성공해 선행 조건을 충족했다.
 
 ## Test evidence
 
@@ -57,4 +57,5 @@
 - `npm run test:coverage`: statements 93.42%, branches 87.95%, functions 97.91%, lines 95.60%
 - `artifacts/irpg-504-dev-check.png`: 본문과 핵심 상호작용 요소 렌더링, 오류 overlay 없음, console error 없음
 - CI는 Chromium `--with-deps`, worker 1, retry 1, 실패 report·trace·screenshot·video artifact를 구성했다.
-- 미완료: IRPG-503의 첫 원격 push/PR 성공 증거. 이 선행 게이트 전에는 IRPG-504를 Done으로 이동하지 않는다.
+- Draft [PR #1](https://github.com/happypod/games01/pull/1)의 [push 품질 게이트](https://github.com/happypod/games01/actions/runs/29566031810)와 [pull request 품질 게이트](https://github.com/happypod/games01/actions/runs/29566034688)가 동일한 head `0972e0ebfe9bd09e584d8892c816ff28299668d8`에서 성공했다.
+- 두 원격 실행 모두 Chromium 전체 흐름 1개를 통과하고 `playwright-report` artifact를 생성했다.
