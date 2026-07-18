@@ -4,17 +4,17 @@
     {
       "id": "hero.ashen-knight.default",
       "kind": "hero",
-      "status": "placeholder",
+      "status": "ready",
       "src": "./files/hero/ashen-knight-default.webp",
       "format": "webp",
       "width": 768,
       "height": 768,
-      "bytes": 2390,
+      "bytes": 52654,
       "sourceType": "generated",
-      "author": "OpenAI Codex for Emberwatch",
+      "author": "OpenAI image generation, directed by Codex for Emberwatch",
       "license": "project-owned",
-      "generator": "Pillow 12.2.0 deterministic geometric renderer",
-      "promptRecord": "docs/assets/prompts/placeholder-assets.md"
+      "generator": "OpenAI built-in image_gen; Pillow 12.2.0 WebP export",
+      "promptRecord": "docs/assets/prompts/hero-ashen-knight.md"
     },
     {
       "id": "enemy.ash-slime",

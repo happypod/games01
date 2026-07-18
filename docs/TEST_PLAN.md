@@ -31,6 +31,8 @@ IRPG-108 기준선은 Vitest 12파일·85테스트와 Playwright 8테스트다. 
 
 IRPG-406 기준선은 Vitest 16파일·95테스트, 자산 validator fixture 21테스트, 기존 Playwright 8테스트와 production 자산 Playwright 2테스트다. 필수 27개 ID, 600 KiB cold-load, 비현재 namespace lazy-load와 이미지 실패 fallback을 포함한다.
 
+IRPG-407 기준선은 같은 Vitest·validator에 영웅 Playwright 4테스트를 더한 일반 Playwright 12테스트와 production 자산 Playwright 2테스트다. 1440px·360px·200% 확대, decorative semantics, corrupt WebP→SVG fallback 뒤 전투·저장 지속을 포함한다.
+
 ## 3. 요구사항 추적
 
 | 요구 | 자동 증거 | 남은 수동·E2E |
@@ -135,5 +137,6 @@ npm run test:e2e:assets
 - [IRPG-403 360×800 전체 화면](../artifacts/irpg-403-360.png): 단일 열, 핵심 조작 44px, 텍스트·버튼 잘림 없음 확인
 - IRPG-403 접근성 시나리오는 bundled Chromium, 설치된 Chrome, Edge에서 각각 2/2 통과했으며 page/console error가 없었다.
 - IRPG-108 Playwright에서 360px 영입→협공→훈련→reload·reader 흐름과 1분 오프라인 협공 단일 정산을 포함한 전체 8/8이 통과했고 page/console error가 없었다.
+- IRPG-407 Playwright에서 영웅 아렌의 1440px·360px·200% 배치와 corrupt WebP fallback을 4/4 검증했고, 일반 흐름 12/12와 production 자산 2/2가 통과했다.
 
 이 스크린샷은 자동 생성된 검증 증거이며 미술 방향의 최종 승인을 뜻하지 않는다.

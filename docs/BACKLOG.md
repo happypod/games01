@@ -44,18 +44,19 @@
 | IRPG-404 | 초기 안내·전투 피드백 강화 | P1 | Draft | 401 | UX-FEEDBACK | 3초 안에 자동 전투와 첫 강화 목표를 이해한다. |
 | IRPG-405 | Windows 원클릭 실행기 | P1 | Done | 003 | REL-CI, UX-FEEDBACK | 더블클릭 한 번으로 의존성을 준비하고 게임과 브라우저를 실행한다. |
 | IRPG-406 | 시각 자산 계약·manifest | P1 | Done | 401,403,505 | ART-DIR, ART-2D, ENG-DATA | 모든 자산 ID·규격·권리·fallback과 누락 검사가 고정된다. |
-| IRPG-407 | 영웅·적·보스 일러스트 세트 | P2 | Draft | 102,403,406 | ART-2D, FE-GAME, UX-FEEDBACK | 모든 전투 대상이 일러스트와 텍스트 fallback으로 표시된다. |
+| IRPG-407 | 플레이 화면 영웅 캐릭터 표시 | P1 | Done | 403,406 | ART-2D, FE-GAME, UX-FEEDBACK | 아렌 일러스트가 고정 프레임과 실패 fallback으로 표시된다. |
 | IRPG-408 | 3지역 스테이지 맵 | P2 | Draft | 103,403,406,506 | ART-2D, FE-GAME, ENG-DATA, UX-FEEDBACK | 지역 3개와 현재·완료·잠김 스테이지가 접근 가능하게 표시된다. |
 | IRPG-409 | 장비·스킬 일러스트 카드 | P2 | Draft | 201,202,403,406,506 | ART-2D, FE-GAME, UX-FEEDBACK | 고정 장비·스킬의 효과·비용·잠금·최대 상태가 카드에 표시된다. |
-| IRPG-410 | 보스 승리 보상·패배 결과 화면 | P1 | Draft | 106,207,403,406,407,506 | ART-2D, FE-GAME, UX-FEEDBACK | 엔진 보상을 재지급하지 않고 승패 결과를 이벤트당 한 번 표시한다. |
+| IRPG-410 | 보스 승리 보상·패배 결과 화면 | P1 | Draft | 106,207,403,406,413,506 | ART-2D, FE-GAME, UX-FEEDBACK | 엔진 보상을 재지급하지 않고 승패 결과를 이벤트당 한 번 표시한다. |
 | IRPG-411 | 전투 이벤트 로그 UI | P2 | Draft | 106,403,506 | FE-GAME, ENG-STATE, UX-FEEDBACK | 제한된 최근 전투 이벤트를 자동 전투를 막지 않고 표시한다. |
 | IRPG-412 | 원정 선택 이벤트 카드 UI | P2 | Draft | 107,403,406,409,506 | ART-2D, FE-GAME, ENG-STATE, UX-FEEDBACK | pending 선택 카드를 접근 가능하게 표시하고 명령을 한 번 호출한다. |
+| IRPG-413 | 일반 적·보스 일러스트 세트 | P2 | Draft | 102,403,406 | ART-2D, FE-GAME, UX-FEEDBACK | 적 5종·보스 3종이 일러스트와 텍스트 fallback으로 표시된다. |
 | IRPG-501 | 엔진·저장·UI 자동 테스트 | P0 | Done | 302,402 | QA-DOMAIN | 전투·명령·저장·오프라인·첫 화면 회귀가 통과한다. |
 | IRPG-502 | 45분 밸런스 스모크 | P0 | Done | 203 | GD-BAL, QA-DOMAIN | 자동 재투자 전략이 45분 내 30스테이지에 도달한다. |
 | IRPG-503 | CI 릴리스 게이트 | P0 | Done | 003,501 | REL-CI | push와 PR에서 설치·검증·빌드가 통과하고 원격 증거가 남는다. |
 | IRPG-504 | Playwright 전체 흐름 | P1 | Done | 402,503 | QA-E2E | 신규→강화→재접속→오프라인 결과를 실제 브라우저로 완료한다. |
 | IRPG-505 | 배속 디버그·24시간 soak | P1 | Done | 104,204 | QA-DOMAIN, PLAYTEST | 1x/10x/100x와 상태 snapshot으로 장시간 이상을 탐지한다. |
-| IRPG-506 | 시각 브라우저 회귀 게이트 | P1 | Draft | 403,504,406,407,507 | QA-E2E, REL-CI, ART-DIR | 기본 전투 시각 상태의 screenshot harness를 만들고 후속 UI가 baseline을 확장한다. |
+| IRPG-506 | 시각 브라우저 회귀 게이트 | P1 | Draft | 403,504,406,407,413,507 | QA-E2E, REL-CI, ART-DIR | 기본 전투 시각 상태의 screenshot harness를 만들고 후속 UI가 baseline을 확장한다. |
 | IRPG-507 | 브라우저 개발자 디버그 패널 | P2 | Draft | 403,505 | FE-GAME, QA-DOMAIN | 개발 모드에서 배속·stage·자원·오프라인 시간을 안전하게 조절한다. |
 | IRPG-508 | 7일 장기 stress 회귀 | P2 | Draft | 505 | ENG-SIM, QA-DOMAIN | 7일 가속에서 숫자·정체·snapshot 크기 회귀를 고정 fixture로 탐지한다. |
 | IRPG-601 | 계정·클라우드 저장 ADR | P2 | Blocked | 온라인 요구 확정 | ENG-SAVE, PROD-LOOP | 서버 권위와 충돌 정책이 제품 요구와 함께 승인된다. |

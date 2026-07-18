@@ -1,55 +1,67 @@
-# IRPG-407 — 영웅·적·보스 일러스트 세트
+# IRPG-407 — 플레이 화면 영웅 캐릭터 표시
 
 ## Outcome
 
-영웅 1명과 현재 적 5종·보스 3종이 일관된 세계관의 일러스트로 표시되고 이미지 실패에도 전투 정보가 유지된다.
+플레이 화면의 영웅 상태 카드에 `방랑 기사 아렌`의 완성 일러스트가 항상 표시되고 이미지 실패에도 이름·HP·전투·저장이 유지된다.
 
 ## Priority / Status / Skill tags
 
-- Priority: P2
-- Status: Draft
+- Priority: P1
+- Status: Done
 - Skill tags: ART-2D, FE-GAME, UX-FEEDBACK
-- Owner / Reviewer: unassigned / art direction and accessibility reviewers
+- Owner / Reviewer: Codex / art direction and accessibility reviewers
 
 ## Scope
 
-- 영웅 portrait 1개, 일반 적 archetype 5개, 보스 3개
-- current enemy·hero panel 연결과 boss emphasis
-- 360px·데스크톱 crop, loading·error fallback, 최적화
+- `hero.ashen-knight.default`용 768×768 WebP 완성 일러스트 1개, 250 KiB 이하
+- IRPG-406 manifest·resolver와 `HeroPanel` 연결
+- 헤더 아래·HP 위의 고정 비율 portrait와 CSS/SVG 오류 fallback
+- 360×800·1440×900·200% 확대·reduced-motion 검증
+- 생성 방식·prompt·권리 metadata와 production 초기 600 KiB 예산 갱신
 
 ## Non-scope
 
-- 신규 적 능력·패턴·전투 수식
-- 장비 외형 조합, 스킨·가챠, 프레임 애니메이션
-- 승리·패배 결과 화면
+- 일반 적·보스 일러스트(IRPG-413)
+- 장비별 외형, 스킨, 애니메이션
+- 전투 수식·RNG·보상·저장 schema 변경
+- `BattleArena` 대전 구도 재설계
 
 ## Dependencies
 
-- IRPG-102 현재 적·보스 content
 - IRPG-403 접근성 기준선
-- IRPG-406 asset manifest
+- IRPG-406 asset manifest·fallback·성능 게이트
 
 ## Impacts
 
 - Save schema: none
-- Content config: existing enemy definitions receive asset IDs
-- Accessibility: text name remains authoritative; decorative art does not duplicate announcements
+- Game state/formula: none
+- Content config: 기존 `hero.ashen-knight.default` placeholder를 final generated asset으로 교체
+- Accessibility: 이름·레벨·HP HTML이 권위 정보이며 일러스트는 decorative
 
 ## Acceptance criteria
 
-- Given 등록된 영웅·적·보스일 때, when 전투 화면을 열면, then 각 안정 ID의 올바른 일러스트와 기존 이름·boss 상태가 함께 표시된다.
-- Given 자산 누락·decode 실패·느린 load일 때, when 전투가 진행되면, then fallback이 크기 이동 없이 표시되고 명령·전투·저장은 중단되지 않는다.
-- Given 360×800·1440×900·200% 확대일 때, when hero와 boss 화면을 확인하면, then 핵심 HP·명령·이름을 가리거나 가로 overflow를 만들지 않는다.
-- Given production build일 때, when asset budget을 검사하면, then manifest의 포맷·픽셀·바이트 상한을 통과한다.
+- Given 정상 자산일 때, when 첫 플레이 화면을 열면, then 아렌 일러스트가 이름·레벨·HP와 함께 올바른 stable ID로 표시된다.
+- Given 느린 load·decode 실패·파일 누락일 때, when 자동 전투가 진행되면, then 프레임 크기가 이동하지 않고 SVG 또는 CSS fallback과 텍스트 정보가 유지되며 전투·저장이 계속된다.
+- Given 360×800·1440×900·200% 확대일 때, when 영웅 카드를 확인하면, then 가로 overflow나 portrait·제목·HP 겹침이 없다.
+- Given 스크린리더·reduced-motion일 때, when 화면을 탐색하면, then 중복 영웅 이미지 이름과 신규 지속 animation이 없다.
+- Given production build일 때, when 자산 validator와 cold-load gate를 실행하면, then WebP는 768×768·250 KiB 이하이고 초기 고유 URL gzip 합계는 600 KiB 이하이다.
 
 ## Design
 
-전투 규칙은 기존 `EnemyDefinition`을 유지하고 시각 ID만 추가한다. 이름과 수치는 HTML 텍스트로 유지하며 이미지는 정보 전달의 유일한 수단이 아니다.
+`HeroPanel`은 헤더 → portrait → HP·XP 순서를 사용한다. portrait는 `clamp(144px, 48%, 176px)`의 1:1 공간을 첫 렌더부터 확보하고 `object-fit: contain`, `object-position: center bottom`으로 표시한다. 실제 `<img>`는 768×768, eager, async decode, `alt=""`, `aria-hidden="true"`다. 원본 오류는 `fallback.character`를 한 번만 시도하고 두 번째 오류는 CSS silhouette만 남긴다.
 
 ## Verification
 
-- 8개 콘텐츠 매핑, crop 일관성, 대비·fallback과 bundle 예산을 Review한다.
+- 독립 art direction·접근성 Review에서 P0/P1 0건으로 PASS했다. 200% 확대 비겹침 증거와 티켓 분할 뒤 stale 문구 P2 두 건도 같은 변경에서 보강했다.
+- 최종 자산은 768×768 RGB WebP 52,654 bytes이며 단일 인물, 텍스트·로고·워터마크·고어 없음과 charcoal·rust-red·ember 방향을 충족한다.
+- manifest의 stable ID, `ready` 상태, generated 권리·generator·prompt record와 실제 header·치수·bytes가 일치한다.
+- 1440×900·360×800·200% 확대에서 portrait·제목·HP 비겹침과 가로 overflow 없음, reduced-motion과 decorative 접근성 처리를 확인했다.
+- corrupt WebP decode에서 `fallback.character`로 전환된 뒤에도 6초 자동 전투 처치와 자동 저장 상태가 계속됨을 확인했다.
+- production 초기 연결 파일 gzip 상한 계산은 136,223 bytes이고 614,400 bytes 계약 아래다. cold-load에서 영웅·현재 적만 요청되고 lazy namespace는 요청되지 않았다.
 
 ## Test evidence
 
-- 예정: mapping 단위 테스트와 hero/enemy/boss Playwright screenshot
+- `npm run verify`: lint, strict typecheck, Vitest 16파일·95테스트, validator 21/21, manifest CLI, production build, 일반 Playwright 12/12, production 자산 Playwright 2/2 통과.
+- `e2e/hero-portrait.spec.ts`: 1440px 정상 art·decorative semantics, 360px geometry, 200% 확대·reduced-motion geometry, corrupt decode fallback·전투·저장 4/4 통과.
+- Playwright evidence: `irpg-407-hero-1440.png`, `irpg-407-hero-360.png`, `irpg-407-hero-fallback.png`을 test artifact로 생성했다.
+- `npm run assets:validate`: `hero.ashen-knight.default`의 768×768, 52,654 bytes, generated metadata와 전체 27개 ID가 유효하다.
