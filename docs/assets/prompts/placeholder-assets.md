@@ -10,8 +10,8 @@ These files are project-owned, deterministic scaffolding rather than final artwo
 
 ## Raster recipes
 
-- `enemy/ash-slime.webp`: 768×768, dark ash gradient, low rounded slime silhouette, orange core.
-- `enemy/shared-enemy-placeholder.webp`: 768×768, neutral hostile silhouette used only by non-current enemy and boss placeholders.
+- Former stage-one ash-slime placeholder: its geometric recipe was superseded in place by the IRPG-413 final generated portrait and no longer describes the current `enemy/ash-slime.webp` bytes.
+- `enemy/shared-enemy-placeholder.webp`: 768×768 historical neutral hostile silhouette; no production manifest ID references it after IRPG-413.
 - `region/shared-region-placeholder.webp`: 1600×900, layered volcanic ridges with a warm horizon.
 - `card/shared-card-placeholder.webp`: 512×512, framed ember sigil used by equipment, skill, and event placeholders.
 - `result/shared-result-placeholder.webp`: 1280×720, centered outcome seal and vignette.

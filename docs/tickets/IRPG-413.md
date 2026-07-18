@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Ready
+- Status: Done
 - Skill tags: ART-2D, FE-GAME, UX-FEEDBACK
 - Owner / Reviewer: Codex implementation / independent art direction and accessibility review
 
@@ -59,9 +59,12 @@
 
 ## Verification
 
-- 8개 콘텐츠 매핑, 작은 portrait crop 일관성, 일반/보스 실루엣 차이, 대비·fallback과 bundle 예산을 Review한다.
-- AI 생성 결과의 대상 수·해부·프레임·텍스트 artifact를 원본과 104/116px 실제 표시 크기에서 각각 검사한다.
+- 8개 콘텐츠 매핑, 작은 portrait crop 일관성, 일반/보스 실루엣 차이, 대비·fallback과 bundle 예산을 Review했다.
+- AI 생성 결과의 대상 수·해부·프레임·텍스트 artifact를 원본과 104/116px 실제 표시 크기에서 각각 검사했다. `charred-shaman`과 `forgotten-dragon`은 92%, `eclipse-knight`는 87.5% 안전 축척으로 원형 crop 안에 세부를 보존했다.
+- 독립 미술 방향 재검토와 기술 감사에서 잔여 P0·P1·P2가 모두 0임을 확인했다.
 
 ## Test evidence
 
-- 예정: mapping·manifest 단위 테스트, 8종 desktop capture, 일반/보스 360px·200% geometry, corrupt enemy fallback, production cold-load·lazy asset 증거
+- `npm run verify` (2026-07-18): ESLint·strict TypeScript·Vitest 20파일/127테스트·자산 validator 21테스트·manifest 27 ID·production build 통과
+- 일반 Playwright 17/17: 8종 desktop capture와 stable mapping, 일반/보스 360×800·200%·reduced-motion geometry, corrupt enemy decode 뒤 fallback·전투·실제 A/B autosave 지속 통과
+- production 자산 Playwright 3/3: dist 경계, production debug UI 부재, 600 KiB cold-load 예산과 비현재 적·보스 lazy namespace 통과
