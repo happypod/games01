@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Verify
+- Status: Done
 - Skill tags: GD-BAL, PLAYTEST, QA-DOMAIN
 - Owner / Reviewer: Codex / independent balance, engine, save, and QA reviewers
 
@@ -72,4 +72,9 @@
 
 ## Test evidence
 
-- 예정: `balance.test.ts` 두 cohort 첫→환생→재도달 exact summaries·hash, `formulas` 0/5/MAX 경계, persistence 중간 checkpoint, 기존 IRPG-204·108·505 회귀와 전체 `npm run verify`
+- `balance.test.ts`: raw ratio 중앙값 비동료 63.2757821162%·동료 63.4627441524%, 20/20 profile 50~70%, exact timing·최종 hash, 첫 보상 5·초기화·동료 rank 1·RNG/입력 불변 통과
+- A/B revision 1→2의 600초 companion checkpoint를 reader로 복원해 무중단 실행과 도달 초·RNG·최종 GameState가 동일함을 확인
+- 정수 0·5·`Number.MAX_SAFE_INTEGER` 경계와 24시간 soak 6/6 통과
+- 로컬 `npm run verify`: Vitest 27파일·176/176, 자산 validator 27/27, 일반 Playwright 29/29, production 자산 3/3, build 통과; canonical 비교는 계약대로 로컬 skip
+- 최종 head `c208bee`: push quality `29654068252`, PR quality `29654069269` 성공; Playwright artifacts `8432358143` (`sha256:f918d1d3ee130cf5290e5fb8400399f1952d4c08d785506cac8a5a43863d27be`), `8432358808` (`sha256:ba59c63cb1e77072d68050936cf50a1c1728f289845b04375595ce69e6f536db`)
+- Ubuntu visual run `29654068207`: canonical 32/32와 같은 runner 3회 반복 96/96 성공; artifact `8432363789` (`sha256:2e34f7ac967864f785f465f98dedd7f1fe1ca1a52ae660ca5d8039d94e44d127`)
