@@ -19,7 +19,7 @@ IRPG-503·504·204·304·403·104·505·305는 Done이다. 현재 기준선은 C
 | 2C | IRPG-413 | Done | 일반 적 5종·보스 3종 일러스트와 실패 fallback |
 | 3 | IRPG-506 | Done | 기본 전투 screenshot harness와 CI artifact 계약 |
 | 4A | IRPG-408 | Done | 3지역 맵과 roving keyboard 스테이지 탐색 |
-| 4B | IRPG-409 | Draft | 무기·갑옷·부적과 스킬의 일러스트 카드 |
+| 4B | IRPG-409 | Ready | 무기·갑옷·부적과 스킬의 일러스트 카드 |
 | 4C | IRPG-411 | Draft | 비영속·제한된 전투 이벤트 로그 UI |
 | 5 | IRPG-207 | Draft | 제품 승인된 보스 최초 승리 보상의 저장·중복 방지 계약 |
 | 6 | IRPG-410 | Draft | nonmodal 승패 알림과 사용자 요청형 일러스트 상세 화면 |
@@ -27,7 +27,7 @@ IRPG-503·504·204·304·403·104·505·305는 Done이다. 현재 기준선은 C
 | 8 | IRPG-412 | Draft | pending 원정 선택 이벤트 일러스트 카드 UI |
 | 9 | IRPG-508 | Draft | 별도 7일 deterministic stress 회귀 |
 
-`1A`와 `1B`, `2A`~`2C`, `4A`~`4C`는 선행 조건이 충족되면 병렬로 진행할 수 있다. 다만 한 변경 묶음에서는 Ready 티켓 하나씩 Review → Verify → Test를 통과시킨다. IRPG-408의 3지역 맵, 독립 미술/접근성 review, Ubuntu canonical baseline 20개, 최종 push·PR 품질 게이트가 완료되었다. 다음은 IRPG-409의 카드 상태·자산·시각 fixture 계약을 Ready로 정제해 구현한다.
+`1A`와 `1B`, `2A`~`2C`, `4A`~`4C`는 선행 조건이 충족되면 병렬로 진행할 수 있다. 다만 한 변경 묶음에서는 Ready 티켓 하나씩 Review → Verify → Test를 통과시킨다. IRPG-408의 3지역 맵, 독립 미술/접근성 review, Ubuntu canonical baseline 20개, 최종 push·PR 품질 게이트가 완료되었다. IRPG-409는 카드 상태·고유 자산·지연 로드·시각 fixture 계약을 Ready로 고정했으며 구현 게이트를 진행한다.
 
 IRPG-506은 IRPG-407·413·507 뒤에 기본 전투 harness를 먼저 완성한다. 이후 IRPG-408·409·410·411·412가 자기 화면의 360×800·1440×900·reduced-motion baseline을 해당 티켓 변경에서 추가하므로 “모든 화면 완료를 기다리는 테스트 티켓”이 되지 않는다.
 
