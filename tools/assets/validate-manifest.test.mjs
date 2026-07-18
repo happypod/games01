@@ -161,6 +161,18 @@ test('requires final progression cards to be ready with a content hash', async (
   assert.equal(hasError(result, ERROR_CODES.HASH_REQUIRED, 'equipment.ember-blade'), true)
 })
 
+test('requires final battle result art to be ready, hashed, and tied to its approved prompt record', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    const entry = findEntry(manifest, 'result.boss-victory')
+    entry.status = 'placeholder'
+    entry.promptRecord = 'docs/assets/prompts/placeholder-assets.md'
+    delete entry.sha256
+  })
+  assert.equal(hasError(result, ERROR_CODES.INVALID_STATUS, 'result.boss-victory'), true)
+  assert.equal(hasError(result, ERROR_CODES.HASH_REQUIRED, 'result.boss-victory'), true)
+  assert.equal(hasError(result, ERROR_CODES.RIGHTS_METADATA, 'result.boss-victory'), true)
+})
+
 test('compares declared region hashes to the real files', async () => {
   const result = await runFixture(async ({ manifest }) => {
     findEntry(manifest, 'region.moonfall-pass').sha256 = '0'.repeat(64)
@@ -206,6 +218,47 @@ test('rejects shared source paths and hashes across final progression cards', as
   })
   assert.equal(
     hasError(sharedHash, ERROR_CODES.DUPLICATE_SHA256, 'skill.loot-sense'),
+    true,
+  )
+})
+
+test('rejects shared source paths and hashes across final battle result art', async () => {
+  const sharedSource = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'result.defeat').src = findEntry(
+      manifest,
+      'result.boss-victory',
+    ).src
+  })
+  assert.equal(hasError(sharedSource, ERROR_CODES.DUPLICATE_SRC, 'result.defeat'), true)
+
+  const sharedHash = await runFixture(async ({ manifest }) => {
+    const duplicateHash = '0'.repeat(64)
+    findEntry(manifest, 'result.boss-victory').sha256 = duplicateHash
+    findEntry(manifest, 'result.defeat').sha256 = duplicateHash
+  })
+  assert.equal(
+    hasError(sharedHash, ERROR_CODES.DUPLICATE_SHA256, 'result.defeat'),
+    true,
+  )
+})
+
+test('enforces battle result dimensions and the 300 KiB byte budget', async () => {
+  const dimensions = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'result.boss-victory').width = 1279
+  })
+  assert.equal(
+    hasError(dimensions, ERROR_CODES.DIMENSION_MISMATCH, 'result.boss-victory'),
+    true,
+  )
+
+  const budget = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'result.boss-victory')
+    const target = path.resolve(gameDir, entry.src)
+    await appendFile(target, Buffer.alloc(300 * 1024))
+    entry.bytes = (await stat(target)).size
+  })
+  assert.equal(
+    hasError(budget, ERROR_CODES.BUDGET_EXCEEDED, 'result.boss-victory'),
     true,
   )
 })

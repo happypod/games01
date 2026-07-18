@@ -58,6 +58,16 @@ const EXPECTED_FIXTURES = {
     hash: 'fnv1a32-v1:9fe0a39a',
     seed: 4251790753,
   },
+  'visual.result.boss-victory': {
+    stage: 10,
+    hash: 'fnv1a32-v1:423150a6',
+    seed: 2519199221,
+  },
+  'visual.result.defeat': {
+    stage: 10,
+    hash: 'fnv1a32-v1:7ea862c2',
+    seed: 1543179630,
+  },
 } as const
 
 function reverseObjectKeys(value: unknown): unknown {
@@ -75,6 +85,8 @@ describe('IRPG-506 named visual fixtures', () => {
   it('pins the fixture states and their canonical metadata', () => {
     expect(VISUAL_FIXTURE_IDS).toEqual(Object.keys(EXPECTED_FIXTURES))
     expect(VISUAL_FIXTURE_NOW).toBe(1_767_225_600_000)
+    expect(VISUAL_FIXTURE_IDS).toHaveLength(10)
+    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(40)
     expect(VISUAL_FIXTURE_VARIANTS).toEqual([
       {
         id: 'mobile-default',
@@ -117,6 +129,8 @@ describe('IRPG-506 named visual fixtures', () => {
           ? 'IRPG-408'
           : id.startsWith('visual.cards.')
             ? 'IRPG-409'
+            : id.startsWith('visual.result.')
+              ? 'IRPG-410'
             : id === 'visual.combat.event-log'
               ? 'IRPG-411'
             : 'IRPG-506',
@@ -175,6 +189,56 @@ describe('IRPG-506 named visual fixtures', () => {
     expect(hashVisualCombatEventBatch(createVisualFixtureCombatEventBatch(
       'visual.combat.hero-default',
     ))).not.toBe(eventDefinition.canonicalEventHash)
+
+    const victoryDefinition = VISUAL_FIXTURE_REGISTRY['visual.result.boss-victory']
+    const victoryBatch = createVisualFixtureCombatEventBatch(
+      'visual.result.boss-victory',
+    )
+    expect(victoryDefinition).toMatchObject({
+      ownerTicket: 'IRPG-410',
+      captureTarget: '.combat-result-dialog',
+      setupAction: 'open-boss-victory-result',
+      canonicalEventHash: 'fnv1a32-v1:b6a6c062',
+    })
+    expect(victoryBatch).toMatchObject({
+      nextCursor: '51',
+      totalEvents: 1,
+      events: [{
+        type: 'bossVictory',
+        defeatedStage: 10,
+        nextStage: 11,
+        gold: 240,
+        xp: 120,
+        milestoneReward: {
+          milestoneStage: 10,
+          configuredGold: 15,
+          appliedGold: 15,
+        },
+      }],
+    })
+    expect(hashVisualCombatEventBatch(victoryBatch))
+      .toBe(victoryDefinition.canonicalEventHash)
+
+    const defeatDefinition = VISUAL_FIXTURE_REGISTRY['visual.result.defeat']
+    const defeatBatch = createVisualFixtureCombatEventBatch('visual.result.defeat')
+    expect(defeatDefinition).toMatchObject({
+      ownerTicket: 'IRPG-410',
+      captureTarget: '.combat-result-dialog',
+      setupAction: 'open-defeat-result',
+      canonicalEventHash: 'fnv1a32-v1:492c61f7',
+    })
+    expect(defeatBatch).toMatchObject({
+      nextCursor: '52',
+      totalEvents: 1,
+      events: [{
+        type: 'defeat',
+        defeatedAtStage: 10,
+        returnStage: 9,
+        highestStage: 11,
+      }],
+    })
+    expect(hashVisualCombatEventBatch(defeatBatch))
+      .toBe(defeatDefinition.canonicalEventHash)
 
     const cardState = createVisualFixtureState('visual.cards.mixed-states')
     expect(cardState.player).toMatchObject({
@@ -258,9 +322,32 @@ describe('IRPG-506 visual fixture UI adapter', () => {
     )
     expect(screen.queryByTestId('combat-log-list')).not.toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: '전투 로그 펼치기' }))
-    expect(screen.getAllByRole('listitem')).toHaveLength(20)
+    expect(screen.getByTestId('combat-log-list').getElementsByTagName('li')).toHaveLength(20)
     expect(hashVisualGameState(createVisualFixtureState('visual.combat.event-log')))
       .toBe(stateBefore)
+    expect(window.localStorage).toHaveLength(0)
+  })
+
+  it.each([
+    ['visual.result.boss-victory', '스테이지 10 보스 승리 상세 보기', 'bossVictory'],
+    ['visual.result.defeat', '스테이지 10 패배 · 스테이지 9 복귀 상세 보기', 'defeat'],
+  ] as const)('injects and opens the %s result fixture', (id, buttonName, resultType) => {
+    render(<DebugSessionApp onExit={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText('시각 회귀 fixture'), {
+      target: { value: id },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'fixture 적용' }))
+
+    const definition = VISUAL_FIXTURE_REGISTRY[id]
+    const root = screen.getByTestId('visual-fixture-root')
+    expect(root).toHaveAttribute('data-visual-fixture-id', id)
+    expect(root).toHaveAttribute('data-canonical-event-hash', definition.canonicalEventHash)
+    fireEvent.click(screen.getByRole('button', { name: buttonName }))
+    expect(screen.getByTestId('combat-result-dialog')).toHaveAttribute(
+      'data-result-type',
+      resultType,
+    )
     expect(window.localStorage).toHaveLength(0)
   })
 })

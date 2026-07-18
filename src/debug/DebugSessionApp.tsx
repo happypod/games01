@@ -63,6 +63,7 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
   const [notice, setNotice] = useState('저장된 reader snapshot으로 격리 세션을 시작했습니다.')
   const [offlineReport, setOfflineReport] = useState<AdvanceReport | null>(null)
   const [combatEventBatch, setCombatEventBatch] = useState<CombatEventBatch>(emptyCombatEvents)
+  const [combatEventGeneration, setCombatEventGeneration] = useState(0)
   const [panelRevision, setPanelRevision] = useState(0)
   const [activeVisualFixtureId, setActiveVisualFixtureId] = useState<VisualFixtureId | null>(null)
   const stateRef = useRef(state)
@@ -106,6 +107,7 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     commit(cloneDebugState(session.baseline))
     eventCursorRef.current = '0'
     setCombatEventBatch(emptyCombatEvents())
+    setCombatEventGeneration((current) => current + 1)
     setOfflineReport(null)
     setSpeed(1)
     setPanelRevision((current) => current + 1)
@@ -146,6 +148,7 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     commit(next)
     eventCursorRef.current = eventBatch.nextCursor
     setCombatEventBatch(eventBatch)
+    setCombatEventGeneration((current) => current + 1)
     setOfflineReport(null)
     setSpeed(1)
     setPanelRevision((current) => current + 1)
@@ -160,6 +163,7 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     state,
     offlineReport,
     combatEventBatch,
+    combatEventGeneration,
     recoveredFromInvalidSave: session.recoveredFromInvalidSave,
     notice,
     saveHealthy: true,

@@ -20,6 +20,8 @@ export const VISUAL_FIXTURE_IDS = [
   'visual.cards.mixed-states',
   'visual.cards.fallback',
   'visual.combat.event-log',
+  'visual.result.boss-victory',
+  'visual.result.defeat',
 ] as const
 
 export type VisualFixtureId = (typeof VISUAL_FIXTURE_IDS)[number]
@@ -47,14 +49,14 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-411'
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411'
   readonly stage: 1 | 3 | 5 | 10 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
   readonly canonicalEventHash?: `fnv1a32-v1:${string}`
-  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel' | '.progression-panels' | '.combat-log-panel'
+  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel' | '.progression-panels' | '.combat-log-panel' | '.combat-result-dialog'
   readonly failureRoute: 'none' | 'hero-and-enemy-corrupt' | 'cards-corrupt'
-  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards' | 'open-combat-log'
+  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result'
   readonly variants: readonly VisualVariantId[]
 }
 
@@ -189,6 +191,32 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     setupAction: 'open-combat-log',
     variants: VISUAL_VARIANT_IDS,
   },
+  'visual.result.boss-victory': {
+    id: 'visual.result.boss-victory',
+    label: '보스 승리 보상 결과',
+    ownerTicket: 'IRPG-410',
+    stage: 10,
+    seedKey: 'irpg-506:visual.result.boss-victory:v1',
+    canonicalHash: 'fnv1a32-v1:423150a6',
+    canonicalEventHash: 'fnv1a32-v1:b6a6c062',
+    captureTarget: '.combat-result-dialog',
+    failureRoute: 'none',
+    setupAction: 'open-boss-victory-result',
+    variants: VISUAL_VARIANT_IDS,
+  },
+  'visual.result.defeat': {
+    id: 'visual.result.defeat',
+    label: '원정 패배 결과',
+    ownerTicket: 'IRPG-410',
+    stage: 10,
+    seedKey: 'irpg-506:visual.result.defeat:v1',
+    canonicalHash: 'fnv1a32-v1:7ea862c2',
+    canonicalEventHash: 'fnv1a32-v1:492c61f7',
+    captureTarget: '.combat-result-dialog',
+    failureRoute: 'none',
+    setupAction: 'open-defeat-result',
+    variants: VISUAL_VARIANT_IDS,
+  },
 }
 
 function canonicalStringify(value: unknown): string {
@@ -280,21 +308,76 @@ function createVisualCombatEvent(
 }
 
 export function createVisualFixtureCombatEventBatch(id: VisualFixtureId): CombatEventBatch {
-  if (id !== 'visual.combat.event-log') {
-    return { nextCursor: '0', totalEvents: 0, events: [] }
+  if (id === 'visual.result.boss-victory') {
+    const event: CombatEvent = {
+      id: 'visual-result-boss-victory-51-30',
+      type: 'bossVictory',
+      roundSequence: '51',
+      ordinal: 30,
+      rngState: 0x4100_0051,
+      stage: 10,
+      defeatedStage: 10,
+      nextStage: 11,
+      gold: 240,
+      xp: 120,
+      milestoneReward: {
+        tableId: 'boss-milestone-v1',
+        kind: 'gold',
+        milestoneStage: 10,
+        configuredGold: 15,
+        appliedGold: 15,
+      },
+      snapshot: {
+        stage: 11,
+        highestStage: 11,
+        playerHp: 342,
+        enemyHp: 180,
+        gold: 1_495,
+        xp: 120,
+      },
+    }
+    return { nextCursor: '51', totalEvents: 1, events: [event] }
   }
 
-  const outcomeTypes = ['kill', 'bossVictory', 'defeat'] as const
-  const events = Array.from({ length: 6 }, (_, index) => {
-    const round = 41 + index
-    return [
-      createVisualCombatEvent(round, 10, 'skill'),
-      createVisualCombatEvent(round, 20, 'critical'),
-      createVisualCombatEvent(round, 25, 'companionAssist'),
-      createVisualCombatEvent(round, 30, outcomeTypes[index % outcomeTypes.length]!),
-    ]
-  }).flat()
-  return { nextCursor: '46', totalEvents: events.length, events }
+  if (id === 'visual.result.defeat') {
+    const event: CombatEvent = {
+      id: 'visual-result-defeat-52-30',
+      type: 'defeat',
+      roundSequence: '52',
+      ordinal: 30,
+      rngState: 0x4100_0052,
+      stage: 10,
+      damage: 96,
+      defeatedAtStage: 10,
+      returnStage: 9,
+      highestStage: 11,
+      snapshot: {
+        stage: 9,
+        highestStage: 11,
+        playerHp: 318,
+        enemyHp: 96,
+        gold: 1_240,
+        xp: 72,
+      },
+    }
+    return { nextCursor: '52', totalEvents: 1, events: [event] }
+  }
+
+  if (id === 'visual.combat.event-log') {
+    const outcomeTypes = ['kill', 'bossVictory', 'defeat'] as const
+    const events = Array.from({ length: 6 }, (_, index) => {
+      const round = 41 + index
+      return [
+        createVisualCombatEvent(round, 10, 'skill'),
+        createVisualCombatEvent(round, 20, 'critical'),
+        createVisualCombatEvent(round, 25, 'companionAssist'),
+        createVisualCombatEvent(round, 30, outcomeTypes[index % outcomeTypes.length]!),
+      ]
+    }).flat()
+    return { nextCursor: '46', totalEvents: events.length, events }
+  }
+
+  return { nextCursor: '0', totalEvents: 0, events: [] }
 }
 
 export function isVisualFixtureId(value: string): value is VisualFixtureId {

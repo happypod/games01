@@ -640,3 +640,99 @@ test('production cold load stays within the asset budget and preserves lazy name
     await context.close()
   }
 })
+
+test('loads only the selected result illustration after an explicit detail action', async ({
+  browser,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-cold-load',
+    'This production-only assertion runs through playwright.assets.config.ts.',
+  )
+
+  const startedAt = new Date('2026-07-19T00:00:00.000Z')
+  const context = await browser.newContext({
+    baseURL: ORIGIN,
+    locale: 'ko-KR',
+    timezoneId: 'Asia/Seoul',
+    serviceWorkers: 'block',
+    viewport: { width: 1_440, height: 900 },
+  })
+  await context.clock.setFixedTime(startedAt)
+  const page = await context.newPage()
+  const requestedImageFiles = new Set<string>()
+  page.on('response', (response) => {
+    if (
+      response.request().resourceType() !== 'image' ||
+      response.status() < 200 ||
+      response.status() >= 300 ||
+      new URL(response.url()).origin !== ORIGIN
+    ) {
+      return
+    }
+    requestedImageFiles.add(resolveRequestedDistFile(response.url()).relative)
+  })
+
+  try {
+    const assetManifest = loadAssetManifest()
+    const viteManifest = loadViteManifest()
+    const distFiles = walkFiles(DIST_ROOT)
+    const resultImageOutputsById = new Map<string, Set<string>>()
+    const allResultImageOutputs = new Set<string>()
+    for (const id of ['result.boss-victory', 'result.defeat']) {
+      const entry = findAsset(assetManifest.assets, id)
+      const outputs = new Set(
+        [...outputFilesForSource(resolveManifestSource(entry.src), viteManifest, distFiles)]
+          .filter((file) => IMAGE_EXTENSIONS.has(extname(file).toLowerCase())),
+      )
+      resultImageOutputsById.set(id, outputs)
+      addOutputFiles(allResultImageOutputs, outputs)
+    }
+
+    expect(resultImageOutputsById.get('result.boss-victory')?.size).toBe(1)
+    expect(resultImageOutputsById.get('result.defeat')?.size).toBe(1)
+
+    await page.goto('/', { waitUntil: 'networkidle' })
+    await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
+    const initialResultRequests = intersection(allResultImageOutputs, requestedImageFiles)
+    expect(initialResultRequests, 'Cold load requested a result illustration').toEqual([])
+
+    await context.clock.setFixedTime(new Date(startedAt.getTime() + 50_000))
+    const detailButton = page.getByRole('button', {
+      name: '스테이지 10 패배 · 스테이지 9 복귀 상세 보기',
+    })
+    await expect(detailButton).toBeVisible()
+    const statusResultRequests = intersection(allResultImageOutputs, requestedImageFiles)
+    expect(
+      statusResultRequests,
+      'The nonmodal result status requested art before an explicit detail action',
+    ).toEqual([])
+
+    await detailButton.click()
+    const dialog = page.getByTestId('combat-result-dialog')
+    await expect(dialog).toHaveAttribute('data-result-type', 'defeat')
+    const art = dialog.locator('[data-asset-id="result.defeat"]')
+    await expect(art).toHaveAttribute('data-state', 'loaded')
+
+    const selectedOutputs = resultImageOutputsById.get('result.defeat') ?? new Set<string>()
+    const unselectedOutputs = resultImageOutputsById.get('result.boss-victory')
+      ?? new Set<string>()
+    const resultRequestsAfterDetail = intersection(allResultImageOutputs, requestedImageFiles)
+    const evidence = {
+      initialResultRequests,
+      statusResultRequests,
+      selectedAssetId: 'result.defeat',
+      selectedOutputs: [...selectedOutputs].sort(),
+      unselectedOutputs: [...unselectedOutputs].sort(),
+      resultRequestsAfterDetail,
+    }
+    await testInfo.attach('irpg-410-result-lazy-load.json', {
+      body: Buffer.from(JSON.stringify(evidence, null, 2)),
+      contentType: 'application/json',
+    })
+
+    expect(resultRequestsAfterDetail).toEqual([...selectedOutputs].sort())
+    expect(intersection(unselectedOutputs, requestedImageFiles)).toEqual([])
+  } finally {
+    await context.close()
+  }
+})

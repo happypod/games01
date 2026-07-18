@@ -18,6 +18,7 @@ function getFocusableElements(dialog: HTMLElement) {
 export function useModalFocus<T extends HTMLElement>(
   onClose: () => void,
   active = true,
+  fallbackFocusRef?: RefObject<HTMLElement | null>,
 ): RefObject<T | null> {
   const dialogRef = useRef<T>(null)
 
@@ -28,6 +29,7 @@ export function useModalFocus<T extends HTMLElement>(
     const previousFocus = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null
+    const fallbackFocus = fallbackFocusRef?.current ?? null
     const initialFocus =
       dialog.querySelector<HTMLElement>('[data-initial-focus]') ?? getFocusableElements(dialog)[0]
     initialFocus?.focus()
@@ -73,9 +75,13 @@ export function useModalFocus<T extends HTMLElement>(
     return () => {
       dialog.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('focusin', handleFocusIn, true)
-      if (previousFocus?.isConnected) previousFocus.focus()
+      if (previousFocus?.isConnected) {
+        previousFocus.focus()
+      } else if (fallbackFocus?.isConnected) {
+        fallbackFocus.focus()
+      }
     }
-  }, [active, onClose])
+  }, [active, fallbackFocusRef, onClose])
 
   return dialogRef
 }

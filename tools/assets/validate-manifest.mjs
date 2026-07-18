@@ -117,6 +117,13 @@ const FINAL_CONTENT_ASSET_IDS = new Set([
   'skill.power-strike',
   'skill.iron-will',
   'skill.loot-sense',
+  'result.boss-victory',
+  'result.defeat',
+])
+
+const REQUIRED_PROMPT_RECORD_BY_ASSET_ID = new Map([
+  ['result.boss-victory', 'docs/assets/prompts/battle-results.md'],
+  ['result.defeat', 'docs/assets/prompts/battle-results.md'],
 ])
 
 const SPEC_BY_KIND = Object.freeze({
@@ -685,6 +692,16 @@ export async function validateManifest(options = {}) {
       if (!isNonEmptyString(entry.sha256)) {
         addError(errors, ERROR_CODES.HASH_REQUIRED, 'final content asset requires sha256', entry.id, 'sha256')
       }
+    }
+    const requiredPromptRecord = REQUIRED_PROMPT_RECORD_BY_ASSET_ID.get(entry.id)
+    if (requiredPromptRecord !== undefined && entry.promptRecord !== requiredPromptRecord) {
+      addError(
+        errors,
+        ERROR_CODES.RIGHTS_METADATA,
+        `final content asset must use ${requiredPromptRecord}`,
+        entry.id,
+        'promptRecord',
+      )
     }
 
     const spec = getSpec(entry)

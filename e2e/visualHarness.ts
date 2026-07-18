@@ -132,6 +132,30 @@ export async function openVisualFixture(
     }
   }
 
+  if (
+    fixture.setupAction === 'open-boss-victory-result' ||
+    fixture.setupAction === 'open-defeat-result'
+  ) {
+    const victory = fixture.setupAction === 'open-boss-victory-result'
+    const buttonName = victory
+      ? '스테이지 10 보스 승리 상세 보기'
+      : '스테이지 10 패배 · 스테이지 9 복귀 상세 보기'
+    const resultType = victory ? 'bossVictory' : 'defeat'
+    const assetId = victory ? 'result.boss-victory' : 'result.defeat'
+
+    const detailButton = page.getByRole('button', { name: buttonName, exact: true })
+    await expect(detailButton).toBeVisible()
+    await detailButton.click()
+
+    const dialog = page.getByTestId('combat-result-dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toHaveAttribute('data-result-type', resultType)
+    const art = dialog.locator('.combat-result-dialog__art')
+    await expect(art).toHaveAttribute('data-asset-id', assetId)
+    await expect(art).toHaveAttribute('data-resolved-asset-id', assetId)
+    await expect(art).toHaveAttribute('data-state', 'loaded')
+  }
+
   const target = page.locator(fixture.captureTarget)
   await expect(target).toBeVisible()
   if (fixture.failureRoute === 'hero-and-enemy-corrupt') {

@@ -34,10 +34,12 @@ describe('useGame persistence safety', () => {
     await act(async () => vi.advanceTimersByTimeAsync(0))
 
     expect(result.current.readOnly).toBe(false)
+    const bootstrapGeneration = result.current.combatEventGeneration
     await act(async () => vi.advanceTimersByTimeAsync(1_000))
 
     expect(result.current.combatEventBatch.nextCursor).toBe('1')
     expect(result.current.combatEventBatch.totalEvents).toBeGreaterThan(0)
+    expect(result.current.combatEventGeneration).toBe(bootstrapGeneration)
     const firstBatch = result.current.combatEventBatch
     rerender()
     expect(result.current.combatEventBatch).toEqual(firstBatch)
@@ -55,6 +57,7 @@ describe('useGame persistence safety', () => {
       totalEvents: 0,
       events: [],
     })
+    expect(result.current.combatEventGeneration).toBe(bootstrapGeneration + 1)
 
     await act(async () => vi.advanceTimersByTimeAsync(1_000))
     expect(result.current.combatEventBatch.nextCursor).toBe('1')
@@ -64,6 +67,7 @@ describe('useGame persistence safety', () => {
       totalEvents: 0,
       events: [],
     })
+    expect(result.current.combatEventGeneration).toBe(bootstrapGeneration + 2)
     unmount()
   })
 

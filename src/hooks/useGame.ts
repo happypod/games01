@@ -49,6 +49,7 @@ export interface GameController {
   state: GameState
   offlineReport: AdvanceReport | null
   combatEventBatch: CombatEventBatch
+  combatEventGeneration: number
   recoveredFromInvalidSave: boolean
   notice: string
   saveHealthy: boolean
@@ -80,6 +81,7 @@ export function useGame(): GameController {
   const [combatEventBatch, setCombatEventBatch] = useState<CombatEventBatch>(
     createEmptyCombatEventBatch,
   )
+  const [combatEventGeneration, setCombatEventGeneration] = useState(0)
   const [recoveredFromInvalidSave, setRecoveredFromInvalidSave] = useState(
     initialBootstrap.recoveredFromInvalidSave,
   )
@@ -111,6 +113,7 @@ export function useGame(): GameController {
     combatEventCursorRef.current = empty.nextCursor
     combatEventBatchRef.current = empty
     setCombatEventBatch(empty)
+    setCombatEventGeneration((current) => current + 1)
   }, [])
 
   const recordCombatEvents = useCallback((batch: CombatEventBatch) => {
@@ -441,6 +444,7 @@ export function useGame(): GameController {
     state,
     offlineReport,
     combatEventBatch,
+    combatEventGeneration,
     recoveredFromInvalidSave,
     notice,
     saveHealthy,

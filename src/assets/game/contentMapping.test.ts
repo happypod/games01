@@ -79,3 +79,35 @@ describe('IRPG-409 progression card asset mapping', () => {
     expect(hashes.size).toBe(expected.length)
   })
 })
+
+describe('IRPG-410 battle result asset mapping', () => {
+  it('maps victory and defeat to unique production-ready result art', () => {
+    const declaredById = new Map(manifestJson.assets.map((asset) => [asset.id, asset]))
+    const expected = [
+      ['보스 승리', 'result.boss-victory'],
+      ['패배', 'result.defeat'],
+    ] as const
+    const sources = new Set<string>()
+    const hashes = new Set<string>()
+
+    for (const [name, assetId] of expected) {
+      const asset = declaredById.get(assetId)
+      if (!asset) throw new Error(`Missing ${name} manifest asset: ${assetId}`)
+      expect(asset).toMatchObject({
+        kind: 'result',
+        status: 'ready',
+        format: 'webp',
+        width: 1280,
+        height: 720,
+        promptRecord: 'docs/assets/prompts/battle-results.md',
+      })
+      expect(asset.bytes).toBeLessThanOrEqual(300 * 1024)
+      expect(asset.sha256).toMatch(/^[a-f0-9]{64}$/)
+      sources.add(asset.src)
+      hashes.add(asset.sha256 ?? '')
+    }
+
+    expect(sources.size).toBe(expected.length)
+    expect(hashes.size).toBe(expected.length)
+  })
+})
