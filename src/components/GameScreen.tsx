@@ -135,8 +135,6 @@ export function GameScreen({
           </div>
         </div>
 
-        <CombatLogPanel batch={game.combatEventBatch} />
-
         <StageMapPanel
           currentStage={game.state.battle.stage}
           highestStage={game.state.battle.highestStage}
@@ -161,6 +159,8 @@ export function GameScreen({
             disabled={controlsDisabled}
           />
         </div>
+
+        <CombatLogPanel batch={game.combatEventBatch} />
 
         <PrestigePanel
           state={game.state}
