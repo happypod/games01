@@ -26,7 +26,9 @@
 | IRPG-201 | 경험치·레벨·장비 성장 | P0 | Done | 102 | GD-BAL, ENG-STATE | 비용 차감과 강화가 원자적이고 레벨업 연속 처리가 된다. |
 | IRPG-202 | 스킬 해금·강화 | P0 | Done | 201 | GD-SKILL | 잠금·포인트 비용·최대 랭크가 강제된다. |
 | IRPG-203 | 환생·영구 성장 | P0 | Done | 201 | GD-BAL | 초기화와 유지 필드가 정확하고 보상이 한 번 지급된다. |
-| IRPG-204 | 첫 환생 밸런스 튜닝 | P1 | In Progress | 203, 502 | GD-BAL, PLAYTEST | 10회 플레이의 중앙값이 30~45분이다. |
+| IRPG-204 | 첫 환생 밸런스 튜닝 | P1 | Done | 203,502,104 | GD-BAL, PLAYTEST, QA-DOMAIN | 10회 플레이의 중앙값이 30~45분이다. |
+| IRPG-205 | 외부 사용자 첫 환생 플레이테스트 | P1 | Draft | 204,403,504 | PLAYTEST, UX-A11Y | 외부 사용자 10회에서 진행 차단 0건과 30~45분 목표를 검증한다. |
+| IRPG-206 | 환생 후 최고점 재도달 튜닝 | P1 | Draft | 203,204,104 | GD-BAL, PLAYTEST, QA-DOMAIN | 재도달 시간 중앙값이 첫 원정의 50~70%다. |
 | IRPG-301 | v1 로컬 저장·decoder | P0 | Done | 002 | ENG-SAVE | 정상 왕복과 손상 저장 fallback이 동작한다. |
 | IRPG-302 | 자동 저장·8시간 오프라인 | P0 | Done | 101,301 | ENG-SAVE | 0초·역행·8시간 상한·중복 재개가 안전하다. |
 | IRPG-303 | A/B 슬롯·revision·migration | P1 | Done | 301 | ENG-SAVE | 두 슬롯 중 최신 유효본을 읽고 v1 fixture를 변환한다. |

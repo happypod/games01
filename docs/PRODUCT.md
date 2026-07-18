@@ -63,13 +63,19 @@
 주요 성장식은 코드의 단일 출처를 따른다.
 
 ```text
-적 체력       = 34 × 1.15^(stage - 1) × bossMultiplier
+적 기본 체력   = 34 × 1.15^(stage - 1) × bossMultiplier
+첫 환생 보정   = ratio^(stage - 1), stage ≤ 30
+               = ratio^(29 × (60 - stage) / 30), 30 < stage < 60
+               = 1, stage ≥ 60
+ratio          = 1.188 / 1.15
 적 공격력     = 4 × 1.105^(stage - 1) × bossMultiplier
 강화 비용     = baseCost × costGrowth^currentLevel
 정수 획득     = floor((highestStage / 10)^1.5), 30스테이지부터
 정수 영구 효과 = 정수 1개당 공격력·체력 +3%
 치명타 피해     = round(공격력 × 화염 강타 배율 × 1.75), RNG roll < 0.15
 ```
+
+첫 환생 보정은 31~59스테이지에서 기하급수적으로 감소해 60스테이지부터 1이 된다. 따라서 첫 환생 목표만 조정하고 장기 1.15 체력 곡선은 유지한다.
 
 모든 반올림, 최소값, 최대값은 [formulas.ts](../src/game/formulas.ts)와 [content.ts](../src/game/content.ts)를 기준으로 한다.
 

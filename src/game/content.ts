@@ -6,6 +6,9 @@ export const MAX_STAGE = 300
 export const PRESTIGE_STAGE = 30
 export const CRITICAL_CHANCE = 0.15
 export const CRITICAL_DAMAGE_MULTIPLIER = 1.75
+export const ENEMY_HP_GROWTH = 1.15
+export const FIRST_PRESTIGE_HP_GROWTH = 1.188
+export const PRESTIGE_PACING_TAPER_STAGE = 60
 
 export interface UpgradeDefinition {
   id: UpgradeId
@@ -88,6 +91,16 @@ const BOSS_NAMES = ['재의 거인', '월식의 기사', '잊힌 용'] as const
 const bounded = (value: number, maximum: number) =>
   Math.min(maximum, Math.max(1, Math.round(value)))
 
+function getFirstPrestigeHpMultiplier(stage: number): number {
+  const growthRatio = FIRST_PRESTIGE_HP_GROWTH / ENEMY_HP_GROWTH
+  if (stage <= PRESTIGE_STAGE) return growthRatio ** (stage - 1)
+  if (stage >= PRESTIGE_PACING_TAPER_STAGE) return 1
+  const taperProgress =
+    (PRESTIGE_PACING_TAPER_STAGE - stage) /
+    (PRESTIGE_PACING_TAPER_STAGE - PRESTIGE_STAGE)
+  return growthRatio ** ((PRESTIGE_STAGE - 1) * taperProgress)
+}
+
 export function getEnemyDefinition(rawStage: number): EnemyDefinition {
   const stage = Math.min(MAX_STAGE, Math.max(1, Math.floor(rawStage)))
   const isBoss = stage % 10 === 0
@@ -102,7 +115,13 @@ export function getEnemyDefinition(rawStage: number): EnemyDefinition {
       ? (BOSS_NAMES[bossIndex] ?? BOSS_NAMES[0])
       : (ENEMY_NAMES[regularIndex] ?? ENEMY_NAMES[0]),
     isBoss,
-    maxHp: bounded(34 * 1.15 ** (stage - 1) * hpMultiplier, Number.MAX_SAFE_INTEGER),
+    maxHp: bounded(
+      34 *
+        ENEMY_HP_GROWTH ** (stage - 1) *
+        getFirstPrestigeHpMultiplier(stage) *
+        hpMultiplier,
+      Number.MAX_SAFE_INTEGER,
+    ),
     attack: bounded(4 * 1.105 ** (stage - 1) * attackMultiplier, Number.MAX_SAFE_INTEGER),
     goldReward: bounded(9 * 1.115 ** (stage - 1) * (isBoss ? 4 : 1), Number.MAX_SAFE_INTEGER),
     xpReward: bounded(7 * 1.1 ** (stage - 1) * (isBoss ? 3 : 1), Number.MAX_SAFE_INTEGER),
