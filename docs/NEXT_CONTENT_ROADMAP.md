@@ -20,7 +20,7 @@ IRPG-503·504·204·304·403·104·505·305는 Done이다. 현재 기준선은 C
 | 3 | IRPG-506 | Done | 기본 전투 screenshot harness와 CI artifact 계약 |
 | 4A | IRPG-408 | Done | 3지역 맵과 roving keyboard 스테이지 탐색 |
 | 4B | IRPG-409 | Done | 무기·갑옷·부적과 스킬의 일러스트 카드 |
-| 4C | IRPG-411 | Draft | 비영속·제한된 전투 이벤트 로그 UI |
+| 4C | IRPG-411 | Ready | 비영속·제한된 전투 이벤트 로그 UI |
 | 5 | IRPG-207 | Draft | 제품 승인된 보스 최초 승리 보상의 저장·중복 방지 계약 |
 | 6 | IRPG-410 | Draft | nonmodal 승패 알림과 사용자 요청형 일러스트 상세 화면 |
 | 7 | IRPG-107 | Draft | 독립 RNG·versioned pending을 쓰는 원정 선택 이벤트 |
