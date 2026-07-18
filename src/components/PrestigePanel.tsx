@@ -1,6 +1,9 @@
 import { PRESTIGE_STAGE } from '../game/content'
 import { formatNumber } from '../game/format'
-import { getPrestigeReward } from '../game/formulas'
+import {
+  ESSENCE_STAT_BONUS_PER_POINT,
+  getPrestigeReward,
+} from '../game/formulas'
 import type { GameState } from '../game/types'
 
 interface PrestigePanelProps {
@@ -12,13 +15,14 @@ interface PrestigePanelProps {
 export function PrestigePanel({ state, onPrestige, disabled = false }: PrestigePanelProps) {
   const unlocked = state.battle.highestStage >= PRESTIGE_STAGE
   const reward = getPrestigeReward(state.battle.highestStage)
+  const essenceBonusPercent = ESSENCE_STAT_BONUS_PER_POINT * 100
   return (
     <section className="panel prestige-panel" aria-labelledby="prestige-title">
       <div>
         <p className="eyebrow">영구 성장</p>
         <h2 id="prestige-title">불씨의 계승</h2>
         <p>
-          진행을 처음부터 다시 시작하고 불씨 정수를 얻습니다. 정수 1개마다 공격력과 체력이 3% 증가합니다.
+          진행을 처음부터 다시 시작하고 불씨 정수를 얻습니다. 정수 1개마다 공격력과 체력이 {essenceBonusPercent}% 증가합니다.
         </p>
       </div>
       <div className="prestige-panel__action">

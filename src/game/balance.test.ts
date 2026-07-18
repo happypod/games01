@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import {
   ENEMY_HP_GROWTH,
   FIRST_PRESTIGE_HP_GROWTH,
@@ -7,14 +7,25 @@ import {
 import {
   advanceGame,
   createInitialState,
+  performPrestige,
   purchaseUpgrade,
   recruitCompanion,
   trainCompanion,
   upgradeSkill,
 } from './engine'
-import { getUpgradeCost } from './formulas'
+import {
+  ESSENCE_STAT_BONUS_PER_POINT,
+  getHeroStats,
+  getUpgradeCost,
+} from './formulas'
+import {
+  SAVE_SLOT_A_KEY,
+  SAVE_SLOT_B_KEY,
+  bootstrapGame,
+  saveGameAtRevision,
+} from './persistence'
 import { UPGRADE_IDS } from './types'
-import type { GameState, SkillId, UpgradeId } from './types'
+import type { GameState, SkillId, StorageLike, UpgradeId } from './types'
 
 type EquipmentStrategy = 'cheapest' | 'offense' | 'balanced'
 
@@ -50,6 +61,47 @@ interface CompanionPlaytestResult {
   companionDamage: number
   finalRank: number
   finalState: GameState
+}
+
+type ReattainmentCohort = 'solo' | 'companion'
+
+interface ExpeditionProgress {
+  elapsedSeconds: number
+  finalState: GameState
+  reachedTarget: boolean
+  inputHashAfterRun: string
+}
+
+interface PairedReattainmentResult {
+  name: string
+  firstSeconds: number
+  secondSeconds: number
+  ratioPercent: number
+  reward: number
+  firstFinalState: GameState
+  postPrestigeState: GameState
+  secondFinalState: GameState
+  firstFinalHash: string
+  firstInputHashAfterPrestige: string
+  postPrestigeHash: string
+  postPrestigeInputHashAfterRun: string
+  secondFinalHash: string
+}
+
+class MemoryStorage implements StorageLike {
+  private readonly values = new Map<string, string>()
+
+  getItem(key: string) {
+    return this.values.get(key) ?? null
+  }
+
+  setItem(key: string, value: string) {
+    this.values.set(key, value)
+  }
+
+  removeItem(key: string) {
+    this.values.delete(key)
+  }
 }
 
 const PLAYTEST_PROFILES: readonly PlaytestProfile[] = [
@@ -302,6 +354,110 @@ function summarizeCompanionPlaytest(
   }
 }
 
+function continueReattainmentExpedition(
+  input: GameState,
+  profile: PlaytestProfile,
+  cohort: ReattainmentCohort,
+  elapsedSeconds = 0,
+  stopAtSeconds = 60 * 60,
+): ExpeditionProgress {
+  let state = input
+
+  for (let second = elapsedSeconds + 1; second <= stopAtSeconds; second += 1) {
+    state = advanceGame(state, 1_000).state
+    assertNumericInvariants(state, `${profile.name}-${cohort}-reattainment`, second)
+
+    if (
+      cohort === 'companion' &&
+      state.player.companion.id === null &&
+      state.battle.highestStage >= 11
+    ) {
+      const recruited = recruitCompanion(state, 'emberFox')
+      if (!recruited.success) {
+        throw new Error(`${profile.name} failed to recruit emberFox during reattainment`)
+      }
+      state = recruited.state
+    }
+
+    if (second % profile.decisionCadenceSeconds === 0) {
+      if (cohort === 'companion') {
+        while (state.player.companion.id !== null) {
+          const trained = trainCompanion(state)
+          if (!trained.success) break
+          state = trained.state
+        }
+      }
+      state = spendAvailableResources(state, profile).state
+      assertNumericInvariants(state, `${profile.name}-${cohort}-reattainment`, second)
+    }
+
+    if (state.battle.highestStage >= 30) {
+      return {
+        elapsedSeconds: second,
+        finalState: state,
+        reachedTarget: true,
+        inputHashAfterRun: hashState(input),
+      }
+    }
+  }
+
+  return {
+    elapsedSeconds: stopAtSeconds,
+    finalState: state,
+    reachedTarget: false,
+    inputHashAfterRun: hashState(input),
+  }
+}
+
+function runPairedReattainment(
+  profile: PlaytestProfile,
+  cohort: ReattainmentCohort,
+): PairedReattainmentResult {
+  const first = cohort === 'companion'
+    ? runCompanionPlaytest(profile)
+    : runPlaytest(profile)
+  const firstFinalHash = hashState(first.finalState)
+  const prestiged = performPrestige(first.finalState)
+  if (!prestiged.success) throw new Error(`${profile.name} failed to prestige`)
+
+  const postPrestigeHash = hashState(prestiged.state)
+  const second = continueReattainmentExpedition(prestiged.state, profile, cohort)
+  if (!second.reachedTarget) {
+    throw new Error(`${profile.name} did not reattain stage 30 within 60 minutes`)
+  }
+
+  return {
+    name: profile.name,
+    firstSeconds: first.prestigeGateSeconds,
+    secondSeconds: second.elapsedSeconds,
+    ratioPercent: (second.elapsedSeconds / first.prestigeGateSeconds) * 100,
+    reward: prestiged.state.player.essence - first.finalState.player.essence,
+    firstFinalState: first.finalState,
+    postPrestigeState: prestiged.state,
+    secondFinalState: second.finalState,
+    firstFinalHash,
+    firstInputHashAfterPrestige: hashState(first.finalState),
+    postPrestigeHash,
+    postPrestigeInputHashAfterRun: second.inputHashAfterRun,
+    secondFinalHash: hashState(second.finalState),
+  }
+}
+
+function summarizePairedReattainment(result: PairedReattainmentResult) {
+  return {
+    name: result.name,
+    firstSeconds: result.firstSeconds,
+    secondSeconds: result.secondSeconds,
+    ratioPercent: Number(result.ratioPercent.toFixed(2)),
+  }
+}
+
+function median(values: readonly number[]) {
+  const sorted = [...values].sort((left, right) => left - right)
+  const midpoint = sorted.length / 2
+  return (sorted[midpoint - 1]! + sorted[midpoint]!) / 2
+}
+
 describe('first prestige balance playtest', () => {
   it('keeps the median of ten deterministic play sessions between 30 and 45 minutes', () => {
     const results = PLAYTEST_PROFILES.map(runPlaytest)
@@ -407,5 +563,195 @@ describe('first prestige balance playtest', () => {
         Math.round(34 * ENEMY_HP_GROWTH ** (stage - 1) * bossMultiplier),
       )
     }
+  })
+})
+
+describe('post-prestige stage 30 reattainment', () => {
+  let soloResults: PairedReattainmentResult[] = []
+  let companionResults: PairedReattainmentResult[] = []
+
+  beforeAll(() => {
+    soloResults = PLAYTEST_PROFILES.map((profile) =>
+      runPairedReattainment(profile, 'solo'))
+    companionResults = PLAYTEST_PROFILES.map((profile) =>
+      runPairedReattainment(profile, 'companion'))
+  })
+
+  it('keeps all paired ratios in the 50-70% target with exact canonical timings', () => {
+    expect(soloResults.map(summarizePairedReattainment)).toEqual([
+      { name: 'C5-A', firstSeconds: 1929, secondSeconds: 1225, ratioPercent: 63.5 },
+      { name: 'C10-S', firstSeconds: 2029, secondSeconds: 1282, ratioPercent: 63.18 },
+      { name: 'C15-G', firstSeconds: 1848, secondSeconds: 1281, ratioPercent: 69.32 },
+      { name: 'O5-A', firstSeconds: 1850, secondSeconds: 1215, ratioPercent: 65.68 },
+      { name: 'O10-S', firstSeconds: 1968, secondSeconds: 1174, ratioPercent: 59.65 },
+      { name: 'O15-G', firstSeconds: 2132, secondSeconds: 1351, ratioPercent: 63.37 },
+      { name: 'B5-A', firstSeconds: 2223, secondSeconds: 1302, ratioPercent: 58.57 },
+      { name: 'B10-S', firstSeconds: 2195, secondSeconds: 1363, ratioPercent: 62.1 },
+      { name: 'B15-G', firstSeconds: 1895, secondSeconds: 1292, ratioPercent: 68.18 },
+      { name: 'C20-M', firstSeconds: 2001, secondSeconds: 1247, ratioPercent: 62.32 },
+    ])
+    expect(companionResults.map(summarizePairedReattainment)).toEqual([
+      { name: 'C5-A', firstSeconds: 1885, secondSeconds: 1193, ratioPercent: 63.29 },
+      { name: 'C10-S', firstSeconds: 2004, secondSeconds: 1218, ratioPercent: 60.78 },
+      { name: 'C15-G', firstSeconds: 1717, secondSeconds: 1113, ratioPercent: 64.82 },
+      { name: 'O5-A', firstSeconds: 1746, secondSeconds: 1150, ratioPercent: 65.86 },
+      { name: 'O10-S', firstSeconds: 1882, secondSeconds: 1146, ratioPercent: 60.89 },
+      { name: 'O15-G', firstSeconds: 1753, secondSeconds: 1226, ratioPercent: 69.94 },
+      { name: 'B5-A', firstSeconds: 1848, secondSeconds: 1195, ratioPercent: 64.66 },
+      { name: 'B10-S', firstSeconds: 2107, secondSeconds: 1326, ratioPercent: 62.93 },
+      { name: 'B15-G', firstSeconds: 1883, secondSeconds: 1177, ratioPercent: 62.51 },
+      { name: 'C20-M', firstSeconds: 1804, secondSeconds: 1148, ratioPercent: 63.64 },
+    ])
+
+    const soloRatios = soloResults.map(({ ratioPercent }) => ratioPercent)
+    const companionRatios = companionResults.map(({ ratioPercent }) => ratioPercent)
+    expect(soloRatios.every((ratio) => ratio >= 50 && ratio <= 70)).toBe(true)
+    expect(companionRatios.every((ratio) => ratio >= 50 && ratio <= 70)).toBe(true)
+    expect(median(soloRatios)).toBeCloseTo(63.2757821162, 10)
+    expect(median(companionRatios)).toBeCloseTo(63.4627441524, 10)
+    expect(median(soloRatios)).toBeCloseTo(63.3, 1)
+    expect(median(companionRatios)).toBeCloseTo(63.5, 1)
+  })
+
+  it('preserves the prestige reward, reset contract, companion, RNG, and inputs', () => {
+    expect(soloResults.map(({ firstSeconds }) => firstSeconds)).toEqual(
+      EXPECTED_PLAYTEST_SUMMARIES.map(({ prestigeGateSeconds }) => prestigeGateSeconds),
+    )
+    expect(companionResults.map(({ firstSeconds }) => firstSeconds)).toEqual([
+      1885, 2004, 1717, 1746, 1882, 1753, 1848, 2107, 1883, 1804,
+    ])
+
+    for (const result of [...soloResults, ...companionResults]) {
+      expect(result.reward).toBe(5)
+      expect(result.firstInputHashAfterPrestige).toBe(result.firstFinalHash)
+      expect(result.postPrestigeInputHashAfterRun).toBe(result.postPrestigeHash)
+      expect(result.postPrestigeState.rng).toEqual(result.firstFinalState.rng)
+      expect(result.secondFinalState.rng.seed).toBe(result.firstFinalState.rng.seed)
+      expect(result.secondFinalState.rng.draws).toBeGreaterThan(
+        result.postPrestigeState.rng.draws,
+      )
+      expect(result.secondFinalState.rng.draws).toBe(
+        result.postPrestigeState.rng.draws + result.secondSeconds,
+      )
+      expect(result.postPrestigeState.player).toMatchObject({
+        level: 1,
+        xp: 0,
+        gold: 0,
+        essence: 5,
+        skillPoints: 0,
+        upgrades: { weapon: 0, armor: 0, charm: 0 },
+        skills: { powerStrike: 1, ironWill: 0, fortune: 0 },
+      })
+      expect(result.postPrestigeState.battle).toMatchObject({
+        stage: 1,
+        highestStage: 1,
+        roundRemainderMs: 0,
+        powerStrikeCooldownMs: 0,
+        companionCooldownMs: 0,
+        kills: 0,
+        defeats: 0,
+      })
+      expect(result.postPrestigeState.stats.prestiges).toBe(1)
+      expect(result.postPrestigeState.player.currentHp).toBe(
+        getHeroStats(result.postPrestigeState).maxHp,
+      )
+    }
+
+    expect(soloResults.every(({ postPrestigeState }) =>
+      postPrestigeState.player.companion.id === null &&
+      postPrestigeState.player.companion.rank === 0)).toBe(true)
+    expect(companionResults.every(({ postPrestigeState }) =>
+      postPrestigeState.player.companion.id === 'emberFox' &&
+      postPrestigeState.player.companion.rank === 1)).toBe(true)
+  })
+
+  it('replays every paired final state and RNG sequence exactly', () => {
+    expect(soloResults.map(({ secondFinalHash }) => secondFinalHash)).toEqual([
+      'e6ae4b37',
+      'a6da7897',
+      '119f6f4d',
+      '3863e95a',
+      '78ddc6de',
+      '3d003349',
+      'f3ead603',
+      'fb920e24',
+      'fcb7eba4',
+      '8027550d',
+    ])
+    expect(companionResults.map(({ secondFinalHash }) => secondFinalHash)).toEqual([
+      'b58ead38',
+      '3b6c76b2',
+      'd35f6123',
+      '6b1b7417',
+      '45725451',
+      'd4551017',
+      'f570f7ea',
+      'c28f4b8d',
+      '5edfcb28',
+      'ac0a8681',
+    ])
+    expect(PLAYTEST_PROFILES.map((profile) =>
+      runPairedReattainment(profile, 'solo'))).toEqual(soloResults)
+    expect(PLAYTEST_PROFILES.map((profile) =>
+      runPairedReattainment(profile, 'companion'))).toEqual(companionResults)
+  })
+
+  it('resumes a companion reattainment from the latest A/B checkpoint exactly', () => {
+    const profile = PLAYTEST_PROFILES[0]!
+    const uninterrupted = companionResults[0]!
+    const storage = new MemoryStorage()
+
+    const firstCommit = saveGameAtRevision(storage, uninterrupted.postPrestigeState, null)
+    if (firstCommit.status !== 'saved') throw new Error('failed to write first A/B checkpoint')
+    expect(firstCommit.revision).toBe(1)
+
+    const paused = continueReattainmentExpedition(
+      uninterrupted.postPrestigeState,
+      profile,
+      'companion',
+      0,
+      600,
+    )
+    expect(paused.reachedTarget).toBe(false)
+    const secondCommit = saveGameAtRevision(storage, paused.finalState, firstCommit.revision)
+    if (secondCommit.status !== 'saved') throw new Error('failed to write second A/B checkpoint')
+    expect(secondCommit.revision).toBe(2)
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).not.toBeNull()
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).not.toBeNull()
+
+    const loaded = bootstrapGame(storage, paused.finalState.lastSavedAt, 'reader')
+    expect(loaded.revision).toBe(2)
+    expect(loaded.offlineReport).toBeNull()
+    expect(loaded.state).toEqual(paused.finalState)
+
+    const resumed = continueReattainmentExpedition(
+      loaded.state,
+      profile,
+      'companion',
+      paused.elapsedSeconds,
+    )
+    expect(resumed.reachedTarget).toBe(true)
+    expect(resumed.elapsedSeconds).toBe(uninterrupted.secondSeconds)
+    expect(resumed.finalState.rng).toEqual(uninterrupted.secondFinalState.rng)
+    expect(hashState(resumed.finalState)).toBe(uninterrupted.secondFinalHash)
+    expect(resumed.finalState).toEqual(uninterrupted.secondFinalState)
+  })
+
+  it('applies the 4.2% essence effect at 0, 5, and safe-integer saturation', () => {
+    expect(ESSENCE_STAT_BONUS_PER_POINT).toBe(0.042)
+
+    const zeroEssence = createInitialState(0, 1)
+    expect(getHeroStats(zeroEssence)).toMatchObject({ attack: 10, maxHp: 100 })
+
+    const fiveEssence = structuredClone(zeroEssence)
+    fiveEssence.player.essence = 5
+    expect(getHeroStats(fiveEssence)).toMatchObject({ attack: 12, maxHp: 121 })
+
+    const maximumEssence = structuredClone(zeroEssence)
+    maximumEssence.player.essence = Number.MAX_SAFE_INTEGER
+    const maximumStats = getHeroStats(maximumEssence)
+    expect(maximumStats.maxHp).toBe(Number.MAX_SAFE_INTEGER)
+    expect([maximumStats.attack, maximumStats.maxHp].every((value) =>
+      Number.isSafeInteger(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER)).toBe(true)
   })
 })

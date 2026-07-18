@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Ready
+- Status: Verify
 - Skill tags: GD-BAL, PLAYTEST, QA-DOMAIN
 - Owner / Reviewer: Codex / independent balance, engine, save, and QA reviewers
 
@@ -30,6 +30,7 @@
 - IRPG-204 첫 환생 밸런스 기준선
 - IRPG-104 저장 가능한 RNG·치명타
 - IRPG-108 첫 동료 영입·협공
+- IRPG-303 A/B 저장·migration
 - IRPG-505 1x·10x·100x와 24시간 soak 기준선
 
 ## Impacts
@@ -58,8 +59,8 @@
 - Given 비동료·동료 각 10개 paired session일 때, when 첫 환생 전후의 stage 30 도달 시간을 비교하면, then 각 cohort 중앙값과 20/20 profile ratio가 모두 50~70%다.
 - Given 각 session일 때, when 환생과 재도달을 반복 실행하면, then 첫 보상은 정수 5개, 임시 진행은 초기화, 동료 계약은 유지·rank 1, RNG는 연속이며 입력·초·최종 상태 hash가 결정론적이다.
 - Given 중간 재도달 저장일 때, when A/B encode/decode 뒤 계속 실행하면, then 중단 없는 실행과 도달 초·RNG·최종 상태가 같다.
-- Given 튜닝 뒤일 때, when IRPG-204·108 회귀를 실행하면, then 비동료 첫 원정 중앙값 1,984.5초와 동료 1,865초, 모든 세션 30~45분, 장기 적 HP 1.15 곡선이 그대로다.
-- Given 정수 `0`, `5`, `Number.MAX_SAFE_INTEGER`일 때, when 영웅 능력치를 계산하면, then 0 정수 기준은 변하지 않고 5 정수는 1.21 배율이며 모든 결과가 safe integer로 포화된다.
+- Given 튜닝 뒤일 때, when IRPG-204·108 회귀를 실행하면, then 비동료 첫 원정 중앙값 1,984.5초와 동료 1,865초, 각 cohort 중앙값 30~45분·20/20 세션 60분 내 도달, 장기 적 HP 1.15 곡선이 그대로다.
+- Given 정수 `0`, `5`, `Number.MAX_SAFE_INTEGER`일 때, when 영웅 능력치를 계산하면, then 0 정수 기준은 변하지 않고 5 정수는 1.21 배율이며 공격력·최대 체력과 전투에 적용되는 정수 피해가 safe integer로 포화된다.
 
 ## Discovery evidence
 
@@ -67,7 +68,7 @@
 
 ## Verification
 
-- formula 단일 상수, paired ratio 계산, 첫 원정 불변, 환생·RNG·저장 연속, 두 cohort 20개 exact fixture와 장기 HP·soak 영향을 독립 Review한다.
+- formula 단일 상수, raw paired ratio 계산, 첫 원정 불변, 환생·RNG·A/B 저장 연속, 두 cohort 20개 exact fixture와 장기 HP·soak 영향을 독립 Review했고 P0·P1·P2 결함 0건이다.
 
 ## Test evidence
 

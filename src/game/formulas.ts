@@ -29,6 +29,8 @@ export const toSafeInteger = (value: number, minimum = 0) =>
 export const addSafeIntegers = (left: number, right: number) =>
   toSafeInteger(left + right)
 
+export const ESSENCE_STAT_BONUS_PER_POINT = 0.042
+
 export function getXpToNextLevel(level: number): number {
   return toSafeInteger(18 * Math.max(1, level) ** 1.42, 1)
 }
@@ -52,7 +54,7 @@ export function getCompanionTrainingCost(id: CompanionId, currentRank: number): 
 
 export function getHeroStats(state: GameState): HeroStats {
   const { level, essence, upgrades, skills } = state.player
-  const permanentMultiplier = 1 + essence * 0.03
+  const permanentMultiplier = 1 + essence * ESSENCE_STAT_BONUS_PER_POINT
   const ironWillMultiplier = 1 + skills.ironWill * 0.1
 
   return {
