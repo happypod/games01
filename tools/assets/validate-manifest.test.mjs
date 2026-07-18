@@ -1,0 +1,270 @@
+import assert from 'node:assert/strict'
+import { appendFile, cp, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import test from 'node:test'
+import { fileURLToPath } from 'node:url'
+import { ERROR_CODES, REQUIRED_ASSET_IDS, validateManifest } from './validate-manifest.mjs'
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const SOURCE_GAME_DIR = path.join(REPO_ROOT, 'src/assets/game')
+const SOURCE_PROMPT = path.join(REPO_ROOT, 'docs/assets/prompts/placeholder-assets.md')
+
+function findEntry(manifest, id = 'hero.ashen-knight.default') {
+  const entry = manifest.assets.find((candidate) => candidate.id === id)
+  assert.ok(entry, `fixture entry ${id} must exist`)
+  return entry
+}
+
+function hasError(result, code, id) {
+  return result.errors.some((error) => error.code === code && (id === undefined || error.id === id))
+}
+
+async function runFixture(mutate) {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'irpg-406-assets-'))
+  try {
+    const gameDir = path.join(root, 'src/assets/game')
+    const promptPath = path.join(root, 'docs/assets/prompts/placeholder-assets.md')
+    await mkdir(path.dirname(gameDir), { recursive: true })
+    await mkdir(path.dirname(promptPath), { recursive: true })
+    await Promise.all([
+      cp(SOURCE_GAME_DIR, gameDir, { recursive: true }),
+      cp(SOURCE_PROMPT, promptPath),
+    ])
+
+    const manifestPath = path.join(gameDir, 'manifest.json')
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+    await mutate({ root, gameDir, manifest, manifestPath })
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+    return await validateManifest({ repoRoot: root, manifestPath })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+}
+
+test('checked-in manifest contains the exact inventory and validates', async () => {
+  const result = await validateManifest({ repoRoot: REPO_ROOT })
+  assert.equal(REQUIRED_ASSET_IDS.length, 27)
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.valid, true)
+})
+
+test('reports a stable duplicate ID code', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    manifest.assets.push({ ...manifest.assets[0] })
+  })
+  assert.equal(hasError(result, ERROR_CODES.DUPLICATE_ID, 'hero.ashen-knight.default'), true)
+})
+
+test('reports missing and unexpected inventory IDs independently', async () => {
+  const missing = await runFixture(async ({ manifest }) => {
+    manifest.assets = manifest.assets.filter((entry) => entry.id !== 'event.ash-camp')
+  })
+  assert.equal(hasError(missing, ERROR_CODES.MISSING_ID, 'event.ash-camp'), true)
+
+  const unexpected = await runFixture(async ({ manifest }) => {
+    manifest.assets.push({ ...manifest.assets[0], id: 'hero.unapproved.default' })
+  })
+  assert.equal(hasError(unexpected, ERROR_CODES.UNEXPECTED_ID, 'hero.unapproved.default'), true)
+})
+
+test('rejects remote runtime sources', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    findEntry(manifest).src = 'https://cdn.example/hero.webp'
+  })
+  assert.equal(hasError(result, ERROR_CODES.REMOTE_SRC, 'hero.ashen-knight.default'), true)
+})
+
+test('rejects lexical path traversal', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    findEntry(manifest).src = './files/../../../../outside.webp'
+  })
+  assert.equal(hasError(result, ERROR_CODES.PATH_ESCAPE, 'hero.ashen-knight.default'), true)
+})
+
+test('rejects realpath traversal through a directory link', async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'irpg-406-realpath-'))
+  try {
+    const gameDir = path.join(root, 'src/assets/game')
+    const promptPath = path.join(root, 'docs/assets/prompts/placeholder-assets.md')
+    await mkdir(path.dirname(gameDir), { recursive: true })
+    await mkdir(path.dirname(promptPath), { recursive: true })
+    await Promise.all([
+      cp(SOURCE_GAME_DIR, gameDir, { recursive: true }),
+      cp(SOURCE_PROMPT, promptPath),
+    ])
+
+    const outsideDir = path.join(root, 'outside')
+    await mkdir(outsideDir)
+    await cp(
+      path.join(gameDir, 'files/hero/ashen-knight-default.webp'),
+      path.join(outsideDir, 'escape.webp'),
+    )
+    try {
+      await symlink(outsideDir, path.join(gameDir, 'files/link'), process.platform === 'win32' ? 'junction' : 'dir')
+    } catch (error) {
+      if (error?.code === 'EPERM' || error?.code === 'EACCES') {
+        t.skip('directory links are unavailable in this environment')
+        return
+      }
+      throw error
+    }
+
+    const manifestPath = path.join(gameDir, 'manifest.json')
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+    findEntry(manifest).src = './files/link/escape.webp'
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+    const result = await validateManifest({ repoRoot: root, manifestPath })
+    assert.equal(hasError(result, ERROR_CODES.PATH_ESCAPE, 'hero.ashen-knight.default'), true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('reports a missing deployed file', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    findEntry(manifest).src = './files/hero/missing.webp'
+  })
+  assert.equal(hasError(result, ERROR_CODES.MISSING_FILE, 'hero.ashen-knight.default'), true)
+})
+
+test('compares declared bytes to the real file', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    findEntry(manifest).bytes += 1
+  })
+  assert.equal(hasError(result, ERROR_CODES.BYTES_MISMATCH, 'hero.ashen-knight.default'), true)
+})
+
+test('reads dimensions from the actual WebP header', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    findEntry(manifest).width = 767
+  })
+  assert.equal(hasError(result, ERROR_CODES.DIMENSION_MISMATCH, 'hero.ashen-knight.default'), true)
+})
+
+test('rejects an extension whose file header has another format', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const target = path.join(gameDir, 'files/hero/not-webp.webp')
+    await cp(path.join(gameDir, 'files/fallback/character.svg'), target)
+    const entry = findEntry(manifest)
+    entry.src = './files/hero/not-webp.webp'
+    entry.bytes = (await stat(target)).size
+  })
+  assert.equal(hasError(result, ERROR_CODES.HEADER_FORMAT_MISMATCH, 'hero.ashen-knight.default'), true)
+})
+
+test('enforces the per-use byte budget from the actual file', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const target = path.join(gameDir, 'files/hero/ashen-knight-default.webp')
+    await appendFile(target, Buffer.alloc(250 * 1024))
+    findEntry(manifest).bytes = (await stat(target)).size
+  })
+  assert.equal(hasError(result, ERROR_CODES.BUDGET_EXCEEDED, 'hero.ashen-knight.default'), true)
+})
+
+test('requires generated asset production metadata', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    delete findEntry(manifest).generator
+  })
+  assert.equal(hasError(result, ERROR_CODES.RIGHTS_METADATA, 'hero.ashen-knight.default'), true)
+})
+
+test('requires CC-BY attribution', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    const entry = findEntry(manifest)
+    entry.sourceType = 'licensed'
+    entry.license = 'CC-BY-4.0'
+    entry.sourceUrl = 'https://example.test/source'
+    delete entry.generator
+    delete entry.promptRecord
+  })
+  assert.equal(hasError(result, ERROR_CODES.RIGHTS_METADATA, 'hero.ashen-knight.default'), true)
+})
+
+test('requires repository-local commercial redistribution proof', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    const entry = findEntry(manifest)
+    entry.sourceType = 'original'
+    entry.license = 'commercial-redistribution'
+    entry.proofPath = 'docs/licenses/missing.txt'
+    delete entry.generator
+    delete entry.promptRecord
+  })
+  assert.equal(hasError(result, ERROR_CODES.METADATA_FILE_MISSING, 'hero.ashen-knight.default'), true)
+})
+
+test('rejects executable SVG fallback content', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.join(gameDir, 'files/fallback/character.svg')
+    const unsafe = '<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768"><script>alert(1)</script></svg>'
+    await writeFile(target, unsafe, 'utf8')
+    entry.bytes = Buffer.byteLength(unsafe)
+  })
+  assert.equal(hasError(result, ERROR_CODES.UNSAFE_SVG, 'fallback.character'), true)
+})
+
+test('does not treat data-width and data-height as SVG dimensions', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.join(gameDir, 'files/fallback/character.svg')
+    const invalid = '<svg xmlns="http://www.w3.org/2000/svg" data-width="768" data-height="768"></svg>'
+    await writeFile(target, invalid, 'utf8')
+    entry.bytes = Buffer.byteLength(invalid)
+  })
+  assert.equal(hasError(result, ERROR_CODES.INVALID_IMAGE, 'fallback.character'), true)
+})
+
+test('does not accept a commented fake SVG root', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.join(gameDir, 'files/fallback/character.svg')
+    const invalid = '<?xml version="1.0"?><!-- <svg width="768" height="768"> --><html></html>'
+    await writeFile(target, invalid, 'utf8')
+    entry.bytes = Buffer.byteLength(invalid)
+  })
+  assert.equal(
+    hasError(result, ERROR_CODES.HEADER_FORMAT_MISMATCH, 'fallback.character'),
+    true,
+  )
+})
+
+test('rejects foreignObject and embedded active HTML in SVG fallbacks', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.join(gameDir, 'files/fallback/character.svg')
+    const unsafe = '<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768"><foreignObject><iframe src="https://example.test"></iframe></foreignObject></svg>'
+    await writeFile(target, unsafe, 'utf8')
+    entry.bytes = Buffer.byteLength(unsafe)
+  })
+  assert.equal(hasError(result, ERROR_CODES.UNSAFE_SVG, 'fallback.character'), true)
+})
+
+test('rejects malformed SVG with mismatched element nesting', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.join(gameDir, 'files/fallback/character.svg')
+    const invalid = '<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768"><g></svg>'
+    await writeFile(target, invalid, 'utf8')
+    entry.bytes = Buffer.byteLength(invalid)
+  })
+  assert.equal(hasError(result, ERROR_CODES.INVALID_IMAGE, 'fallback.character'), true)
+})
+
+test('rejects xml:base and other unapproved SVG attributes', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.join(gameDir, 'files/fallback/character.svg')
+    const unsafe = '<svg xmlns="http://www.w3.org/2000/svg" xml:base="https://evil.test/a.svg" width="768" height="768"><defs><linearGradient id="g"/></defs><rect width="768" height="768" fill="url(#g)"/></svg>'
+    await writeFile(target, unsafe, 'utf8')
+    entry.bytes = Buffer.byteLength(unsafe)
+  })
+  assert.equal(hasError(result, ERROR_CODES.UNSAFE_SVG, 'fallback.character'), true)
+})
+
+test('rejects namespace and kind disagreement', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    findEntry(manifest).kind = 'enemy'
+  })
+  assert.equal(hasError(result, ERROR_CODES.NAMESPACE_KIND_MISMATCH, 'hero.ashen-knight.default'), true)
+})

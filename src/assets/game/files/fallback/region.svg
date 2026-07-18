@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <title>지역 이미지 대체 표식</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#181417"/>
+      <stop offset="1" stop-color="#38231d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <circle cx="1210" cy="205" r="94" fill="#d66b3d" opacity=".58"/>
+  <path d="M0 690 310 370l185 196 190-283 236 302 184-214 495 344v185H0z" fill="#171312" stroke="#6d392a" stroke-width="12"/>
+  <path d="M0 805c287-80 514-69 742 0 255 76 508 61 858-31v126H0z" fill="#0e0c0b"/>
+</svg>

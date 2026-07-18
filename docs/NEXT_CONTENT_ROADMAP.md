@@ -12,7 +12,7 @@ IRPG-503·504·204·304·403·104·505·305는 Done이다. 현재 기준선은 C
 
 | 순서 | 티켓 | 상태 | 결과 |
 |---:|---|---|---|
-| 1A | IRPG-406 | Ready | asset ID·규격·권리·fallback·초기 600 KiB·lazy-load 계약 |
+| 1A | IRPG-406 | Done | asset ID·규격·권리·fallback·초기 600 KiB·lazy-load 계약 |
 | 1B | IRPG-106 | Ready | 승패·치명타·스킬·처치 UI가 소비할 결정론적 event snapshot |
 | 2A | IRPG-407 | Draft | 영웅·일반 적·보스 일러스트와 실패 fallback |
 | 2B | IRPG-507 | Draft | 정상 저장과 격리된 브라우저 UI fixture 조작 패널 |

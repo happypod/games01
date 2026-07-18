@@ -22,11 +22,14 @@
 | 브라우저 E2E | 구현 | 신규 시작, UI 강화, 실제 reload, 1분 오프라인 보고, 같은 구간 중복 방지, page/console error |
 | 다중 탭 E2E | 구현 | 두 번째 탭 읽기 전용, 열린 reader 동기화, writer 종료 뒤 lock 인계 |
 | 접근성 E2E | 구현 | 360px overflow·44px target·skip link·키보드 명령·progressbar·modal focus·200% 확대·모션 감소 |
+| 시각 자산 | 구현 | 필수 27 ID·로컬 경로·실제 포맷/픽셀/바이트·권리 metadata, fallback 2단계, production cold-load 600 KiB와 lazy namespace |
 | 장시간 soak | 구현 | 1x·10x·100x의 8·16·24시간 전체 상태·누적 report, safe integer·HP·stage·RNG·정체·고정 fixture |
 
 IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 coverage는 statements 93.42%, branches 87.95%, functions 97.91%, lines 95.60%다. IRPG-504는 별도의 Playwright 전체 흐름 1개를 추가한다.
 
 IRPG-108 기준선은 Vitest 12파일·85테스트와 Playwright 8테스트다. 전체 coverage는 statements 94.12%, branches 89.81%, functions 100%, lines 95.39%이며, active companion 1x·10x·100x soak와 schema2→3 저장 회귀를 포함한다.
+
+IRPG-406 기준선은 Vitest 16파일·95테스트, 자산 validator fixture 21테스트, 기존 Playwright 8테스트와 production 자산 Playwright 2테스트다. 필수 27개 ID, 600 KiB cold-load, 비현재 namespace lazy-load와 이미지 실패 fallback을 포함한다.
 
 ## 3. 요구사항 추적
 
@@ -45,6 +48,7 @@ IRPG-108 기준선은 Vitest 12파일·85테스트와 Playwright 8테스트다. 
 | 오프라인 중복 방지 | 같은 시각 재부팅, Playwright 닫기·재접속·재새로고침 | 탭 숨김과 OS 절전 복귀 |
 | 다중 탭 충돌 | stale revision 원문 불변, reader 무쓰기, 동일 revision 충돌 차단, 두 페이지 lock 인계 | 비정상 브라우저 종료 복구 |
 | 반응형·접근성 | progressbar·modal focus 컴포넌트 테스트, 360px·키보드·reduced-motion Playwright | 실제 보조공학 조합의 외부 전문 감사 |
+| 시각 자산 | manifest validator fixture, 자산 컴포넌트 load/error fallback, production URL·gzip·lazy-load Playwright | 최종 일러스트 미술 방향 검토 |
 | 첫 환생 목표 | 10회 결정론적 가속 세션과 대표 브라우저 상태 | IRPG-205 외부 사용자 10회 실제 플레이 |
 | 장시간 결정론 | 1x·10x·100x 24시간 soak와 3×8시간 canonical 비교 | IRPG-507 브라우저 개발 패널, IRPG-508 7일 stress |
 
@@ -110,9 +114,12 @@ npx playwright install chromium
 npm run lint
 npm run typecheck
 npm run test
+npm run test:assets
+npm run assets:validate
 npm run test:coverage
 npm run build
 npm run test:e2e
+npm run test:e2e:assets
 ```
 
 로컬 전체 게이트는 `npm run verify`다. 브라우저 제외 게이트는 `npm run verify:code`다. CI는 Chromium과 시스템 의존성을 설치한 뒤 동일 전체 게이트를 worker 1개로 실행하며, 실패한 Playwright trace·screenshot·video와 HTML report를 artifact로 보존한다. 티켓을 Done으로 옮길 때 명령, 통과 결과, 필요한 수동 증거를 `Test evidence`에 남긴다.

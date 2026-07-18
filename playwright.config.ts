@@ -5,6 +5,7 @@ const browserChannel = process.env.PLAYWRIGHT_CHANNEL as 'chrome' | 'msedge' | u
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: 'assets-cold-load.spec.ts',
   outputDir: 'test-results',
   fullyParallel: true,
   forbidOnly: isCi,

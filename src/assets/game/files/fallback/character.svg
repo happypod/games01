@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
+  <title>캐릭터 이미지 대체 표식</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#211713"/>
+      <stop offset="1" stop-color="#0f0d0c"/>
+    </linearGradient>
+  </defs>
+  <rect width="768" height="768" rx="56" fill="url(#bg)"/>
+  <circle cx="384" cy="292" r="112" fill="#3a2922" stroke="#d66b3d" stroke-width="12"/>
+  <path d="M174 672c18-161 91-244 210-244s192 83 210 244" fill="#33251f" stroke="#8f4b31" stroke-width="14"/>
+  <path d="m326 286 58-92 58 92-24 90h-68z" fill="#d66b3d" opacity=".8"/>
+</svg>

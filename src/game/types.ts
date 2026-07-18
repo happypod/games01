@@ -10,6 +10,16 @@ export type SkillId = (typeof SKILL_IDS)[number]
 export const COMPANION_IDS = ['emberFox'] as const
 export type CompanionId = (typeof COMPANION_IDS)[number]
 
+export type EnemyAssetId =
+  | 'enemy.ash-slime'
+  | 'enemy.twilight-wolf'
+  | 'enemy.abandoned-armor'
+  | 'enemy.charred-shaman'
+  | 'enemy.abyss-sentinel'
+  | 'boss.ash-giant'
+  | 'boss.eclipse-knight'
+  | 'boss.forgotten-dragon'
+
 export type UpgradeLevels = Record<UpgradeId, number>
 export type SkillRanks = Record<SkillId, number>
 
@@ -73,6 +83,7 @@ export interface HeroStats {
 
 export interface EnemyDefinition {
   stage: number
+  assetId: EnemyAssetId
   name: string
   isBoss: boolean
   maxHp: number

@@ -125,9 +125,9 @@ h2 { font-size: 20px; letter-spacing: -.02em; }
 .enemy-portrait__aura { position: absolute; inset: 2px; border: 1px solid rgba(238,125,61,.22); border-radius: 50%; box-shadow: 0 0 45px rgba(216,78,33,.12), inset 0 0 30px rgba(216,78,33,.08); animation: rotate 18s linear infinite; }
 .enemy-portrait__aura::before, .enemy-portrait__aura::after { content: ''; position: absolute; inset: 13px; border: 1px dashed rgba(230,184,93,.16); border-radius: 50%; }
 .enemy-portrait__aura::after { inset: -8px 45px; border-style: solid; border-color: rgba(238,125,61,.16) transparent; }
-.enemy-portrait__core { width: 80px; height: 94px; display: grid; place-items: center; background: linear-gradient(155deg, #593025, #211b19 65%); clip-path: polygon(50% 0, 89% 22%, 78% 84%, 50% 100%, 22% 84%, 11% 22%); filter: drop-shadow(0 8px 14px rgba(0,0,0,.5)); }
-.enemy-portrait__core span { color: #ef9561; font-size: 34px; text-shadow: 0 0 20px rgba(238,125,61,.55); }
-.enemy-portrait--boss .enemy-portrait__core { background: linear-gradient(155deg, #733626, #261916 70%); transform: scale(1.12); }
+.enemy-portrait__asset { width: 104px; max-width: 100%; border-radius: 50%; border: 1px solid rgba(238,125,61,.18); box-shadow: 0 8px 24px rgba(0,0,0,.38); }
+.enemy-portrait__asset img { object-position: center bottom; }
+.enemy-portrait--boss .enemy-portrait__asset { width: 116px; border-color: rgba(229,91,67,.32); }
 .enemy-name { text-align: center; margin-bottom: 17px; }
 .enemy-name span { display: block; color: #aaa097; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 3px; }
 .enemy-name strong { font: 700 18px/1.4 'Cinzel', 'Noto Sans KR', serif; }
@@ -163,7 +163,9 @@ h2 { font-size: 20px; letter-spacing: -.02em; }
 
 .hero-panel { padding: 25px; flex: 1; }
 .level-seal { color: var(--gold); border: 1px solid rgba(230,184,93,.2); background: rgba(230,184,93,.06); padding: 6px 9px; border-radius: 5px; font: 700 11px/1 'Cinzel', serif; }
-.hero-panel .stat-bar:first-of-type { margin-top: 28px; }
+.hero-portrait { inline-size: clamp(144px, 48%, 176px); max-inline-size: 100%; margin: 18px auto 8px; border: 1px solid rgba(230,184,93,.16); border-radius: 10px; box-shadow: 0 16px 38px rgba(0,0,0,.28), inset 0 0 30px rgba(238,125,61,.06); }
+.hero-portrait img { object-position: center bottom; }
+.hero-portrait + .stat-bar { margin-top: 15px; }
 .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin: 24px 0 0; background: var(--line); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
 .stat-grid div { padding: 15px; background: rgba(24,21,19,.88); }
 .stat-grid dt { color: #aaa097; font-size: 10px; margin-bottom: 5px; }

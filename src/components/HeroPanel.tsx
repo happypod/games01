@@ -1,6 +1,7 @@
 import { getHeroStats, getXpToNextLevel } from '../game/formulas'
 import { formatNumber } from '../game/format'
 import type { GameState } from '../game/types'
+import { GameAsset } from './GameAsset'
 import { StatBar } from './StatBar'
 
 interface HeroPanelProps {
@@ -18,6 +19,15 @@ export function HeroPanel({ state }: HeroPanelProps) {
         </div>
         <div className="level-seal">Lv.{state.player.level}</div>
       </div>
+      <GameAsset
+        assetId="hero.ashen-knight.default"
+        purpose="character"
+        className="hero-portrait"
+        fallbackLabel="♞"
+        fit="contain"
+        loading="eager"
+        decorative
+      />
       <StatBar label="생명력" value={state.player.currentHp} maximum={hero.maxHp} />
       <StatBar label="경험치" value={state.player.xp} maximum={getXpToNextLevel(state.player.level)} tone="xp" />
       <dl className="stat-grid">

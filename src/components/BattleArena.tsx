@@ -5,6 +5,7 @@ import {
 } from '../game/content'
 import { getCompanionDamage, getHeroStats, isCompanionUnlocked } from '../game/formulas'
 import type { GameState } from '../game/types'
+import { GameAsset } from './GameAsset'
 import { StatBar } from './StatBar'
 
 interface BattleArenaProps {
@@ -49,9 +50,15 @@ export function BattleArena({ state, onChooseStage, disabled = false }: BattleAr
         aria-hidden="true"
       >
         <div className="enemy-portrait__aura" />
-        <div className="enemy-portrait__core">
-          <span>{enemy.isBoss ? '♛' : '◆'}</span>
-        </div>
+        <GameAsset
+          assetId={enemy.assetId}
+          purpose="character"
+          className="enemy-portrait__asset"
+          fallbackLabel={enemy.isBoss ? '♛' : '◆'}
+          fit="contain"
+          loading="eager"
+          decorative
+        />
       </div>
 
       <div className="enemy-name">

@@ -43,7 +43,7 @@
 | IRPG-403 | 접근성·모바일 감사 | P1 | Done | 401,304 | UX-FEEDBACK, QA-E2E | 360px·키보드·의미 구조·모션 감소 핵심 흐름이 통과한다. |
 | IRPG-404 | 초기 안내·전투 피드백 강화 | P1 | Draft | 401 | UX-FEEDBACK | 3초 안에 자동 전투와 첫 강화 목표를 이해한다. |
 | IRPG-405 | Windows 원클릭 실행기 | P1 | Done | 003 | REL-CI, UX-FEEDBACK | 더블클릭 한 번으로 의존성을 준비하고 게임과 브라우저를 실행한다. |
-| IRPG-406 | 시각 자산 계약·manifest | P1 | Ready | 401,403,505 | ART-DIR, ART-2D, ENG-DATA | 모든 자산 ID·규격·권리·fallback과 누락 검사가 고정된다. |
+| IRPG-406 | 시각 자산 계약·manifest | P1 | Done | 401,403,505 | ART-DIR, ART-2D, ENG-DATA | 모든 자산 ID·규격·권리·fallback과 누락 검사가 고정된다. |
 | IRPG-407 | 영웅·적·보스 일러스트 세트 | P2 | Draft | 102,403,406 | ART-2D, FE-GAME, UX-FEEDBACK | 모든 전투 대상이 일러스트와 텍스트 fallback으로 표시된다. |
 | IRPG-408 | 3지역 스테이지 맵 | P2 | Draft | 103,403,406,506 | ART-2D, FE-GAME, ENG-DATA, UX-FEEDBACK | 지역 3개와 현재·완료·잠김 스테이지가 접근 가능하게 표시된다. |
 | IRPG-409 | 장비·스킬 일러스트 카드 | P2 | Draft | 201,202,403,406,506 | ART-2D, FE-GAME, UX-FEEDBACK | 고정 장비·스킬의 효과·비용·잠금·최대 상태가 카드에 표시된다. |

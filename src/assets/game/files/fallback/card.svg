@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>카드 이미지 대체 표식</title>
+  <rect x="18" y="18" width="476" height="476" rx="42" fill="#171311" stroke="#8d5835" stroke-width="12"/>
+  <rect x="52" y="52" width="408" height="408" rx="24" fill="#211915" stroke="#493328" stroke-width="4"/>
+  <path d="m256 108 42 105 106 43-106 43-42 105-42-105-106-43 106-43z" fill="#d6934c" opacity=".78"/>
+  <circle cx="256" cy="256" r="58" fill="#6f3826" stroke="#e1aa64" stroke-width="8"/>
+</svg>

@@ -1,4 +1,10 @@
-import type { CompanionId, EnemyDefinition, SkillId, UpgradeId } from './types'
+import type {
+  CompanionId,
+  EnemyAssetId,
+  EnemyDefinition,
+  SkillId,
+  UpgradeId,
+} from './types'
 
 export const COMBAT_ROUND_MS = 1_000
 export const MAX_OFFLINE_MS = 8 * 60 * 60 * 1_000
@@ -115,6 +121,20 @@ const ENEMY_NAMES = [
 
 const BOSS_NAMES = ['재의 거인', '월식의 기사', '잊힌 용'] as const
 
+const ENEMY_ASSET_IDS = [
+  'enemy.ash-slime',
+  'enemy.twilight-wolf',
+  'enemy.abandoned-armor',
+  'enemy.charred-shaman',
+  'enemy.abyss-sentinel',
+] as const satisfies readonly EnemyAssetId[]
+
+const BOSS_ASSET_IDS = [
+  'boss.ash-giant',
+  'boss.eclipse-knight',
+  'boss.forgotten-dragon',
+] as const satisfies readonly EnemyAssetId[]
+
 const bounded = (value: number, maximum: number) =>
   Math.min(maximum, Math.max(1, Math.round(value)))
 
@@ -138,6 +158,9 @@ export function getEnemyDefinition(rawStage: number): EnemyDefinition {
 
   return {
     stage,
+    assetId: isBoss
+      ? (BOSS_ASSET_IDS[bossIndex] ?? BOSS_ASSET_IDS[0])
+      : (ENEMY_ASSET_IDS[regularIndex] ?? ENEMY_ASSET_IDS[0]),
     name: isBoss
       ? (BOSS_NAMES[bossIndex] ?? BOSS_NAMES[0])
       : (ENEMY_NAMES[regularIndex] ?? ENEMY_NAMES[0]),
