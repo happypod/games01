@@ -31,7 +31,7 @@
 | IRPG-203 | 환생·영구 성장 | P0 | Done | 201 | GD-BAL | 초기화와 유지 필드가 정확하고 보상이 한 번 지급된다. |
 | IRPG-204 | 첫 환생 밸런스 튜닝 | P1 | Done | 203,502,104 | GD-BAL, PLAYTEST, QA-DOMAIN | 10회 플레이의 중앙값이 30~45분이다. |
 | IRPG-205 | 외부 사용자 첫 환생 플레이테스트 | P1 | Draft | 204,403,504 | PLAYTEST, UX-FEEDBACK | 외부 사용자 10회에서 진행 차단 0건과 30~45분 목표를 검증한다. |
-| IRPG-206 | 환생 후 최고점 재도달 튜닝 | P1 | Draft | 203,204,104 | GD-BAL, PLAYTEST, QA-DOMAIN | 재도달 시간 중앙값이 첫 원정의 50~70%다. |
+| IRPG-206 | 환생 후 최고점 재도달 튜닝 | P1 | Ready | 104,108,203,204,505 | GD-BAL, PLAYTEST, QA-DOMAIN | 재도달 시간 중앙값이 첫 원정의 50~70%다. |
 | IRPG-207 | 보스 최초 승리 보상 계약 | P1 | Draft | 106,206,303 | GD-BAL, ENG-STATE, ENG-SAVE | 승인된 보스 milestone 보상을 저장·reload 뒤에도 정확히 한 번 지급한다. |
 | IRPG-301 | v1 로컬 저장·decoder | P0 | Done | 002 | ENG-SAVE | 정상 왕복과 손상 저장 fallback이 동작한다. |
 | IRPG-302 | 자동 저장·8시간 오프라인 | P0 | Done | 101,301 | ENG-SAVE | 0초·역행·8시간 상한·중복 재개가 안전하다. |
