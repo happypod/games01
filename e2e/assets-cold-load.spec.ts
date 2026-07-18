@@ -21,6 +21,17 @@ const DIST_ROOT = resolve(REPOSITORY_ROOT, 'dist')
 const REAL_DIST_ROOT = realpathSync(DIST_ROOT)
 const ASSET_MANIFEST_PATH = resolve(REPOSITORY_ROOT, 'src/assets/game/manifest.json')
 const VITE_MANIFEST_PATH = resolve(DIST_ROOT, '.vite/manifest.json')
+const DEBUG_BUNDLE_MARKERS = [
+  'src/debug/',
+  'IRPG507_DEBUG_PANEL',
+  'DEBUG · 저장 격리',
+] as const
+const DEBUG_DOM_SELECTORS = [
+  '[data-irpg507-debug]',
+  '[data-testid="irpg-507-debug-trigger"]',
+  '[data-testid="irpg-507-debug-panel"]',
+  '#irpg-507-debug-panel',
+].join(', ')
 
 interface AssetManifestEntry {
   id: string
@@ -53,6 +64,11 @@ interface BudgetResource extends CapturedResponse {
   distFile: string
   sourceBytes: number
   gzipBytes: number
+}
+
+interface DebugMarkerOccurrence {
+  file: string
+  marker: (typeof DEBUG_BUNDLE_MARKERS)[number]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -249,6 +265,17 @@ async function captureResponse(response: Response): Promise<CapturedResponse | n
   }
 }
 
+function findDebugMarkerOccurrences(files: string[]): DebugMarkerOccurrence[] {
+  const occurrences: DebugMarkerOccurrence[] = []
+  for (const file of files) {
+    const contents = readFileSync(resolve(DIST_ROOT, file), 'utf8').replaceAll('\\', '/')
+    for (const marker of DEBUG_BUNDLE_MARKERS) {
+      if (contents.includes(marker)) occurrences.push({ file, marker })
+    }
+  }
+  return occurrences
+}
+
 test('dist server keeps SPA fallback inside dist and disables caching on errors', async ({
   request,
 }, testInfo) => {
@@ -271,6 +298,78 @@ test('dist server keeps SPA fallback inside dist and disables caching on errors'
   const traversal = await request.get(`${ORIGIN}/%2e%2e%2fpackage.json`)
   expect(traversal.status()).toBe(400)
   expect(traversal.headers()['cache-control']).toContain('no-store')
+})
+
+test('production bundle and DOM exclude the IRPG-507 debug panel', async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-cold-load',
+    'This production-only assertion runs through playwright.assets.config.ts.',
+  )
+
+  const distTextFiles = walkFiles(DIST_ROOT).filter((file) => {
+    const extension = extname(file).toLowerCase()
+    return extension === '.js' || extension === '.css'
+  })
+  const scannedFiles = [toPosixPath(relative(DIST_ROOT, VITE_MANIFEST_PATH)), ...distTextFiles]
+  const markerOccurrences = findDebugMarkerOccurrences(scannedFiles)
+
+  await page.addInitScript(() => {
+    const debugOverrides = {
+      IRPG507_DEBUG_PANEL: '1',
+      debug: 'true',
+      'irpg.debug': 'true',
+      'irpg507.debug': 'true',
+      'irpg-507-debug-panel': 'true',
+    }
+    for (const [key, value] of Object.entries(debugOverrides)) {
+      localStorage.setItem(key, value)
+    }
+  })
+
+  await page.goto('/?debug=1&dev=1&IRPG507_DEBUG_PANEL=1#IRPG507_DEBUG_PANEL', {
+    waitUntil: 'networkidle',
+  })
+  await expect(page.locator('#root')).not.toBeEmpty()
+
+  const domEvidence = await page.locator('body').evaluate((body) => ({
+    text: body.textContent ?? '',
+    html: body.innerHTML,
+  }))
+  const debugTextMarkers = DEBUG_BUNDLE_MARKERS.slice(1).filter((marker) =>
+    domEvidence.text.includes(marker),
+  )
+
+  await testInfo.attach('irpg-507-production-debug-absence.json', {
+    body: Buffer.from(JSON.stringify({
+      scannedFiles,
+      markerOccurrences,
+      attemptedUrl: page.url(),
+      attemptedLocalStorageKeys: [
+        'IRPG507_DEBUG_PANEL',
+        'debug',
+        'irpg.debug',
+        'irpg507.debug',
+        'irpg-507-debug-panel',
+      ],
+      debugTextMarkers,
+      debugSelectorMatches: await page.locator(DEBUG_DOM_SELECTORS).count(),
+    }, null, 2)),
+    contentType: 'application/json',
+  })
+
+  expect(distTextFiles.length, 'Production build emitted no JavaScript or CSS files').toBeGreaterThan(0)
+  expect(markerOccurrences, 'Production manifest or JS/CSS contains IRPG-507 debug code').toEqual([])
+  expect(debugTextMarkers, 'Production DOM exposes an IRPG-507 debug marker').toEqual([])
+  await expect(
+    page.locator(DEBUG_DOM_SELECTORS),
+    'Production DOM exposes an IRPG-507 debug trigger or panel',
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: /(?:개발자|디버그).*(?:패널|도구)/ }),
+    'Production DOM exposes a debug-panel activation button',
+  ).toHaveCount(0)
 })
 
 test('production cold load stays within the asset budget and preserves lazy namespaces', async ({

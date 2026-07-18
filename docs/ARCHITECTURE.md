@@ -72,6 +72,8 @@ performPrestige(state): CommandResult
 
 `debugSimulator`는 같은 순수 엔진을 1·10·100초 청크로 호출하는 헤드리스 검증 도구다. 배속은 게임 규칙이나 RNG 소비량을 바꾸지 않으며 snapshot 경계를 넘지 않도록 청크를 분할한다. 24시간 soak는 오프라인 8시간 상한을 무시하는 단일 호출이 아니라 8·16·24시간 경계의 전체 상태와 누적 보고를 비교한다.
 
+브라우저 개발자 패널은 `import.meta.env.DEV` 분기 안에서만 동적 import한다. production graph에는 debug component·adapter·CSS·활성화 trigger가 없다. 진입 시 정상 `useGame` tree를 먼저 unmount해 writer를 해제한 다음 별도 commit에서 `bootstrapGame(..., 'reader')` snapshot의 메모리 복제본을 연다. 세션 marker는 sessionStorage read-back이 확인될 때만 유효하며, debug tree는 writer lock·autosave·pagehide save·가져오기 API를 참조하지 않는다. 실시간 배속은 실제 경과시간을 검증된 1x·10x·100x와 8시간 상한으로 환산하고, offline fixture는 순수 `debugSimulator`를 사용한다.
+
 ## 5. 저장과 복구
 
 - legacy 키: `emberwatch.save.v1`

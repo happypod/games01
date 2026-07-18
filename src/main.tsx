@@ -1,10 +1,23 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { App } from './App'
 import './styles.css'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+const root = createRoot(document.getElementById('root')!)
+
+if (import.meta.env.DEV) {
+  void import('./debug/DevEntry').then(({ DevEntry }) => {
+    root.render(
+      <StrictMode>
+        <DevEntry />
+      </StrictMode>,
+    )
+  })
+} else {
+  void import('./App').then(({ App }) => {
+    root.render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+  })
+}

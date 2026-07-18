@@ -15,7 +15,7 @@ IRPG-503·504·204·304·403·104·505·305는 Done이다. 현재 기준선은 C
 | 1A | IRPG-406 | Done | asset ID·규격·권리·fallback·초기 600 KiB·lazy-load 계약 |
 | 1B | IRPG-106 | Done | 승패·치명타·스킬·처치 UI가 소비할 결정론적 event snapshot |
 | 2A | IRPG-407 | Done | 플레이 화면 영웅 아렌 일러스트와 실패 fallback |
-| 2B | IRPG-507 | Ready | 정상 저장과 격리된 브라우저 UI fixture 조작 패널 |
+| 2B | IRPG-507 | Done | 정상 저장과 격리된 브라우저 UI fixture 조작 패널 |
 | 2C | IRPG-413 | Draft | 일반 적 5종·보스 3종 일러스트와 실패 fallback |
 | 3 | IRPG-506 | Draft | 기본 전투 screenshot harness와 CI artifact 계약 |
 | 4A | IRPG-408 | Draft | 3지역 맵과 roving keyboard 스테이지 탐색 |
@@ -27,7 +27,7 @@ IRPG-503·504·204·304·403·104·505·305는 Done이다. 현재 기준선은 C
 | 8 | IRPG-412 | Draft | pending 원정 선택 이벤트 일러스트 카드 UI |
 | 9 | IRPG-508 | Draft | 별도 7일 deterministic stress 회귀 |
 
-`1A`와 `1B`, `2A`~`2C`, `4A`~`4C`는 선행 조건이 충족되면 병렬로 진행할 수 있다. 다만 한 변경 묶음에서는 Ready 티켓 하나씩 Review → Verify → Test를 통과시킨다. 다음은 IRPG-507을 Ready로 정제해 구현한다.
+`1A`와 `1B`, `2A`~`2C`, `4A`~`4C`는 선행 조건이 충족되면 병렬로 진행할 수 있다. 다만 한 변경 묶음에서는 Ready 티켓 하나씩 Review → Verify → Test를 통과시킨다. 다음은 IRPG-413을 Ready로 정제해 일반 적·보스 일러스트 세트를 구현한다.
 
 IRPG-506은 IRPG-407·413·507 뒤에 기본 전투 harness를 먼저 완성한다. 이후 IRPG-408·409·410·411·412가 자기 화면의 360×800·1440×900·reduced-motion baseline을 해당 티켓 변경에서 추가하므로 “모든 화면 완료를 기다리는 테스트 티켓”이 되지 않는다.
 
