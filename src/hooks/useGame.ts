@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   advanceGame,
   createInitialState,
+  mergeCombatEventBatches,
   performPrestige,
   purchaseUpgrade,
   recruitCompanion as recruitCompanionCommand,
@@ -19,6 +20,8 @@ import {
 import { commitPortableSave, type SaveImportPreview } from '../game/saveTransfer'
 import type {
   AdvanceReport,
+  CombatEventBatch,
+  CombatEventCursor,
   CompanionId,
   CommandResult,
   GameState,
@@ -31,6 +34,12 @@ const AUTOSAVE_MS = 5_000
 const LOCK_RETRY_MS = 1_000
 const WRITER_LOCK_NAME = 'emberwatch.writer.v1'
 
+const createEmptyCombatEventBatch = (): CombatEventBatch => ({
+  nextCursor: '0',
+  totalEvents: 0,
+  events: [],
+})
+
 interface HeldWriterLock {
   owner: symbol
   release: () => void
@@ -39,6 +48,7 @@ interface HeldWriterLock {
 export interface GameController {
   state: GameState
   offlineReport: AdvanceReport | null
+  combatEventBatch: CombatEventBatch
   recoveredFromInvalidSave: boolean
   notice: string
   saveHealthy: boolean
@@ -67,6 +77,9 @@ export function useGame(): GameController {
   )
   const [state, setState] = useState<GameState>(initialBootstrap.state)
   const [offlineReport, setOfflineReport] = useState<AdvanceReport | null>(null)
+  const [combatEventBatch, setCombatEventBatch] = useState<CombatEventBatch>(
+    createEmptyCombatEventBatch,
+  )
   const [recoveredFromInvalidSave, setRecoveredFromInvalidSave] = useState(
     initialBootstrap.recoveredFromInvalidSave,
   )
@@ -85,15 +98,32 @@ export function useGame(): GameController {
   const writerOwnerRef = useRef<symbol | null>(null)
   const conflictBlockedRef = useRef(false)
   const heldLockRef = useRef<HeldWriterLock | null>(null)
+  const combatEventCursorRef = useRef<CombatEventCursor>('0')
+  const combatEventBatchRef = useRef<CombatEventBatch>(combatEventBatch)
 
   const commit = useCallback((next: GameState) => {
     stateRef.current = next
     setState(next)
   }, [])
 
+  const resetCombatEvents = useCallback(() => {
+    const empty = createEmptyCombatEventBatch()
+    combatEventCursorRef.current = empty.nextCursor
+    combatEventBatchRef.current = empty
+    setCombatEventBatch(empty)
+  }, [])
+
+  const recordCombatEvents = useCallback((batch: CombatEventBatch) => {
+    const merged = mergeCombatEventBatches(combatEventBatchRef.current, batch)
+    combatEventCursorRef.current = batch.nextCursor
+    combatEventBatchRef.current = merged
+    setCombatEventBatch(merged)
+  }, [])
+
   const applyBootstrap = useCallback(
     (bootstrap: BootstrapResult, role: 'writer' | 'reader') => {
       commit(bootstrap.state)
+      resetCombatEvents()
       revisionRef.current = bootstrap.revision
       saveBlockedRef.current = bootstrap.saveBlocked
       setOfflineReport(role === 'writer' ? bootstrap.offlineReport : null)
@@ -107,7 +137,7 @@ export function useGame(): GameController {
           : '다른 탭이 진행을 저장 중입니다. 이 탭은 읽기 전용입니다.',
       )
     },
-    [commit],
+    [commit, resetCombatEvents],
   )
 
   const stopWriting = useCallback(
@@ -279,7 +309,12 @@ export function useGame(): GameController {
     const reconcile = (now: number) => {
       const elapsedMs = Math.max(0, now - lastTickAt)
       lastTickAt = now
-      const result = advanceGame(stateRef.current, elapsedMs)
+      const result = advanceGame(
+        stateRef.current,
+        elapsedMs,
+        combatEventCursorRef.current,
+      )
+      recordCombatEvents(result)
       const next = { ...result.state, lastSavedAt: now }
       commit(next)
       return next
@@ -304,7 +339,7 @@ export function useGame(): GameController {
       window.removeEventListener('pagehide', persistBeforeLeaving)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [commit, persist, readOnly, ready])
+  }, [commit, persist, readOnly, ready, recordCombatEvents])
 
   const buyUpgrade = useCallback(
     (id: UpgradeId) => runCommand((current) => purchaseUpgrade(current, id)),
@@ -356,11 +391,12 @@ export function useGame(): GameController {
     revisionRef.current = second.revision
     saveBlockedRef.current = false
     commit(next)
+    resetCombatEvents()
     setOfflineReport(null)
     setRecoveredFromInvalidSave(false)
     setNotice('새 원정을 시작했습니다.')
     setSaveHealthy(true)
-  }, [commit, readOnly, ready, stopWriting])
+  }, [commit, readOnly, ready, resetCombatEvents, stopWriting])
 
   const restoreSave = useCallback(
     (preview: SaveImportPreview) => {
@@ -390,19 +426,21 @@ export function useGame(): GameController {
       revisionRef.current = imported.revision
       saveBlockedRef.current = false
       commit(imported.state)
+      resetCombatEvents()
       setOfflineReport(null)
       setRecoveredFromInvalidSave(false)
       setSaveHealthy(true)
       setNotice('백업 저장을 안전하게 가져왔습니다.')
       return { success: true, message: '백업 저장을 안전하게 가져왔습니다.' }
     },
-    [commit, readOnly, ready, stopWriting],
+    [commit, readOnly, ready, resetCombatEvents, stopWriting],
   )
   const dismissOfflineReport = useCallback(() => setOfflineReport(null), [])
 
   return {
     state,
     offlineReport,
+    combatEventBatch,
     recoveredFromInvalidSave,
     notice,
     saveHealthy,

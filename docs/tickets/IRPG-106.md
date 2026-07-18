@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Ready
+- Status: Done
 - Skill tags: ENG-STATE, ENG-SIM, QA-DOMAIN
 - Owner / Reviewer: Codex / independent engine reviewer
 
@@ -54,8 +54,12 @@
 
 ## Verification
 
-- event 순서·buffer 상한·summary 일치·분할 실행 결정론을 독립 리뷰한다.
+- `skill(10) → critical(20) → outcome(30)` 고정 순서, BigInt decimal cursor, draw 이후 RNG state 기반 ID와 발생 직후 snapshot을 독립 리뷰했다.
+- 보스 처치는 `kill`을 중복 발생시키지 않고 `bossVictory` 한 건만 만들며, 영웅·동료 마무리 모두 기존 공통 보상 분기만 사용하는 것을 확인했다.
+- 단일·분할 batch, 최근 100개 상한, MAX_SAFE 초과 cursor, hook 메모리 queue와 저장 비영속 계약을 검토한 결과 P0/P1/P2가 없었다.
 
 ## Test evidence
 
-- 예정: engine event 단위·장시간 overflow·MAX_SAFE cursor 교차 회귀와 전체 `npm run verify`
+- `npx vitest run src/game/combatEvents.test.ts src/game/persistence.test.ts src/hooks/useGame.test.tsx`: 3파일·49테스트 통과.
+- 권한 있는 Chromium 환경의 `npm run verify`: ESLint, strict TypeScript, Vitest 17파일·113테스트, asset validator 21테스트, manifest 27 ID, production build, Chromium 12/12와 production cold-load 2/2 통과.
+- 샌드박스 Chromium의 `spawn EPERM`은 권한 있는 동일 명령 재실행으로 환경 원인임을 분리했고, 코드·page·console 오류 없이 완료했다.

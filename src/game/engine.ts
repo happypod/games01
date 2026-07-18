@@ -29,12 +29,134 @@ import { SAVE_VERSION } from './types'
 import type {
   AdvanceReport,
   AdvanceResult,
+  CombatEvent,
+  CombatEventBatch,
+  CombatEventCursor,
+  CombatEventSnapshot,
   CompanionId,
   CommandResult,
   GameState,
   SkillId,
   UpgradeId,
 } from './types'
+
+export const MAX_COMBAT_EVENTS = 100
+
+const COMBAT_EVENT_ORDINAL = {
+  skill: 10,
+  critical: 20,
+  outcome: 30,
+} as const
+
+const COMBAT_EVENT_CURSOR_PATTERN = /^(0|[1-9]\d*)$/
+
+interface MutableCombatEventBatch {
+  totalEvents: number
+  events: CombatEvent[]
+}
+
+interface RoundEventContext {
+  roundSequence: CombatEventCursor
+  rngState: number
+  batch: MutableCombatEventBatch
+}
+
+function parseCombatEventCursor(cursor: CombatEventCursor): bigint {
+  if (!COMBAT_EVENT_CURSOR_PATTERN.test(cursor)) {
+    throw new RangeError('combat event cursor must be a canonical non-negative decimal string')
+  }
+  return BigInt(cursor)
+}
+
+function createCombatEventId(
+  roundSequence: CombatEventCursor,
+  rngState: number,
+  ordinal: number,
+  type: CombatEvent['type'],
+): string {
+  return `${roundSequence}:${rngState.toString(16).padStart(8, '0')}:${ordinal}:${type}`
+}
+
+function captureCombatEventSnapshot(state: GameState): CombatEventSnapshot {
+  return {
+    stage: state.battle.stage,
+    highestStage: state.battle.highestStage,
+    playerHp: Math.max(0, state.player.currentHp),
+    enemyHp: Math.max(0, state.battle.enemyHp),
+    gold: state.player.gold,
+    xp: state.player.xp,
+  }
+}
+
+function appendCombatEvent(batch: MutableCombatEventBatch, event: CombatEvent) {
+  batch.totalEvents = addSafeIntegers(batch.totalEvents, 1)
+  batch.events.push(event)
+  if (batch.events.length > MAX_COMBAT_EVENTS) {
+    batch.events.splice(0, batch.events.length - MAX_COMBAT_EVENTS)
+  }
+}
+
+function stableSerialize(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`
+  const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
+  return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${stableSerialize(entry)}`).join(',')}}`
+}
+
+function compareCombatEvents(left: CombatEvent, right: CombatEvent): number {
+  const roundComparison = parseCombatEventCursor(left.roundSequence) -
+    parseCombatEventCursor(right.roundSequence)
+  if (roundComparison !== 0n) return roundComparison < 0n ? -1 : 1
+  return left.ordinal - right.ordinal
+}
+
+function validateCombatEventBatch(batch: CombatEventBatch) {
+  const nextCursor = parseCombatEventCursor(batch.nextCursor)
+  if (!Number.isSafeInteger(batch.totalEvents) || batch.totalEvents < batch.events.length) {
+    throw new RangeError('combat event total must be a safe integer covering retained events')
+  }
+  for (const event of batch.events) {
+    const roundSequence = parseCombatEventCursor(event.roundSequence)
+    if (roundSequence > nextCursor) {
+      throw new RangeError('combat event round cannot exceed its batch cursor')
+    }
+  }
+}
+
+export function mergeCombatEventBatches(
+  left: CombatEventBatch,
+  right: CombatEventBatch,
+): CombatEventBatch {
+  validateCombatEventBatch(left)
+  validateCombatEventBatch(right)
+
+  const eventsById = new Map<string, CombatEvent>()
+  const idsByCoordinate = new Map<string, string>()
+  for (const event of [...left.events, ...right.events]) {
+    const coordinate = `${event.roundSequence}:${event.ordinal}`
+    const coordinateId = idsByCoordinate.get(coordinate)
+    if (coordinateId !== undefined && coordinateId !== event.id) {
+      throw new Error(`combat event coordinate collision at ${coordinate}`)
+    }
+
+    const duplicate = eventsById.get(event.id)
+    if (duplicate !== undefined && stableSerialize(duplicate) !== stableSerialize(event)) {
+      throw new Error(`combat event payload collision for ${event.id}`)
+    }
+
+    idsByCoordinate.set(coordinate, event.id)
+    if (duplicate === undefined) eventsById.set(event.id, event)
+  }
+
+  const events = [...eventsById.values()].sort(compareCombatEvents).slice(-MAX_COMBAT_EVENTS)
+  const leftCursor = parseCombatEventCursor(left.nextCursor)
+  const rightCursor = parseCombatEventCursor(right.nextCursor)
+  return {
+    nextCursor: (leftCursor > rightCursor ? leftCursor : rightCursor).toString(),
+    totalEvents: addSafeIntegers(left.totalEvents, right.totalEvents),
+    events,
+  }
+}
 
 const emptyReport = (elapsedMs: number): AdvanceReport => ({
   elapsedMs,
@@ -115,8 +237,13 @@ function grantExperience(state: GameState, amount: number, report: AdvanceReport
   }
 }
 
-function resolveEnemyDefeat(state: GameState, report: AdvanceReport) {
+function resolveEnemyDefeat(
+  state: GameState,
+  report: AdvanceReport,
+  eventContext: RoundEventContext,
+) {
   const enemy = getEnemyDefinition(state.battle.stage)
+  const defeatedStage = state.battle.stage
   let hero = getHeroStats(state)
   const gold = toSafeInteger(enemy.goldReward * hero.goldMultiplier, 1)
   state.player.gold = addSafeIntegers(state.player.gold, gold)
@@ -140,9 +267,34 @@ function resolveEnemyDefeat(state: GameState, report: AdvanceReport) {
     addSafeIntegers(state.player.currentHp, Math.round(hero.maxHp * 0.2)),
   )
   state.battle.enemyHp = getEnemyDefinition(state.battle.stage).maxHp
+
+  const type = enemy.isBoss ? 'bossVictory' : 'kill'
+  appendCombatEvent(eventContext.batch, {
+    id: createCombatEventId(
+      eventContext.roundSequence,
+      eventContext.rngState,
+      COMBAT_EVENT_ORDINAL.outcome,
+      type,
+    ),
+    type,
+    roundSequence: eventContext.roundSequence,
+    ordinal: COMBAT_EVENT_ORDINAL.outcome,
+    rngState: eventContext.rngState,
+    stage: defeatedStage,
+    defeatedStage,
+    nextStage: state.battle.stage,
+    gold,
+    xp: enemy.xpReward,
+    snapshot: captureCombatEventSnapshot(state),
+  })
 }
 
-function resolveRound(state: GameState, report: AdvanceReport) {
+function resolveRound(
+  state: GameState,
+  report: AdvanceReport,
+  roundSequence: CombatEventCursor,
+  batch: MutableCombatEventBatch,
+) {
   const enemy = getEnemyDefinition(state.battle.stage)
   const hero = getHeroStats(state)
   state.player.currentHp = Math.min(state.player.currentHp, hero.maxHp)
@@ -168,11 +320,54 @@ function resolveRound(state: GameState, report: AdvanceReport) {
   if (usesPowerStrike) state.battle.powerStrikeCooldownMs = 5_000
   if (isCritical) report.criticalHits = addSafeIntegers(report.criticalHits, 1)
 
+  const enemyHpBeforeHeroAttack = state.battle.enemyHp
   state.battle.enemyHp -= heroDamage
   report.rounds = addSafeIntegers(report.rounds, 1)
+  const appliedHeroDamage = Math.min(enemyHpBeforeHeroAttack, heroDamage)
+  const eventContext: RoundEventContext = {
+    roundSequence,
+    rngState: state.rng.state,
+    batch,
+  }
+
+  if (usesPowerStrike) {
+    appendCombatEvent(batch, {
+      id: createCombatEventId(
+        roundSequence,
+        eventContext.rngState,
+        COMBAT_EVENT_ORDINAL.skill,
+        'skill',
+      ),
+      type: 'skill',
+      roundSequence,
+      ordinal: COMBAT_EVENT_ORDINAL.skill,
+      rngState: eventContext.rngState,
+      stage: enemy.stage,
+      skillId: 'powerStrike',
+      damage: appliedHeroDamage,
+      snapshot: captureCombatEventSnapshot(state),
+    })
+  }
+  if (isCritical) {
+    appendCombatEvent(batch, {
+      id: createCombatEventId(
+        roundSequence,
+        eventContext.rngState,
+        COMBAT_EVENT_ORDINAL.critical,
+        'critical',
+      ),
+      type: 'critical',
+      roundSequence,
+      ordinal: COMBAT_EVENT_ORDINAL.critical,
+      rngState: eventContext.rngState,
+      stage: enemy.stage,
+      damage: appliedHeroDamage,
+      snapshot: captureCombatEventSnapshot(state),
+    })
+  }
 
   if (state.battle.enemyHp <= 0) {
-    resolveEnemyDefeat(state, report)
+    resolveEnemyDefeat(state, report, eventContext)
     return
   }
 
@@ -186,13 +381,15 @@ function resolveRound(state: GameState, report: AdvanceReport) {
   }
 
   if (state.battle.enemyHp <= 0) {
-    resolveEnemyDefeat(state, report)
+    resolveEnemyDefeat(state, report, eventContext)
     return
   }
 
   const enemyDamage = Math.max(1, enemy.attack - hero.defense)
+  const appliedEnemyDamage = Math.min(state.player.currentHp, enemyDamage)
   state.player.currentHp -= enemyDamage
   if (state.player.currentHp <= 0) {
+    const defeatedAtStage = state.battle.stage
     state.battle.defeats = addSafeIntegers(state.battle.defeats, 1)
     report.defeats = addSafeIntegers(report.defeats, 1)
     state.battle.stage = Math.max(1, state.battle.stage - 1)
@@ -200,10 +397,33 @@ function resolveRound(state: GameState, report: AdvanceReport) {
     state.player.currentHp = getHeroStats(state).maxHp
     state.battle.powerStrikeCooldownMs = 0
     state.battle.companionCooldownMs = 0
+    appendCombatEvent(batch, {
+      id: createCombatEventId(
+        roundSequence,
+        eventContext.rngState,
+        COMBAT_EVENT_ORDINAL.outcome,
+        'defeat',
+      ),
+      type: 'defeat',
+      roundSequence,
+      ordinal: COMBAT_EVENT_ORDINAL.outcome,
+      rngState: eventContext.rngState,
+      stage: defeatedAtStage,
+      damage: appliedEnemyDamage,
+      defeatedAtStage,
+      returnStage: state.battle.stage,
+      highestStage: state.battle.highestStage,
+      snapshot: captureCombatEventSnapshot(state),
+    })
   }
 }
 
-export function advanceGame(input: GameState, rawElapsedMs: number): AdvanceResult {
+export function advanceGame(
+  input: GameState,
+  rawElapsedMs: number,
+  startCursor: CombatEventCursor = '0',
+): AdvanceResult {
+  let cursor = parseCombatEventCursor(startCursor)
   const finiteElapsed = Number.isFinite(rawElapsedMs) ? Math.floor(rawElapsedMs) : 0
   const elapsedMs = Math.min(MAX_OFFLINE_MS, Math.max(0, finiteElapsed))
   const state = cloneState(input)
@@ -211,12 +431,20 @@ export function advanceGame(input: GameState, rawElapsedMs: number): AdvanceResu
   const accumulatedMs = state.battle.roundRemainderMs + elapsedMs
   const rounds = Math.floor(accumulatedMs / COMBAT_ROUND_MS)
   state.battle.roundRemainderMs = accumulatedMs % COMBAT_ROUND_MS
+  const eventBatch: MutableCombatEventBatch = { totalEvents: 0, events: [] }
 
   for (let index = 0; index < rounds; index += 1) {
-    resolveRound(state, report)
+    cursor += 1n
+    resolveRound(state, report, cursor.toString(), eventBatch)
   }
 
-  return { state, report }
+  return {
+    state,
+    report,
+    nextCursor: cursor.toString(),
+    totalEvents: eventBatch.totalEvents,
+    events: eventBatch.events,
+  }
 }
 
 export function purchaseUpgrade(input: GameState, id: UpgradeId): CommandResult {

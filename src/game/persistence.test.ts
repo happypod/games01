@@ -71,6 +71,34 @@ function withGold(timestamp: number, gold: number) {
 }
 
 describe('A/B game persistence', () => {
+  it('does not persist or replay the non-persistent combat event stream', () => {
+    const storage = new MemoryStorage()
+    const advanced = advanceGame(createInitialState(0, 1), 1_000, '99')
+
+    expect(advanced.events.length).toBeGreaterThan(0)
+    expect(saveGameAtRevision(storage, advanced.state, null)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+    })
+    const raw = storage.getItem(SAVE_SLOT_A_KEY)
+    expect(raw).not.toBeNull()
+    expect(raw).not.toContain('"events"')
+    expect(raw).not.toContain('"nextCursor"')
+
+    const reloaded = bootstrapGame(storage, 0, 'reader')
+    expect(reloaded.state).toEqual(advanced.state)
+    expect(reloaded.offlineReport).toBeNull()
+
+    const resumed = bootstrapGame(storage, 60_000, 'writer')
+    expect(resumed.offlineReport).toMatchObject({ elapsedMs: 60_000, rounds: 60 })
+    for (const key of SAVE_SLOT_KEYS) {
+      const envelope = storage.getItem(key)
+      if (envelope === null) continue
+      expect(envelope).not.toContain('"events"')
+      expect(envelope).not.toContain('"nextCursor"')
+    }
+  })
+
   it('alternates slots with monotonically increasing revisions', () => {
     const storage = new MemoryStorage()
     const first = withGold(100, 10)

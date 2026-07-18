@@ -92,6 +92,79 @@ export interface EnemyDefinition {
   xpReward: number
 }
 
+export type CombatEventCursor = string
+
+export interface CombatEventSnapshot {
+  readonly stage: number
+  readonly highestStage: number
+  readonly playerHp: number
+  readonly enemyHp: number
+  readonly gold: number
+  readonly xp: number
+}
+
+interface CombatEventBase {
+  readonly id: string
+  readonly roundSequence: CombatEventCursor
+  readonly ordinal: number
+  readonly rngState: number
+  readonly stage: number
+  readonly snapshot: CombatEventSnapshot
+}
+
+export interface SkillCombatEvent extends CombatEventBase {
+  readonly type: 'skill'
+  readonly ordinal: 10
+  readonly skillId: 'powerStrike'
+  readonly damage: number
+}
+
+export interface CriticalCombatEvent extends CombatEventBase {
+  readonly type: 'critical'
+  readonly ordinal: 20
+  readonly damage: number
+}
+
+export interface KillCombatEvent extends CombatEventBase {
+  readonly type: 'kill'
+  readonly ordinal: 30
+  readonly defeatedStage: number
+  readonly nextStage: number
+  readonly gold: number
+  readonly xp: number
+}
+
+export interface BossVictoryCombatEvent extends CombatEventBase {
+  readonly type: 'bossVictory'
+  readonly ordinal: 30
+  readonly defeatedStage: number
+  readonly nextStage: number
+  readonly gold: number
+  readonly xp: number
+}
+
+export interface DefeatCombatEvent extends CombatEventBase {
+  readonly type: 'defeat'
+  readonly ordinal: 30
+  readonly damage: number
+  readonly defeatedAtStage: number
+  readonly returnStage: number
+  readonly highestStage: number
+}
+
+export type CombatEvent =
+  | SkillCombatEvent
+  | CriticalCombatEvent
+  | KillCombatEvent
+  | BossVictoryCombatEvent
+  | DefeatCombatEvent
+
+export interface CombatEventBatch {
+  readonly nextCursor: CombatEventCursor
+  readonly totalEvents: number
+  readonly events: readonly CombatEvent[]
+}
+
 export interface AdvanceReport {
   elapsedMs: number
   rounds: number
@@ -106,7 +179,7 @@ export interface AdvanceReport {
   stagesGained: number
 }
 
-export interface AdvanceResult {
+export interface AdvanceResult extends CombatEventBatch {
   state: GameState
   report: AdvanceReport
 }

@@ -1,5 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createInitialState } from '../game/engine'
+import { createPortableSave, parsePortableSave } from '../game/saveTransfer'
 import { useGame } from './useGame'
 
 describe('useGame persistence safety', () => {
@@ -9,8 +11,59 @@ describe('useGame persistence safety', () => {
   })
 
   afterEach(() => {
+    Reflect.deleteProperty(navigator, 'locks')
     vi.useRealTimers()
     vi.restoreAllMocks()
+  })
+
+  it('keeps combat events in memory and resets them on import and new game', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const { result, rerender, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+
+    expect(result.current.readOnly).toBe(false)
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+
+    expect(result.current.combatEventBatch.nextCursor).toBe('1')
+    expect(result.current.combatEventBatch.totalEvents).toBeGreaterThan(0)
+    const firstBatch = result.current.combatEventBatch
+    rerender()
+    expect(result.current.combatEventBatch).toEqual(firstBatch)
+
+    const importedState = createInitialState(Date.now(), 0x1234_5678)
+    importedState.player.gold = 777
+    const parsed = parsePortableSave(createPortableSave(importedState, Date.now()) ?? '')
+    if (!parsed.success) throw new Error(parsed.message)
+    act(() => {
+      expect(result.current.restoreSave(parsed.preview).success).toBe(true)
+    })
+    expect(result.current.state.player.gold).toBe(777)
+    expect(result.current.combatEventBatch).toEqual({
+      nextCursor: '0',
+      totalEvents: 0,
+      events: [],
+    })
+
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+    expect(result.current.combatEventBatch.nextCursor).toBe('1')
+    act(() => result.current.reset())
+    expect(result.current.combatEventBatch).toEqual({
+      nextCursor: '0',
+      totalEvents: 0,
+      events: [],
+    })
+    unmount()
   })
 
   it('latches writes off after a bootstrap read error', async () => {
