@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Ready
+- Status: Test
 - Skill tags: QA-E2E, REL-CI, ART-DIR
 - Owner / Reviewer: Codex implementation / independent QA and art direction reviewers
 
@@ -62,10 +62,17 @@ CI image는 floating `ubuntu-latest`가 아니라 `ubuntu-24.04`, Chromium revis
 
 baseline은 `ubuntu-24.04` 전용 workflow dispatch에서 생성하고 같은 runner에서 3회 반복 비교한 artifact만 Review 뒤 체크인한다. Windows에서 생성한 이미지는 canonical baseline으로 승인하지 않는다. 승인 갱신은 ticket ID와 이유를 기록하고 `e2e/__screenshots__/irpg-506`의 관련 파일만 바꾼다.
 
+`npm run test:e2e:visual`의 canonical 비교는 Ubuntu GitHub Actions에서만 실행한다. 로컬 OS의 글리프 rasterization 차이는 승인 baseline을 다시 생성하는 근거가 아니며, 필요할 때만 `IRPG_FORCE_VISUAL_COMPARE=1`로 진단 비교한다. 전체 품질 게이트는 Ubuntu CI에서 16개 canonical baseline을 반드시 비교한다.
+
 ## Verification
 
-- fixture 재현성, pinned OS·Chromium·font·DPR, diff 한계, artifact retention과 승인 절차를 Review한다.
+- Review: fixture 적용은 접근 가능한 debug select·button만 사용하고 저장·도메인 API를 직접 호출하지 않는 것을 확인했다. 4개 fixture의 seed·재귀 key-sort state hash가 screenshot 전에 검증되며 fallback fixture는 hero·enemy 이미지 요청 실패 뒤에도 전투 UI를 유지한다.
+- Verify: `ubuntu-24.04`, lockfile Chromium, DPR 1, `ko-KR`, `Asia/Seoul`, dark scheme, 고정 시각·저장소 font와 `threshold 0.15`·`maxDiffPixelRatio 0.001` 계약을 config·harness·CI에서 대조했다. canonical ZIP SHA-256은 GitHub artifact digest `c755e81dfe91a02d75d84237f3b27393ca44d7acf02bc6d3afe3bfc85cfbc085`와 일치하고 PNG 16개가 모두 정상 decode되었다.
+- Test: Ubuntu baseline 생성 16/16, 같은 runner 3회 반복 48/48, 같은 커밋의 push·PR quality-gate가 모두 통과했다. 실패 시 Playwright report·results와 canonical baseline을 artifact로 업로드한다.
 
 ## Test evidence
 
-- 예정: named fixture hash, local repeat 3회 안정성, pinned CI screenshot matrix와 expected·actual·diff artifact link
+- [visual-baseline run 29644349679](https://github.com/happypod/games01/actions/runs/29644349679): canonical 생성 16/16, 3회 반복 안정성 48/48, artifact `irpg-506-ubuntu-baselines` ID `8429595817`.
+- [quality-gate push run 29644349663](https://github.com/happypod/games01/actions/runs/29644349663)와 [PR run 29644350379](https://github.com/happypod/games01/actions/runs/29644350379): commit `c254cbf` 성공.
+- 최종 로컬 `npm run verify`: Vitest 21파일·130/130, manifest validator 21/21, 일반 Playwright 17/17, production 자산 Playwright 3/3, lint·typecheck·build 통과.
+- Windows 강제 진단 비교는 Ubuntu와 글리프 rasterization 차이 2%를 확인했으며 canonical을 덮어쓰지 않았다. 기본 로컬 `npm run verify`는 이 OS 전용 비교만 건너뛰고, GitHub Actions의 Ubuntu CI는 비교를 강제한다.
