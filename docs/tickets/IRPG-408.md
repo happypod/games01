@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Test
+- Status: Done
 - Skill tags: ART-2D, FE-GAME, ENG-DATA, UX-FEEDBACK
 - Owner / Reviewer: Codex implementation / independent frontend, accessibility, and art direction reviewers
 
@@ -82,5 +82,6 @@
 - `npx playwright test e2e/stage-map.spec.ts`: 360px·200%·잠김 click/Enter/Space·tab/roving/Page 키·corrupt WebP fallback·자동 전투 focus 불변 6/6 통과.
 - `CI=1 npm run test:e2e`: GitHub Actions와 같은 Chromium 1 worker 설정에서 기존 저장·전투·동료·접근성 회귀를 포함한 23/23 통과. 다중 탭 writer 2회 인계도 독립 반복 3/3을 추가 확인했다.
 - `npm run test:e2e:assets`: production bundle에서 disclosure 전 region 요청 0, 연 뒤 활성 region 1개만 요청하는 cold-load를 포함해 3/3 통과.
-- 로컬 비정식 `test:e2e:visual:update`: 최종 자산과 16:9 frame으로 5 fixture × 4 variant = 20/20 생성·육안 승인. Ubuntu canonical 20개 체크인과 최종 push/PR 품질 게이트는 진행 중이다.
+- 로컬 비정식 `test:e2e:visual:update`: 최종 자산과 16:9 frame으로 5 fixture × 4 variant = 20/20 생성·육안 승인.
 - Ubuntu `visual-baseline` [run 29647504790](https://github.com/happypod/games01/actions/runs/29647504790)은 canonical 20개 생성과 3회 반복 60/60을 통과하고 artifact `8430495237`을 업로드했다. artifact의 PNG 20개를 SHA-256으로 복사 검증했고 지도 4개를 360px·1440px × default·reduced motion에서 육안 승인해 canonical 디렉터리에 반영했다.
+- canonical commit `22d3c2d`에서 [push quality-gate 29647780037](https://github.com/happypod/games01/actions/runs/29647780037), [pull_request quality-gate 29647780976](https://github.com/happypod/games01/actions/runs/29647780976), [visual-baseline 29647780007](https://github.com/happypod/games01/actions/runs/29647780007)이 모두 성공했다. 두 품질 게이트는 Ubuntu canonical 20/20 비교를 포함하고 visual workflow는 같은 20개를 3회 반복해 60/60을 재확인했다.
