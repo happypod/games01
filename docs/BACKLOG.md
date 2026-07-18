@@ -56,7 +56,7 @@
 | IRPG-503 | CI 릴리스 게이트 | P0 | Done | 003,501 | REL-CI | push와 PR에서 설치·검증·빌드가 통과하고 원격 증거가 남는다. |
 | IRPG-504 | Playwright 전체 흐름 | P1 | Done | 402,503 | QA-E2E | 신규→강화→재접속→오프라인 결과를 실제 브라우저로 완료한다. |
 | IRPG-505 | 배속 디버그·24시간 soak | P1 | Done | 104,204 | QA-DOMAIN, PLAYTEST | 1x/10x/100x와 상태 snapshot으로 장시간 이상을 탐지한다. |
-| IRPG-506 | 시각 브라우저 회귀 게이트 | P1 | Test | 403,504,406,407,413,507 | QA-E2E, REL-CI, ART-DIR | 기본 전투 시각 상태의 screenshot harness를 만들고 후속 UI가 baseline을 확장한다. |
+| IRPG-506 | 시각 브라우저 회귀 게이트 | P1 | Done | 403,504,406,407,413,507 | QA-E2E, REL-CI, ART-DIR | 기본 전투 시각 상태의 screenshot harness를 만들고 후속 UI가 baseline을 확장한다. |
 | IRPG-507 | 브라우저 개발자 디버그 패널 | P2 | Done | 403,505 | FE-GAME, QA-DOMAIN | 개발 모드에서 배속·stage·자원·오프라인 시간을 저장과 격리해 조절한다. |
 | IRPG-508 | 7일 장기 stress 회귀 | P2 | Draft | 505 | ENG-SIM, QA-DOMAIN | 7일 가속에서 숫자·정체·snapshot 크기 회귀를 고정 fixture로 탐지한다. |
 | IRPG-601 | 계정·클라우드 저장 ADR | P2 | Blocked | 온라인 요구 확정 | ENG-SAVE, PROD-LOOP | 서버 권위와 충돌 정책이 제품 요구와 함께 승인된다. |

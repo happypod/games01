@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Test
+- Status: Done
 - Skill tags: QA-E2E, REL-CI, ART-DIR
 - Owner / Reviewer: Codex implementation / independent QA and art direction reviewers
 
@@ -72,7 +72,7 @@ baseline은 `ubuntu-24.04` 전용 workflow dispatch에서 생성하고 같은 ru
 
 ## Test evidence
 
-- [visual-baseline run 29644349679](https://github.com/happypod/games01/actions/runs/29644349679): canonical 생성 16/16, 3회 반복 안정성 48/48, artifact `irpg-506-ubuntu-baselines` ID `8429595817`.
-- [quality-gate push run 29644349663](https://github.com/happypod/games01/actions/runs/29644349663)와 [PR run 29644350379](https://github.com/happypod/games01/actions/runs/29644350379): commit `c254cbf` 성공.
+- 최종 commit `2667f86`: [visual-baseline run 29644940564](https://github.com/happypod/games01/actions/runs/29644940564)의 canonical 생성·3회 반복·artifact 업로드 단계가 모두 성공했다. artifact `irpg-506-ubuntu-baselines` ID는 `8429771122`다.
+- 같은 최종 커밋의 [quality-gate push run 29644940565](https://github.com/happypod/games01/actions/runs/29644940565)와 [PR run 29644941794](https://github.com/happypod/games01/actions/runs/29644941794)가 모두 성공해 체크인된 16개 baseline 비교를 포함한 전체 `npm run verify`를 통과했다.
 - 최종 로컬 `npm run verify`: Vitest 21파일·130/130, manifest validator 21/21, 일반 Playwright 17/17, production 자산 Playwright 3/3, lint·typecheck·build 통과.
 - Windows 강제 진단 비교는 Ubuntu와 글리프 rasterization 차이 2%를 확인했으며 canonical을 덮어쓰지 않았다. 기본 로컬 `npm run verify`는 이 OS 전용 비교만 건너뛰고, GitHub Actions의 Ubuntu CI는 비교를 강제한다.
