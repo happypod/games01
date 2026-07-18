@@ -29,6 +29,7 @@
 - IRPG-202 스킬 성장
 - IRPG-403 접근성 기준선
 - IRPG-406 asset manifest
+- IRPG-506 visual regression harness
 
 ## Impacts
 

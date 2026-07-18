@@ -31,7 +31,7 @@
 - IRPG-207 보스 최초 승리 보상 계약
 - IRPG-403 접근성 기준선
 - IRPG-406 asset manifest
-- IRPG-407 character and boss art
+- IRPG-413 enemy and boss art
 - IRPG-506 visual regression harness
 
 ## Impacts

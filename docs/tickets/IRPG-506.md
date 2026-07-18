@@ -31,7 +31,8 @@
 - IRPG-403 접근성 기준선
 - IRPG-504 Playwright 전체 흐름
 - IRPG-406 asset manifest
-- IRPG-407 character and combat art
+- IRPG-407 hero character art
+- IRPG-413 enemy and boss art
 - IRPG-507 browser debug panel
 
 ## Impacts
