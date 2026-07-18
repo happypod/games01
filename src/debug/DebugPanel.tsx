@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { DEBUG_SPEEDS, type DebugSpeed } from '../game/debugSimulator'
 import type { GameState } from '../game/types'
+import {
+  VISUAL_FIXTURE_IDS,
+  VISUAL_FIXTURE_REGISTRY,
+  type VisualFixtureId,
+} from './visualFixtures'
 
 interface DebugPanelProps {
   state: GameState
@@ -11,6 +16,9 @@ interface DebugPanelProps {
   onApplyOffline: (minutes: number) => void
   onReset: () => void
   onExit: () => void
+  activeVisualFixtureId?: VisualFixtureId | null
+  visualFixtureHash?: string
+  onApplyVisualFixture?: (id: VisualFixtureId) => void
 }
 
 interface PanelMessage {
@@ -38,12 +46,18 @@ export function DebugPanel({
   onApplyOffline,
   onReset,
   onExit,
+  activeVisualFixtureId = null,
+  visualFixtureHash,
+  onApplyVisualFixture,
 }: DebugPanelProps) {
   const [stage, setStage] = useState(String(state.battle.stage))
   const [gold, setGold] = useState(String(state.player.gold))
   const [skillPoints, setSkillPoints] = useState(String(state.player.skillPoints))
   const [essence, setEssence] = useState(String(state.player.essence))
   const [offlineMinutes, setOfflineMinutes] = useState('0')
+  const [visualFixtureId, setVisualFixtureId] = useState<VisualFixtureId>(
+    activeVisualFixtureId ?? VISUAL_FIXTURE_IDS[0],
+  )
   const [message, setMessage] = useState<PanelMessage>({
     kind: 'status',
     text: '저장과 격리된 디버그 세션입니다.',
@@ -86,6 +100,16 @@ export function DebugPanel({
     )
   }
 
+  const submitVisualFixture = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!onApplyVisualFixture) return
+    const definition = VISUAL_FIXTURE_REGISTRY[visualFixtureId]
+    attempt(
+      () => onApplyVisualFixture(visualFixtureId),
+      `${definition.label} fixture를 적용했습니다.`,
+    )
+  }
+
   const resetSession = () => {
     if (!window.confirm('모든 디버그 변경을 버리고 저장된 기준 상태로 돌아갈까요?')) return
     onReset()
@@ -116,6 +140,18 @@ export function DebugPanel({
         <span>골드 <strong>{state.player.gold}</strong></span>
         <span>SP <strong>{state.player.skillPoints}</strong></span>
         <span>정수 <strong>{state.player.essence}</strong></span>
+        {activeVisualFixtureId && (
+          <span>
+            시각 fixture{' '}
+            <strong data-testid="visual-fixture-id">{activeVisualFixtureId}</strong>
+          </span>
+        )}
+        {visualFixtureHash && (
+          <span>
+            canonical hash{' '}
+            <strong data-testid="visual-fixture-hash">{visualFixtureHash}</strong>
+          </span>
+        )}
       </div>
 
       <div className="debug-panel__grid">
@@ -145,6 +181,23 @@ export function DebugPanel({
           <div className="debug-input-action">
             <input id="debug-stage" name="stage" type="text" inputMode="numeric" value={stage} onChange={(event) => setStage(event.target.value)} />
             <button type="submit">이동</button>
+          </div>
+        </form>
+
+        <form onSubmit={submitVisualFixture}>
+          <label htmlFor="debug-visual-fixture">시각 회귀 fixture</label>
+          <div className="debug-input-action">
+            <select
+              id="debug-visual-fixture"
+              name="visualFixture"
+              value={visualFixtureId}
+              onChange={(event) => setVisualFixtureId(event.target.value as VisualFixtureId)}
+            >
+              {VISUAL_FIXTURE_IDS.map((id) => (
+                <option key={id} value={id}>{VISUAL_FIXTURE_REGISTRY[id].label}</option>
+              ))}
+            </select>
+            <button type="submit" disabled={!onApplyVisualFixture}>fixture 적용</button>
           </div>
         </form>
 

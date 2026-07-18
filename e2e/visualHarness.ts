@@ -1,0 +1,168 @@
+import { expect, type BrowserContext, type Locator, type Page, type TestInfo } from '@playwright/test'
+import {
+  VISUAL_FIXTURE_NOW,
+  type VisualFixtureDefinition,
+  type VisualFixtureVariant,
+} from '../src/debug/visualFixtures'
+
+interface BrowserErrors {
+  readonly console: string[]
+  readonly page: string[]
+}
+
+export function observeBrowserErrors(page: Page): BrowserErrors {
+  const errors: BrowserErrors = { console: [], page: [] }
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.console.push(message.text())
+  })
+  page.on('pageerror', (error) => errors.page.push(error.message))
+  return errors
+}
+
+async function installFailureRoute(page: Page, fixture: VisualFixtureDefinition) {
+  if (fixture.failureRoute !== 'hero-and-enemy-corrupt') return
+  await page.route(/\/(?:ashen-knight-default|ash-slime)[^/]*\.webp(?:\?.*)?$/, async (route) => {
+    if (route.request().resourceType() !== 'image') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({ status: 200, contentType: 'image/webp', body: 'irpg-506-corrupt' })
+  })
+}
+
+async function enterDebugSession(page: Page) {
+  await page.goto('/')
+  await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
+  page.once('dialog', (dialog) => void dialog.accept())
+  await page.getByRole('button', { name: '개발자 패널' }).click()
+  await expect(page.getByTestId('debug-panel')).toBeVisible()
+  await expect(page.getByTestId('debug-save-isolation-status')).toHaveText(
+    '● DEBUG · 저장 격리',
+  )
+}
+
+async function waitForVisualResources(page: Page, target: Locator) {
+  await page.waitForFunction(async () => {
+    await document.fonts.ready
+    return document.fonts.check('16px "Emberwatch Sans"', '한글 Emberwatch 123')
+  })
+
+  await expect.poll(async () => target.locator('img').evaluateAll((images) =>
+    images.every((element) => {
+      const image = element as HTMLImageElement
+      return image.complete && image.naturalWidth > 0 && image.naturalHeight > 0
+    }),
+  )).toBe(true)
+}
+
+export async function openVisualFixture(
+  context: BrowserContext,
+  page: Page,
+  fixture: VisualFixtureDefinition,
+  variant: VisualFixtureVariant,
+  testInfo: TestInfo,
+): Promise<Locator> {
+  await context.clock.setFixedTime(new Date(VISUAL_FIXTURE_NOW))
+  await page.setViewportSize(variant.viewport)
+  await page.emulateMedia({
+    colorScheme: variant.colorScheme,
+    reducedMotion: variant.motion === 'reduced' ? 'reduce' : 'no-preference',
+  })
+  await installFailureRoute(page, fixture)
+  await enterDebugSession(page)
+
+  const panel = page.getByTestId('debug-panel')
+  await panel.getByLabel('시각 회귀 fixture').selectOption(fixture.id)
+  await panel.getByRole('button', { name: 'fixture 적용' }).click()
+
+  const root = page.getByTestId('visual-fixture-root')
+  await expect(root).toHaveAttribute('data-visual-fixture-id', fixture.id)
+  await expect(root).toHaveAttribute('data-canonical-state-hash', fixture.canonicalHash)
+  await expect(root).toHaveAttribute(
+    'data-expected-canonical-state-hash',
+    fixture.canonicalHash,
+  )
+
+  const target = page.locator(fixture.captureTarget)
+  await expect(target).toBeVisible()
+  if (fixture.failureRoute === 'hero-and-enemy-corrupt') {
+    for (const selector of ['.hero-portrait', '.enemy-portrait__asset']) {
+      await expect(page.locator(selector)).toHaveAttribute('data-state', 'fallback')
+      await expect(page.locator(selector)).toHaveAttribute(
+        'data-resolved-asset-id',
+        'fallback.character',
+      )
+    }
+  }
+  await waitForVisualResources(page, target)
+
+  await testInfo.attach('visual-fixture-metadata.json', {
+    body: JSON.stringify({
+      fixtureId: fixture.id,
+      ownerTicket: fixture.ownerTicket,
+      seedKey: fixture.seedKey,
+      canonicalHash: fixture.canonicalHash,
+      captureTarget: fixture.captureTarget,
+      failureRoute: fixture.failureRoute,
+      variant,
+    }, null, 2),
+    contentType: 'application/json',
+  })
+  return target
+}
+
+export async function verifyResponsiveVisualSurface(
+  page: Page,
+  target: Locator,
+  variant: VisualFixtureVariant,
+) {
+  const geometry = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }))
+  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
+  expect(geometry.clientWidth).toBe(geometry.viewportWidth)
+
+  const clippedCommands = await target.getByRole('button').evaluateAll((buttons) =>
+    buttons
+      .filter((button) => {
+        const style = getComputedStyle(button)
+        return style.display !== 'none' && style.visibility !== 'hidden'
+      })
+      .map((button) => {
+        const rect = button.getBoundingClientRect()
+        return {
+          label: button.getAttribute('aria-label') ?? button.textContent?.trim() ?? '',
+          left: rect.left,
+          right: rect.right,
+          width: rect.width,
+          height: rect.height,
+        }
+      })
+      .filter((rect) => rect.left < 0 || rect.right > window.innerWidth || rect.width <= 0 || rect.height <= 0),
+  )
+  expect(clippedCommands).toEqual([])
+
+  if (variant.motion === 'reduced') {
+    const movingElements = await target.evaluate((element) =>
+      [element, ...element.querySelectorAll('*')]
+        .map((node) => {
+          const html = node as HTMLElement
+          const style = getComputedStyle(html)
+          return {
+            tag: html.tagName,
+            className: html.className,
+            animationName: style.animationName,
+            animationDuration: style.animationDuration,
+            transitionDuration: style.transitionDuration,
+          }
+        })
+        .filter((item) =>
+          (item.animationName !== 'none' && item.animationDuration !== '0s') ||
+          item.transitionDuration.split(',').some((duration) => duration.trim() !== '0s'),
+        ),
+    )
+    expect(movingElements).toEqual([])
+  }
+}

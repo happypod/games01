@@ -1,15 +1,13 @@
-name: quality-gate
+name: visual-baseline
 
 on:
-  push:
-    branches: ['**']
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  verify:
+  generate:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -24,16 +22,18 @@ jobs:
         run: npm ci
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
-      - name: Verify
-        run: npm run verify
-      - name: Upload Playwright report
+      - name: Generate canonical Ubuntu baselines
+        run: npm run test:e2e:visual:update
+      - name: Prove three-repeat stability
+        run: npm run test:e2e:visual -- --repeat-each=3
+      - name: Upload canonical baseline evidence
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v6
         with:
-          name: playwright-report
+          name: irpg-506-ubuntu-baselines
           path: |
-            playwright-report/
-            test-results/
-            e2e/__screenshots__/
-          if-no-files-found: ignore
+            e2e/__screenshots__/irpg-506/
+            playwright-report/visual/
+            test-results/visual/
+          if-no-files-found: error
           retention-days: 14

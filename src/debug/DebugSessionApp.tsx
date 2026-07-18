@@ -29,6 +29,12 @@ import {
   setDebugStage,
   type DebugSpeed,
 } from './debugSession'
+import {
+  createVisualFixtureState,
+  hashVisualGameState,
+  VISUAL_FIXTURE_REGISTRY,
+  type VisualFixtureId,
+} from './visualFixtures'
 
 const DEBUG_TICK_MS = 250
 
@@ -56,6 +62,7 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
   const [offlineReport, setOfflineReport] = useState<AdvanceReport | null>(null)
   const [combatEventBatch, setCombatEventBatch] = useState<CombatEventBatch>(emptyCombatEvents)
   const [panelRevision, setPanelRevision] = useState(0)
+  const [activeVisualFixtureId, setActiveVisualFixtureId] = useState<VisualFixtureId | null>(null)
   const stateRef = useRef(state)
   const eventCursorRef = useRef<CombatEventCursor>('0')
   const lastTickAtRef = useRef(0)
@@ -63,6 +70,7 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
   const commit = useCallback((next: GameState) => {
     stateRef.current = next
     setState(next)
+    setActiveVisualFixtureId(null)
   }, [])
 
   const runCommand = useCallback((command: (input: GameState) => CommandResult) => {
@@ -124,9 +132,25 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
 
   const changeSpeed = useCallback((value: DebugSpeed) => {
     const validated = requireDebugSpeed(value)
+    setActiveVisualFixtureId(null)
     setSpeed(validated)
     setNotice(`${validated}x 실시간 배속을 적용했습니다.`)
   }, [])
+
+  const applyVisualFixture = useCallback((id: VisualFixtureId) => {
+    const next = createVisualFixtureState(id)
+    const definition = VISUAL_FIXTURE_REGISTRY[id]
+    commit(next)
+    eventCursorRef.current = '0'
+    setCombatEventBatch(emptyCombatEvents())
+    setOfflineReport(null)
+    setSpeed(1)
+    setPanelRevision((current) => current + 1)
+    setActiveVisualFixtureId(id)
+    setNotice(`${definition.label} fixture를 적용했습니다.`)
+  }, [commit])
+
+  const visualFixtureHash = hashVisualGameState(state)
 
   const controller: GameController = {
     state,
@@ -153,33 +177,47 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
   }
 
   return (
-    <GameScreen
-      game={controller}
-      statusOverride={{
-        text: '● DEBUG · 저장 격리',
-        testId: 'debug-save-isolation-status',
-      }}
-      resetCopy={{
-        label: '세션 초기화',
-        confirmation: '디버그 변경을 버리고 저장된 기준 상태로 돌아갈까요?',
-      }}
-      informationBanner="이 화면의 진행은 메모리에만 존재하며 정상 A/B 저장에 기록되지 않습니다."
-      showReadOnlyWarning={false}
-      showSaveTransfer={false}
-      footerSuffix=" · DEBUG"
-      developerTools={(
-        <DebugPanel
-          key={panelRevision}
-          state={state}
-          speed={speed}
-          onSpeedChange={changeSpeed}
-          onSetStage={setStage}
-          onSetResources={setResources}
-          onApplyOffline={applyOffline}
-          onReset={reset}
-          onExit={onExit}
-        />
-      )}
-    />
+    <div
+      data-testid="visual-fixture-root"
+      data-visual-fixture-id={activeVisualFixtureId ?? undefined}
+      data-canonical-state-hash={visualFixtureHash}
+      data-expected-canonical-state-hash={
+        activeVisualFixtureId
+          ? VISUAL_FIXTURE_REGISTRY[activeVisualFixtureId].canonicalHash
+          : undefined
+      }
+    >
+      <GameScreen
+        game={controller}
+        statusOverride={{
+          text: '● DEBUG · 저장 격리',
+          testId: 'debug-save-isolation-status',
+        }}
+        resetCopy={{
+          label: '세션 초기화',
+          confirmation: '디버그 변경을 버리고 저장된 기준 상태로 돌아갈까요?',
+        }}
+        informationBanner="이 화면의 진행은 메모리에만 존재하며 정상 A/B 저장에 기록되지 않습니다."
+        showReadOnlyWarning={false}
+        showSaveTransfer={false}
+        footerSuffix=" · DEBUG"
+        developerTools={(
+          <DebugPanel
+            key={panelRevision}
+            state={state}
+            speed={speed}
+            activeVisualFixtureId={activeVisualFixtureId}
+            visualFixtureHash={visualFixtureHash}
+            onSpeedChange={changeSpeed}
+            onSetStage={setStage}
+            onSetResources={setResources}
+            onApplyOffline={applyOffline}
+            onApplyVisualFixture={applyVisualFixture}
+            onReset={reset}
+            onExit={onExit}
+          />
+        )}
+      />
+    </div>
   )
 }
