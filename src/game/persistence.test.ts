@@ -484,6 +484,26 @@ describe('A/B game persistence', () => {
     }
   })
 
+  it('normalizes an oversized saved power-strike cooldown at decode and bootstrap', () => {
+    const state = createInitialState(100)
+    state.battle.powerStrikeCooldownMs = Number.MAX_SAFE_INTEGER
+    expect(parseSave(JSON.stringify(state))?.battle.powerStrikeCooldownMs).toBe(5_000)
+
+    const storage = new MemoryStorage()
+    storage.setItem(
+      SAVE_SLOT_A_KEY,
+      JSON.stringify({
+        formatVersion: SAVE_FORMAT_VERSION,
+        revision: 1,
+        savedAt: state.lastSavedAt,
+        state,
+      }),
+    )
+    const loaded = bootstrapGame(storage, state.lastSavedAt, 'reader')
+    expect(loaded.state.battle.powerStrikeCooldownMs).toBe(5_000)
+    expect(loaded.saveHealthy).toBe(true)
+  })
+
   it('clears legacy and both A/B slots', () => {
     const storage = new MemoryStorage()
     storage.setItem(LEGACY_SAVE_KEY, JSON.stringify(legacySaveV1))

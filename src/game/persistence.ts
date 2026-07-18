@@ -149,6 +149,7 @@ function normalizeGameState(value: GameState): GameState {
   const enemy = getEnemyDefinition(state.battle.stage)
   state.battle.enemyHp = Math.min(enemy.maxHp, Math.max(1, state.battle.enemyHp))
   state.battle.roundRemainderMs = Math.min(999, state.battle.roundRemainderMs)
+  state.battle.powerStrikeCooldownMs = Math.min(5_000, state.battle.powerStrikeCooldownMs)
   state.player.level = Math.min(999, state.player.level)
   for (const id of UPGRADE_IDS) {
     state.player.upgrades[id] = Math.min(

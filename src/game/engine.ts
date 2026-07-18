@@ -10,12 +10,14 @@ import {
   getEnemyDefinition,
 } from './content'
 import {
+  addSafeIntegers,
   getHeroStats,
   getPrestigeReward,
   getSkillPointCost,
   getUpgradeCost,
   getXpToNextLevel,
   isSkillUnlocked,
+  toSafeInteger,
 } from './formulas'
 import { createRngState, nextRandom, seedFromText } from './rng'
 import { SAVE_VERSION } from './types'
@@ -89,15 +91,15 @@ export function createInitialState(
 }
 
 function grantExperience(state: GameState, amount: number, report: AdvanceReport) {
-  state.player.xp += amount
-  report.xpEarned += amount
+  state.player.xp = addSafeIntegers(state.player.xp, amount)
+  report.xpEarned = addSafeIntegers(report.xpEarned, amount)
 
   let xpRequired = getXpToNextLevel(state.player.level)
   while (state.player.xp >= xpRequired && state.player.level < 999) {
     state.player.xp -= xpRequired
     state.player.level += 1
-    state.player.skillPoints += 1
-    report.levelsGained += 1
+    state.player.skillPoints = addSafeIntegers(state.player.skillPoints, 1)
+    report.levelsGained = addSafeIntegers(report.levelsGained, 1)
     xpRequired = getXpToNextLevel(state.player.level)
   }
 }
@@ -116,39 +118,39 @@ function resolveRound(state: GameState, report: AdvanceReport) {
   const draw = nextRandom(state.rng)
   state.rng = draw.rng
   const isCritical = draw.value < CRITICAL_CHANCE
-  const heroDamage = Math.max(
+  const heroDamage = toSafeInteger(
+    hero.attack *
+      (usesPowerStrike ? hero.powerStrikeMultiplier : 1) *
+      (isCritical ? CRITICAL_DAMAGE_MULTIPLIER : 1),
     1,
-    Math.round(
-      hero.attack *
-        (usesPowerStrike ? hero.powerStrikeMultiplier : 1) *
-        (isCritical ? CRITICAL_DAMAGE_MULTIPLIER : 1),
-    ),
   )
   if (usesPowerStrike) state.battle.powerStrikeCooldownMs = 5_000
-  if (isCritical) report.criticalHits += 1
+  if (isCritical) report.criticalHits = addSafeIntegers(report.criticalHits, 1)
 
   state.battle.enemyHp -= heroDamage
-  report.rounds += 1
+  report.rounds = addSafeIntegers(report.rounds, 1)
 
   if (state.battle.enemyHp <= 0) {
-    const gold = Math.max(1, Math.round(enemy.goldReward * hero.goldMultiplier))
-    state.player.gold = Math.min(Number.MAX_SAFE_INTEGER, state.player.gold + gold)
-    state.stats.goldEarned = Math.min(Number.MAX_SAFE_INTEGER, state.stats.goldEarned + gold)
-    state.battle.kills += 1
-    state.stats.enemiesDefeated += 1
-    report.kills += 1
-    report.goldEarned += gold
+    const gold = toSafeInteger(enemy.goldReward * hero.goldMultiplier, 1)
+    state.player.gold = addSafeIntegers(state.player.gold, gold)
+    state.stats.goldEarned = addSafeIntegers(state.stats.goldEarned, gold)
+    state.battle.kills = addSafeIntegers(state.battle.kills, 1)
+    state.stats.enemiesDefeated = addSafeIntegers(state.stats.enemiesDefeated, 1)
+    report.kills = addSafeIntegers(report.kills, 1)
+    report.goldEarned = addSafeIntegers(report.goldEarned, gold)
     grantExperience(state, enemy.xpReward, report)
 
     const previousStage = state.battle.stage
     state.battle.stage = Math.min(MAX_STAGE, state.battle.stage + 1)
     state.battle.highestStage = Math.max(state.battle.highestStage, state.battle.stage)
-    if (state.battle.stage > previousStage) report.stagesGained += 1
+    if (state.battle.stage > previousStage) {
+      report.stagesGained = addSafeIntegers(report.stagesGained, 1)
+    }
 
     hero = getHeroStats(state)
     state.player.currentHp = Math.min(
       hero.maxHp,
-      state.player.currentHp + Math.round(hero.maxHp * 0.2),
+      addSafeIntegers(state.player.currentHp, Math.round(hero.maxHp * 0.2)),
     )
     state.battle.enemyHp = getEnemyDefinition(state.battle.stage).maxHp
     return
@@ -157,8 +159,8 @@ function resolveRound(state: GameState, report: AdvanceReport) {
   const enemyDamage = Math.max(1, enemy.attack - hero.defense)
   state.player.currentHp -= enemyDamage
   if (state.player.currentHp <= 0) {
-    state.battle.defeats += 1
-    report.defeats += 1
+    state.battle.defeats = addSafeIntegers(state.battle.defeats, 1)
+    report.defeats = addSafeIntegers(report.defeats, 1)
     state.battle.stage = Math.max(1, state.battle.stage - 1)
     state.battle.enemyHp = getEnemyDefinition(state.battle.stage).maxHp
     state.player.currentHp = getHeroStats(state).maxHp
@@ -260,12 +262,12 @@ export function performPrestige(input: GameState): CommandResult {
   const reward = getPrestigeReward(input.battle.highestStage)
   const state = createInitialState(input.lastSavedAt)
   state.rng = { ...input.rng }
-  state.player.essence = input.player.essence + reward
+  state.player.essence = addSafeIntegers(input.player.essence, reward)
   state.player.currentHp = getHeroStats(state).maxHp
   state.stats = {
     goldEarned: input.stats.goldEarned,
     enemiesDefeated: input.stats.enemiesDefeated,
-    prestiges: input.stats.prestiges + 1,
+    prestiges: addSafeIntegers(input.stats.prestiges, 1),
   }
   return { state, success: true, message: `불씨 정수 ${reward}개를 획득했습니다.` }
 }

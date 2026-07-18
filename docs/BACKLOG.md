@@ -43,7 +43,7 @@
 | IRPG-502 | 45분 밸런스 스모크 | P0 | Done | 203 | GD-BAL, QA-DOMAIN | 자동 재투자 전략이 45분 내 30스테이지에 도달한다. |
 | IRPG-503 | CI 릴리스 게이트 | P0 | Done | 003,501 | REL-CI | push와 PR에서 설치·검증·빌드가 통과하고 원격 증거가 남는다. |
 | IRPG-504 | Playwright 전체 흐름 | P1 | Done | 402,503 | QA-E2E | 신규→강화→재접속→오프라인 결과를 실제 브라우저로 완료한다. |
-| IRPG-505 | 배속 디버그·24시간 soak | P1 | Ready | 104,204 | QA-DOMAIN, PLAYTEST | 1x/10x/100x와 상태 snapshot으로 장시간 이상을 탐지한다. |
+| IRPG-505 | 배속 디버그·24시간 soak | P1 | Done | 104,204 | QA-DOMAIN, PLAYTEST | 1x/10x/100x와 상태 snapshot으로 장시간 이상을 탐지한다. |
 | IRPG-601 | 계정·클라우드 저장 ADR | P2 | Blocked | 온라인 요구 확정 | ENG-SAVE, PROD-LOOP | 서버 권위와 충돌 정책이 제품 요구와 함께 승인된다. |
 
 `Blocked`는 기술 문제가 아니라 제품 요구가 아직 없는 의도적 보류다. 신규 기능은 선행 티켓과 G4 게이트를 우회하지 않는다.

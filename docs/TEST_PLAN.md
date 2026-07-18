@@ -22,7 +22,7 @@
 | 브라우저 E2E | 구현 | 신규 시작, UI 강화, 실제 reload, 1분 오프라인 보고, 같은 구간 중복 방지, page/console error |
 | 다중 탭 E2E | 구현 | 두 번째 탭 읽기 전용, 열린 reader 동기화, writer 종료 뒤 lock 인계 |
 | 접근성 E2E | 구현 | 360px overflow·44px target·skip link·키보드 명령·progressbar·modal focus·200% 확대·모션 감소 |
-| 장시간 soak | 다음 | 24시간·7일 배속, NaN·정체·폭주 탐지 |
+| 장시간 soak | 구현 | 1x·10x·100x의 8·16·24시간 전체 상태·누적 report, safe integer·HP·stage·RNG·정체·고정 fixture |
 
 IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 coverage는 statements 93.42%, branches 87.95%, functions 97.91%, lines 95.60%다. IRPG-504는 별도의 Playwright 전체 흐름 1개를 추가한다.
 
@@ -43,6 +43,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 | 다중 탭 충돌 | stale revision 원문 불변, reader 무쓰기, 동일 revision 충돌 차단, 두 페이지 lock 인계 | 비정상 브라우저 종료 복구 |
 | 반응형·접근성 | progressbar·modal focus 컴포넌트 테스트, 360px·키보드·reduced-motion Playwright | 실제 보조공학 조합의 외부 전문 감사 |
 | 첫 환생 목표 | 10회 결정론적 가속 세션과 대표 브라우저 상태 | IRPG-205 외부 사용자 10회 실제 플레이 |
+| 장시간 결정론 | 1x·10x·100x 24시간 soak와 3×8시간 canonical 비교 | IRPG-507 브라우저 개발 패널·7일 stress |
 
 ## 4. 필수 경계값
 
@@ -61,7 +62,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 - 플레이어 HP가 반격과 정확히 같은 경우
 - 한 번에 여러 레벨 상승
 - 최대 강화·스킬 랭크·최대 스테이지
-- 매우 큰 정수에서 유한값 유지
+- 최대 안전 정수의 보상·경험치·처치·패배·스킬 포인트·환생 포화와 저장 가능 상태 유지
 
 ### 저장
 
@@ -69,7 +70,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 - 필드 누락, 음수·무한 숫자, 잘못된 버전
 - localStorage 읽기·쓰기 예외
 - A/B 슬롯 한쪽 손상, revision 동률·충돌, migration 실패
-- 미래 envelope·state schema, 잘못된 RNG algorithm/state/draws, revision overflow, 저장소 read/write/remove 예외
+- 미래 envelope·state schema, 잘못된 RNG algorithm/state/draws, revision overflow, 과대 쿨다운 정규화, 저장소 read/write/remove 예외
 
 ## 5. 수동 브라우저 체크리스트
 

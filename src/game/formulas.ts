@@ -1,16 +1,19 @@
 import { SKILL_DEFINITIONS, UPGRADE_DEFINITIONS } from './content'
 import type { GameState, HeroStats, SkillId, UpgradeId } from './types'
 
-const safeInteger = (value: number, minimum = 0) =>
+export const toSafeInteger = (value: number, minimum = 0) =>
   Math.min(Number.MAX_SAFE_INTEGER, Math.max(minimum, Math.round(value)))
 
+export const addSafeIntegers = (left: number, right: number) =>
+  toSafeInteger(left + right)
+
 export function getXpToNextLevel(level: number): number {
-  return safeInteger(18 * Math.max(1, level) ** 1.42, 1)
+  return toSafeInteger(18 * Math.max(1, level) ** 1.42, 1)
 }
 
 export function getUpgradeCost(id: UpgradeId, currentLevel: number): number {
   const definition = UPGRADE_DEFINITIONS[id]
-  return safeInteger(definition.baseCost * definition.costGrowth ** currentLevel, 1)
+  return toSafeInteger(definition.baseCost * definition.costGrowth ** currentLevel, 1)
 }
 
 export function getSkillPointCost(_id: SkillId, currentRank: number): number {
@@ -23,17 +26,17 @@ export function getHeroStats(state: GameState): HeroStats {
   const ironWillMultiplier = 1 + skills.ironWill * 0.1
 
   return {
-    attack: safeInteger(
+    attack: toSafeInteger(
       (10 + (level - 1) * 2.2 + upgrades.weapon * 5) * permanentMultiplier,
       1,
     ),
-    maxHp: safeInteger(
+    maxHp: toSafeInteger(
       (100 + (level - 1) * 14 + upgrades.armor * 30) *
         ironWillMultiplier *
         permanentMultiplier,
       1,
     ),
-    defense: safeInteger(
+    defense: toSafeInteger(
       (upgrades.armor * 1.8 + (level - 1) * 0.35) * ironWillMultiplier,
     ),
     goldMultiplier: 1 + upgrades.charm * 0.1 + skills.fortune * 0.12,

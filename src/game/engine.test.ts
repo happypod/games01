@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_OFFLINE_MS } from './content'
+import {
+  MAX_OFFLINE_MS,
+  MAX_STAGE,
+  SKILL_DEFINITIONS,
+  UPGRADE_DEFINITIONS,
+  getEnemyDefinition,
+} from './content'
 import {
   advanceGame,
   createInitialState,
@@ -8,7 +14,55 @@ import {
   selectStage,
   upgradeSkill,
 } from './engine'
-import { getHeroStats, getUpgradeCost } from './formulas'
+import { getHeroStats, getUpgradeCost, getXpToNextLevel } from './formulas'
+import { isGameState } from './persistence'
+import type { GameState } from './types'
+
+function createUpperBoundaryState(): GameState {
+  const state = createInitialState(0, 0x1a2b3c4d)
+  return {
+    ...state,
+    rng: { ...state.rng, draws: Number.MAX_SAFE_INTEGER },
+    player: {
+      level: 999,
+      xp: Number.MAX_SAFE_INTEGER,
+      gold: Number.MAX_SAFE_INTEGER,
+      essence: Number.MAX_SAFE_INTEGER,
+      currentHp: Number.MAX_SAFE_INTEGER,
+      skillPoints: Number.MAX_SAFE_INTEGER,
+      upgrades: {
+        weapon: UPGRADE_DEFINITIONS.weapon.maxLevel,
+        armor: UPGRADE_DEFINITIONS.armor.maxLevel,
+        charm: UPGRADE_DEFINITIONS.charm.maxLevel,
+      },
+      skills: {
+        powerStrike: SKILL_DEFINITIONS.powerStrike.maxRank,
+        ironWill: SKILL_DEFINITIONS.ironWill.maxRank,
+        fortune: SKILL_DEFINITIONS.fortune.maxRank,
+      },
+    },
+    battle: {
+      stage: MAX_STAGE,
+      highestStage: MAX_STAGE,
+      enemyHp: 1,
+      roundRemainderMs: 0,
+      powerStrikeCooldownMs: 0,
+      kills: Number.MAX_SAFE_INTEGER,
+      defeats: Number.MAX_SAFE_INTEGER,
+    },
+    stats: {
+      goldEarned: Number.MAX_SAFE_INTEGER,
+      enemiesDefeated: Number.MAX_SAFE_INTEGER,
+      prestiges: Number.MAX_SAFE_INTEGER,
+    },
+  }
+}
+
+function collectNumbers(value: unknown): number[] {
+  if (typeof value === 'number') return [value]
+  if (typeof value !== 'object' || value === null) return []
+  return Object.values(value).flatMap(collectNumbers)
+}
 
 describe('game engine', () => {
   it('creates a valid first battle', () => {
@@ -173,5 +227,60 @@ describe('game engine', () => {
     expect(values.every((value) => Number.isFinite(value) && value >= 0)).toBe(true)
     expect(result.report.criticalHits).toBeLessThanOrEqual(result.report.rounds)
     expect(result.state.rng.draws).toBe(result.report.rounds)
+  })
+
+  it('saturates valid upper-bound rewards, counters, reports, and prestige fields', () => {
+    const initial = createUpperBoundaryState()
+    expect(isGameState(initial)).toBe(true)
+
+    const result = advanceGame(initial, 2_000)
+    expect(
+      collectNumbers({ state: result.state, report: result.report }).every(
+        (value) => Number.isSafeInteger(value) && value >= 0,
+      ),
+    ).toBe(true)
+    expect(result.report).toMatchObject({
+      rounds: 2,
+      kills: 2,
+      goldEarned: Number.MAX_SAFE_INTEGER,
+    })
+    expect(result.state.player.gold).toBe(Number.MAX_SAFE_INTEGER)
+    expect(result.state.player.xp).toBe(Number.MAX_SAFE_INTEGER)
+    expect(result.state.battle.kills).toBe(Number.MAX_SAFE_INTEGER)
+    expect(result.state.stats.goldEarned).toBe(Number.MAX_SAFE_INTEGER)
+    expect(result.state.stats.enemiesDefeated).toBe(Number.MAX_SAFE_INTEGER)
+    expect(isGameState(result.state)).toBe(true)
+
+    const prestiged = performPrestige(initial)
+    expect(prestiged.success).toBe(true)
+    expect(prestiged.state.player.essence).toBe(Number.MAX_SAFE_INTEGER)
+    expect(prestiged.state.stats.prestiges).toBe(Number.MAX_SAFE_INTEGER)
+    expect(isGameState(prestiged.state)).toBe(true)
+
+    const levelReady = createInitialState(0, 0x11223344)
+    levelReady.player.xp = getXpToNextLevel(levelReady.player.level) - 1
+    levelReady.player.skillPoints = Number.MAX_SAFE_INTEGER
+    levelReady.battle.enemyHp = 1
+    const leveled = advanceGame(levelReady, 1_000)
+    expect(leveled.state.player.level).toBe(2)
+    expect(leveled.state.player.skillPoints).toBe(Number.MAX_SAFE_INTEGER)
+    expect(isGameState(leveled.state)).toBe(true)
+
+    const fragile = createInitialState(0, 0x55667788)
+    const defeatBoundary: GameState = {
+      ...fragile,
+      player: { ...fragile.player, currentHp: 1 },
+      battle: {
+        ...fragile.battle,
+        stage: MAX_STAGE,
+        highestStage: MAX_STAGE,
+        enemyHp: getEnemyDefinition(MAX_STAGE).maxHp,
+        defeats: Number.MAX_SAFE_INTEGER,
+      },
+    }
+    const defeated = advanceGame(defeatBoundary, 1_000)
+    expect(defeated.report.defeats).toBe(1)
+    expect(defeated.state.battle.defeats).toBe(Number.MAX_SAFE_INTEGER)
+    expect(isGameState(defeated.state)).toBe(true)
   })
 })
