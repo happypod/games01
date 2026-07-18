@@ -13,9 +13,9 @@
 
 | 계층 | 현재 | 검증 내용 |
 |---|---:|---|
-| 엔진 단위 | 구현 | 최초 상태, 보상, 결정론, 경과 시간 상한, 구매 원자성, 스킬 잠금, 스테이지, 환생, 숫자 불변식 |
+| 엔진 단위 | 구현 | 최초 상태, 보상, 결정론, 경과 시간 상한, 구매 원자성, 스킬·동료 잠금, 동료 영입·훈련·협공, 스테이지, 환생, 숫자 불변식 |
 | RNG·치명타 | 구현 | xorshift32 vector, 1 draw/round, 치명타 수식, 동일 seed·분할 실행·환생 연속성 |
-| 저장 통합 | 구현 | A/B 교대, revision 선택·동률, 부분 쓰기, 손상 fallback, 미래 포맷 차단, v1 migration, 오프라인 1회 적용, 초기화 |
+| 저장 통합 | 구현 | A/B 교대, revision 선택·동률, 부분 쓰기, 손상 fallback, 미래 포맷 차단, schema1·2→3 migration, 동료 오프라인 진행 1회 적용, 초기화 |
 | 저장 전송 | 구현 | portable checksum·버전·크기, preview no-write, stale CAS, target rollback, export/import 브라우저 왕복 |
 | UI 컴포넌트 | 구현 | 첫 화면 landmark와 주요 패널, 구매 불가 상태 |
 | 밸런스 회귀 | 구현 | 고정 seed·3개 장비 전략·5~20초 판단 주기 10세션의 첫 환생 중앙값, milestone, 정체, 숫자 불변식, 최종 상태 해시 |
@@ -26,6 +26,8 @@
 
 IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 coverage는 statements 93.42%, branches 87.95%, functions 97.91%, lines 95.60%다. IRPG-504는 별도의 Playwright 전체 흐름 1개를 추가한다.
 
+IRPG-108 기준선은 Vitest 12파일·85테스트와 Playwright 8테스트다. 전체 coverage는 statements 94.12%, branches 89.81%, functions 100%, lines 95.39%이며, active companion 1x·10x·100x soak와 schema2→3 저장 회귀를 포함한다.
+
 ## 3. 요구사항 추적
 
 | 요구 | 자동 증거 | 남은 수동·E2E |
@@ -35,6 +37,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 | 저장 RNG·치명타 | known vector, 999/1000ms draw 경계, 동일 seed·분할·reload/offline, 환생 sequence | 치명타 시각 피드백은 후속 이벤트 UI 티켓 |
 | 구매 원자성 | 성공·골드 부족 | 연속 클릭 탐색 테스트 |
 | 스킬 잠금·비용 | 레벨·포인트 경계 | 잠금 사유 시각 확인 |
+| 동료 영입·훈련·협공 | 첫 보스 경계, 비용·최대 rank, 3초 cooldown, 마무리 일격 단일 보상, RNG·분할 결정론 | 전투·오프라인 표시와 첫 영입 흐름 체감 확인 |
 | 스테이지·패배 | 선택 범위와 장시간 엔진 | 보스 패배 후 피드백 |
 | 환생 유지·초기화 | 영구·임시 필드 비교 | 확인 대화상자와 예상 보상 |
 | 저장 복구 | A/B fallback·부분 쓰기·미래 포맷·v1 migration | 실제 저장 차단 환경 |
@@ -62,6 +65,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 - 플레이어 HP가 반격과 정확히 같은 경우
 - 한 번에 여러 레벨 상승
 - 최대 강화·스킬 랭크·최대 스테이지
+- 동료 잠금 stage 10/11, 훈련 비용보다 1 부족·정확히 일치, rank 1/5, cooldown 0/1,000/3,000ms
 - 최대 안전 정수의 보상·경험치·처치·패배·스킬 포인트·환생 포화와 저장 가능 상태 유지
 
 ### 저장
@@ -70,7 +74,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 - 필드 누락, 음수·무한 숫자, 잘못된 버전
 - localStorage 읽기·쓰기 예외
 - A/B 슬롯 한쪽 손상, revision 동률·충돌, migration 실패
-- 미래 envelope·state schema, 잘못된 RNG algorithm/state/draws, revision overflow, 과대 쿨다운 정규화, 저장소 read/write/remove 예외
+- 미래 envelope·state schema, schema1·2·3 A/B·portable migration, 잘못된 동료 ID·rank, 잘못된 RNG algorithm/state/draws, revision overflow, 과대 쿨다운 정규화, 저장소 read/write/remove 예외
 
 ## 5. 수동 브라우저 체크리스트
 
@@ -83,6 +87,7 @@ G4에서 아래 조합을 기록한다.
 - 탭을 1분 숨긴 뒤 복귀 시 시간 누락·중복 없음
 - 저장 차단 시 경고가 보이고 게임은 계속 동작함
 - 환생 확인에서 취소하면 어떤 상태도 바뀌지 않음
+- 첫 보스 뒤 키보드로 동료를 영입·훈련하고 전투·오프라인 결과에서 협공 횟수와 피해를 확인
 
 ## 6. 플레이테스트
 
@@ -122,5 +127,6 @@ npm run test:e2e
 - Playwright Chromium에서 신규→Lv.1 강화→reload 유지→1분 오프라인 보고→확인 후 reload 중복 없음 흐름 자동화
 - [IRPG-403 360×800 전체 화면](../artifacts/irpg-403-360.png): 단일 열, 핵심 조작 44px, 텍스트·버튼 잘림 없음 확인
 - IRPG-403 접근성 시나리오는 bundled Chromium, 설치된 Chrome, Edge에서 각각 2/2 통과했으며 page/console error가 없었다.
+- IRPG-108 Playwright에서 360px 영입→협공→훈련→reload·reader 흐름과 1분 오프라인 협공 단일 정산을 포함한 전체 8/8이 통과했고 page/console error가 없었다.
 
 이 스크린샷은 자동 생성된 검증 증거이며 미술 방향의 최종 승인을 뜻하지 않는다.

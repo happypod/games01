@@ -1,5 +1,9 @@
-import { SKILL_DEFINITIONS, UPGRADE_DEFINITIONS } from './content'
-import type { GameState, HeroStats, SkillId, UpgradeId } from './types'
+import {
+  COMPANION_DEFINITIONS,
+  SKILL_DEFINITIONS,
+  UPGRADE_DEFINITIONS,
+} from './content'
+import type { CompanionId, GameState, HeroStats, SkillId, UpgradeId } from './types'
 
 export const toSafeInteger = (value: number, minimum = 0) =>
   Math.min(Number.MAX_SAFE_INTEGER, Math.max(minimum, Math.round(value)))
@@ -18,6 +22,14 @@ export function getUpgradeCost(id: UpgradeId, currentLevel: number): number {
 
 export function getSkillPointCost(_id: SkillId, currentRank: number): number {
   return 1 + Math.floor(currentRank / 4)
+}
+
+export function getCompanionTrainingCost(id: CompanionId, currentRank: number): number {
+  const definition = COMPANION_DEFINITIONS[id]
+  return toSafeInteger(
+    definition.baseTrainingCost * definition.trainingCostGrowth ** Math.max(0, currentRank - 1),
+    1,
+  )
 }
 
 export function getHeroStats(state: GameState): HeroStats {
@@ -47,6 +59,18 @@ export function getHeroStats(state: GameState): HeroStats {
 export function getPrestigeReward(highestStage: number): number {
   if (highestStage < 30) return 0
   return Math.max(1, Math.floor((highestStage / 10) ** 1.5))
+}
+
+export function isCompanionUnlocked(state: GameState, id: CompanionId): boolean {
+  return state.battle.highestStage >= COMPANION_DEFINITIONS[id].unlockStage
+}
+
+export function getCompanionDamage(state: GameState): number {
+  const { id, rank } = state.player.companion
+  if (id === null || rank < 1) return 0
+  const definition = COMPANION_DEFINITIONS[id]
+  const ratio = definition.baseDamageRatio + definition.damageRatioPerRank * (rank - 1)
+  return toSafeInteger(getHeroStats(state).attack * ratio, 1)
 }
 
 export function isSkillUnlocked(state: GameState, id: SkillId): boolean {

@@ -24,6 +24,8 @@ function addReport(total: AdvanceReport, next: AdvanceReport): AdvanceReport {
     elapsedMs: addSafeIntegers(total.elapsedMs, next.elapsedMs),
     rounds: addSafeIntegers(total.rounds, next.rounds),
     criticalHits: addSafeIntegers(total.criticalHits, next.criticalHits),
+    companionAttacks: addSafeIntegers(total.companionAttacks, next.companionAttacks),
+    companionDamage: addSafeIntegers(total.companionDamage, next.companionDamage),
     kills: addSafeIntegers(total.kills, next.kills),
     defeats: addSafeIntegers(total.defeats, next.defeats),
     goldEarned: addSafeIntegers(total.goldEarned, next.goldEarned),
@@ -38,6 +40,8 @@ function emptyReport(): AdvanceReport {
     elapsedMs: 0,
     rounds: 0,
     criticalHits: 0,
+    companionAttacks: 0,
+    companionDamage: 0,
     kills: 0,
     defeats: 0,
     goldEarned: 0,
@@ -62,11 +66,13 @@ function expectStateInvariants(state: GameState) {
     state.player.skillPoints,
     ...Object.values(state.player.upgrades),
     ...Object.values(state.player.skills),
+    state.player.companion.rank,
     state.battle.stage,
     state.battle.highestStage,
     state.battle.enemyHp,
     state.battle.roundRemainderMs,
     state.battle.powerStrikeCooldownMs,
+    state.battle.companionCooldownMs,
     state.battle.kills,
     state.battle.defeats,
     state.stats.goldEarned,
@@ -92,6 +98,15 @@ function expectStateInvariants(state: GameState) {
   expect(state.battle.roundRemainderMs).toBeLessThan(COMBAT_ROUND_MS)
   expect(state.battle.powerStrikeCooldownMs).toBeGreaterThanOrEqual(0)
   expect(state.battle.powerStrikeCooldownMs).toBeLessThanOrEqual(5_000)
+  expect(state.battle.companionCooldownMs).toBeGreaterThanOrEqual(0)
+  expect(state.battle.companionCooldownMs).toBeLessThanOrEqual(3_000)
+  if (state.player.companion.id === null) {
+    expect(state.player.companion.rank).toBe(0)
+  } else {
+    expect(state.player.companion.id).toBe('emberFox')
+    expect(state.player.companion.rank).toBeGreaterThanOrEqual(1)
+    expect(state.player.companion.rank).toBeLessThanOrEqual(5)
+  }
   for (const [id, level] of Object.entries(state.player.upgrades)) {
     expect(level).toBeLessThanOrEqual(UPGRADE_DEFINITIONS[id as keyof typeof UPGRADE_DEFINITIONS].maxLevel)
   }
@@ -105,6 +120,8 @@ function expectReportInvariants(report: AdvanceReport) {
   expect(values.every((value) => Number.isSafeInteger(value) && value >= 0)).toBe(true)
   expect(report.rounds).toBe(report.elapsedMs / COMBAT_ROUND_MS)
   expect(report.criticalHits).toBeLessThanOrEqual(report.rounds)
+  expect(report.companionAttacks).toBeLessThanOrEqual(report.rounds)
+  if (report.companionAttacks === 0) expect(report.companionDamage).toBe(0)
   expect(report.kills + report.defeats).toBeLessThanOrEqual(report.rounds)
 }
 
@@ -130,6 +147,7 @@ function createUpperBoundaryState(): GameState {
         ironWill: SKILL_DEFINITIONS.ironWill.maxRank,
         fortune: SKILL_DEFINITIONS.fortune.maxRank,
       },
+      companion: { id: 'emberFox', rank: 5 },
     },
     battle: {
       stage: MAX_STAGE,
@@ -137,6 +155,7 @@ function createUpperBoundaryState(): GameState {
       enemyHp: 1,
       roundRemainderMs: 0,
       powerStrikeCooldownMs: 5_000,
+      companionCooldownMs: 3_000,
       kills: Number.MAX_SAFE_INTEGER,
       defeats: Number.MAX_SAFE_INTEGER,
     },
@@ -227,6 +246,32 @@ describe('debug simulator soak', () => {
     }
 
     expect(simulated.snapshots).toEqual(snapshots)
+  })
+
+  it('keeps an active max-rank companion identical at 1x, 10x, and 100x', () => {
+    const initial = createInitialState(0, SOAK_SEED)
+    initial.player.companion = { id: 'emberFox', rank: 5 }
+    initial.battle.companionCooldownMs = 0
+    const initialCopy = structuredClone(initial)
+    const results = DEBUG_SPEEDS.map((speed) =>
+      runDebugSimulation(initial, {
+        speed,
+        durationMs: MAX_OFFLINE_MS,
+        snapshotIntervalMs: MAX_OFFLINE_MS,
+      }),
+    )
+    const canonical = results[0]!
+
+    expect(initial).toEqual(initialCopy)
+    expect(results[1]?.snapshots).toEqual(canonical.snapshots)
+    expect(results[2]?.snapshots).toEqual(canonical.snapshots)
+    expect(results[1]?.report).toEqual(canonical.report)
+    expect(results[2]?.report).toEqual(canonical.report)
+    expect(canonical.report.companionAttacks).toBeGreaterThan(0)
+    expect(canonical.report.companionDamage).toBeGreaterThan(0)
+    expect(canonical.state.rng.draws).toBe(canonical.report.rounds)
+    expectStateInvariants(canonical.state)
+    expectReportInvariants(canonical.report)
   })
 
   it('keeps a valid upper-bound save serializable throughout an 8-hour soak', () => {

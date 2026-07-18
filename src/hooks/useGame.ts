@@ -4,7 +4,9 @@ import {
   createInitialState,
   performPrestige,
   purchaseUpgrade,
+  recruitCompanion as recruitCompanionCommand,
   selectStage,
+  trainCompanion as trainCompanionCommand,
   upgradeSkill,
 } from '../game/engine'
 import {
@@ -17,6 +19,7 @@ import {
 import { commitPortableSave, type SaveImportPreview } from '../game/saveTransfer'
 import type {
   AdvanceReport,
+  CompanionId,
   CommandResult,
   GameState,
   SkillId,
@@ -44,6 +47,8 @@ export interface GameController {
   lockSupported: boolean
   buyUpgrade: (id: UpgradeId) => void
   buySkill: (id: SkillId) => void
+  recruitCompanion: (id: CompanionId) => void
+  trainCompanion: () => void
   chooseStage: (stage: number) => void
   prestige: () => void
   reset: () => void
@@ -309,6 +314,14 @@ export function useGame(): GameController {
     (id: SkillId) => runCommand((current) => upgradeSkill(current, id)),
     [runCommand],
   )
+  const recruitCompanion = useCallback(
+    (id: CompanionId) => runCommand((current) => recruitCompanionCommand(current, id)),
+    [runCommand],
+  )
+  const trainCompanion = useCallback(
+    () => runCommand((current) => trainCompanionCommand(current)),
+    [runCommand],
+  )
   const chooseStage = useCallback(
     (stage: number) => runCommand((current) => selectStage(current, stage)),
     [runCommand],
@@ -398,6 +411,8 @@ export function useGame(): GameController {
     lockSupported: lockManager !== null,
     buyUpgrade,
     buySkill,
+    recruitCompanion,
+    trainCompanion,
     chooseStage,
     prestige,
     reset,

@@ -1,4 +1,5 @@
 import { BattleArena } from './components/BattleArena'
+import { CompanionPanel } from './components/CompanionPanel'
 import { HeroPanel } from './components/HeroPanel'
 import { OfflineReport } from './components/OfflineReport'
 import { PrestigePanel } from './components/PrestigePanel'
@@ -93,6 +94,12 @@ export function App() {
         <div className="growth-grid">
           <UpgradePanel state={game.state} onBuy={game.buyUpgrade} disabled={controlsDisabled} />
           <SkillPanel state={game.state} onBuy={game.buySkill} disabled={controlsDisabled} />
+          <CompanionPanel
+            state={game.state}
+            onRecruit={game.recruitCompanion}
+            onTrain={game.trainCompanion}
+            disabled={controlsDisabled}
+          />
         </div>
 
         <PrestigePanel

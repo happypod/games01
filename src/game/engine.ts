@@ -1,5 +1,7 @@
 import {
   COMBAT_ROUND_MS,
+  COMPANION_ATTACK_INTERVAL_MS,
+  COMPANION_DEFINITIONS,
   CRITICAL_CHANCE,
   CRITICAL_DAMAGE_MULTIPLIER,
   MAX_OFFLINE_MS,
@@ -11,11 +13,14 @@ import {
 } from './content'
 import {
   addSafeIntegers,
+  getCompanionDamage,
+  getCompanionTrainingCost,
   getHeroStats,
   getPrestigeReward,
   getSkillPointCost,
   getUpgradeCost,
   getXpToNextLevel,
+  isCompanionUnlocked,
   isSkillUnlocked,
   toSafeInteger,
 } from './formulas'
@@ -24,6 +29,7 @@ import { SAVE_VERSION } from './types'
 import type {
   AdvanceReport,
   AdvanceResult,
+  CompanionId,
   CommandResult,
   GameState,
   SkillId,
@@ -34,6 +40,8 @@ const emptyReport = (elapsedMs: number): AdvanceReport => ({
   elapsedMs,
   rounds: 0,
   criticalHits: 0,
+  companionAttacks: 0,
+  companionDamage: 0,
   kills: 0,
   defeats: 0,
   goldEarned: 0,
@@ -49,6 +57,7 @@ const cloneState = (state: GameState): GameState => ({
     ...state.player,
     upgrades: { ...state.player.upgrades },
     skills: { ...state.player.skills },
+    companion: { ...state.player.companion },
   },
   battle: { ...state.battle },
   stats: { ...state.stats },
@@ -72,6 +81,7 @@ export function createInitialState(
       skillPoints: 0,
       upgrades: { weapon: 0, armor: 0, charm: 0 },
       skills: { powerStrike: 1, ironWill: 0, fortune: 0 },
+      companion: { id: null, rank: 0 },
     },
     battle: {
       stage: 1,
@@ -79,6 +89,7 @@ export function createInitialState(
       enemyHp: firstEnemy.maxHp,
       roundRemainderMs: 0,
       powerStrikeCooldownMs: 0,
+      companionCooldownMs: 0,
       kills: 0,
       defeats: 0,
     },
@@ -104,14 +115,44 @@ function grantExperience(state: GameState, amount: number, report: AdvanceReport
   }
 }
 
-function resolveRound(state: GameState, report: AdvanceReport) {
+function resolveEnemyDefeat(state: GameState, report: AdvanceReport) {
   const enemy = getEnemyDefinition(state.battle.stage)
   let hero = getHeroStats(state)
+  const gold = toSafeInteger(enemy.goldReward * hero.goldMultiplier, 1)
+  state.player.gold = addSafeIntegers(state.player.gold, gold)
+  state.stats.goldEarned = addSafeIntegers(state.stats.goldEarned, gold)
+  state.battle.kills = addSafeIntegers(state.battle.kills, 1)
+  state.stats.enemiesDefeated = addSafeIntegers(state.stats.enemiesDefeated, 1)
+  report.kills = addSafeIntegers(report.kills, 1)
+  report.goldEarned = addSafeIntegers(report.goldEarned, gold)
+  grantExperience(state, enemy.xpReward, report)
+
+  const previousStage = state.battle.stage
+  state.battle.stage = Math.min(MAX_STAGE, state.battle.stage + 1)
+  state.battle.highestStage = Math.max(state.battle.highestStage, state.battle.stage)
+  if (state.battle.stage > previousStage) {
+    report.stagesGained = addSafeIntegers(report.stagesGained, 1)
+  }
+
+  hero = getHeroStats(state)
+  state.player.currentHp = Math.min(
+    hero.maxHp,
+    addSafeIntegers(state.player.currentHp, Math.round(hero.maxHp * 0.2)),
+  )
+  state.battle.enemyHp = getEnemyDefinition(state.battle.stage).maxHp
+}
+
+function resolveRound(state: GameState, report: AdvanceReport) {
+  const enemy = getEnemyDefinition(state.battle.stage)
+  const hero = getHeroStats(state)
   state.player.currentHp = Math.min(state.player.currentHp, hero.maxHp)
   state.battle.powerStrikeCooldownMs = Math.max(
     0,
     state.battle.powerStrikeCooldownMs - COMBAT_ROUND_MS,
   )
+  state.battle.companionCooldownMs = state.player.companion.id === null
+    ? 0
+    : Math.max(0, state.battle.companionCooldownMs - COMBAT_ROUND_MS)
 
   const usesPowerStrike =
     state.player.skills.powerStrike > 0 && state.battle.powerStrikeCooldownMs === 0
@@ -131,28 +172,21 @@ function resolveRound(state: GameState, report: AdvanceReport) {
   report.rounds = addSafeIntegers(report.rounds, 1)
 
   if (state.battle.enemyHp <= 0) {
-    const gold = toSafeInteger(enemy.goldReward * hero.goldMultiplier, 1)
-    state.player.gold = addSafeIntegers(state.player.gold, gold)
-    state.stats.goldEarned = addSafeIntegers(state.stats.goldEarned, gold)
-    state.battle.kills = addSafeIntegers(state.battle.kills, 1)
-    state.stats.enemiesDefeated = addSafeIntegers(state.stats.enemiesDefeated, 1)
-    report.kills = addSafeIntegers(report.kills, 1)
-    report.goldEarned = addSafeIntegers(report.goldEarned, gold)
-    grantExperience(state, enemy.xpReward, report)
+    resolveEnemyDefeat(state, report)
+    return
+  }
 
-    const previousStage = state.battle.stage
-    state.battle.stage = Math.min(MAX_STAGE, state.battle.stage + 1)
-    state.battle.highestStage = Math.max(state.battle.highestStage, state.battle.stage)
-    if (state.battle.stage > previousStage) {
-      report.stagesGained = addSafeIntegers(report.stagesGained, 1)
-    }
+  if (state.player.companion.id !== null && state.battle.companionCooldownMs === 0) {
+    const companionDamage = getCompanionDamage(state)
+    const appliedDamage = Math.min(state.battle.enemyHp, companionDamage)
+    state.battle.enemyHp -= companionDamage
+    state.battle.companionCooldownMs = COMPANION_ATTACK_INTERVAL_MS
+    report.companionAttacks = addSafeIntegers(report.companionAttacks, 1)
+    report.companionDamage = addSafeIntegers(report.companionDamage, appliedDamage)
+  }
 
-    hero = getHeroStats(state)
-    state.player.currentHp = Math.min(
-      hero.maxHp,
-      addSafeIntegers(state.player.currentHp, Math.round(hero.maxHp * 0.2)),
-    )
-    state.battle.enemyHp = getEnemyDefinition(state.battle.stage).maxHp
+  if (state.battle.enemyHp <= 0) {
+    resolveEnemyDefeat(state, report)
     return
   }
 
@@ -165,6 +199,7 @@ function resolveRound(state: GameState, report: AdvanceReport) {
     state.battle.enemyHp = getEnemyDefinition(state.battle.stage).maxHp
     state.player.currentHp = getHeroStats(state).maxHp
     state.battle.powerStrikeCooldownMs = 0
+    state.battle.companionCooldownMs = 0
   }
 }
 
@@ -237,6 +272,45 @@ export function upgradeSkill(input: GameState, id: SkillId): CommandResult {
   return { state, success: true, message: `${definition.name} 랭크 상승` }
 }
 
+export function recruitCompanion(input: GameState, id: CompanionId): CommandResult {
+  const definition = COMPANION_DEFINITIONS[id]
+  if (input.player.companion.id !== null) {
+    return { state: input, success: false, message: '이미 동료가 원정에 합류했습니다.' }
+  }
+  if (!isCompanionUnlocked(input, id)) {
+    return {
+      state: input,
+      success: false,
+      message: '첫 보스를 승리하고 스테이지 11을 열면 영입할 수 있습니다.',
+    }
+  }
+
+  const state = cloneState(input)
+  state.player.companion = { id, rank: 1 }
+  state.battle.companionCooldownMs = 0
+  return { state, success: true, message: `${definition.name}가 원정에 합류했습니다.` }
+}
+
+export function trainCompanion(input: GameState): CommandResult {
+  const { id, rank } = input.player.companion
+  if (id === null) {
+    return { state: input, success: false, message: '먼저 동료를 영입해야 합니다.' }
+  }
+  const definition = COMPANION_DEFINITIONS[id]
+  if (rank >= definition.maxRank) {
+    return { state: input, success: false, message: '동료가 이미 최대 랭크입니다.' }
+  }
+  const cost = getCompanionTrainingCost(id, rank)
+  if (input.player.gold < cost) {
+    return { state: input, success: false, message: '동료 훈련에 필요한 골드가 부족합니다.' }
+  }
+
+  const state = cloneState(input)
+  state.player.gold -= cost
+  state.player.companion.rank += 1
+  return { state, success: true, message: `${definition.name} 랭크 상승` }
+}
+
 export function selectStage(input: GameState, rawStage: number): CommandResult {
   const stage = Math.floor(rawStage)
   if (stage < 1 || stage > input.battle.highestStage || stage > MAX_STAGE) {
@@ -263,6 +337,9 @@ export function performPrestige(input: GameState): CommandResult {
   const state = createInitialState(input.lastSavedAt)
   state.rng = { ...input.rng }
   state.player.essence = addSafeIntegers(input.player.essence, reward)
+  state.player.companion = input.player.companion.id === null
+    ? { id: null, rank: 0 }
+    : { id: input.player.companion.id, rank: 1 }
   state.player.currentHp = getHeroStats(state).maxHp
   state.stats = {
     goldEarned: input.stats.goldEarned,

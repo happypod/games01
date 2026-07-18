@@ -8,6 +8,8 @@ const REPORT: AdvanceReport = {
   elapsedMs: 60_000,
   rounds: 60,
   criticalHits: 9,
+  companionAttacks: 20,
+  companionDamage: 80,
   kills: 3,
   defeats: 0,
   goldEarned: 27,
@@ -34,6 +36,8 @@ describe('OfflineReport', () => {
     fireEvent.click(opener)
 
     const dialog = screen.getByRole('dialog')
+    expect(screen.getByText('동료 협공').nextElementSibling).toHaveTextContent('20')
+    expect(screen.getByText('동료 피해').nextElementSibling).toHaveTextContent('80')
     expect(screen.getByRole('button', { name: '보상 확인' })).toHaveFocus()
     fireEvent.keyDown(dialog, { key: 'Escape' })
 

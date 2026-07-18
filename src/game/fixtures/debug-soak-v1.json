@@ -7,7 +7,7 @@
     {
       "elapsedMs": 28800000,
       "state": {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "lastSavedAt": 0,
         "rng": {
           "algorithm": "xorshift32-v1",
@@ -23,7 +23,8 @@
           "currentHp": 604,
           "skillPoints": 36,
           "upgrades": { "weapon": 0, "armor": 0, "charm": 0 },
-          "skills": { "powerStrike": 1, "ironWill": 0, "fortune": 0 }
+          "skills": { "powerStrike": 1, "ironWill": 0, "fortune": 0 },
+          "companion": { "id": null, "rank": 0 }
         },
         "battle": {
           "stage": 20,
@@ -31,6 +32,7 @@
           "enemyHp": 4308,
           "roundRemainderMs": 0,
           "powerStrikeCooldownMs": 5000,
+          "companionCooldownMs": 0,
           "kills": 1298,
           "defeats": 1279
         },
@@ -40,6 +42,8 @@
         "elapsedMs": 28800000,
         "rounds": 28800,
         "criticalHits": 4316,
+        "companionAttacks": 0,
+        "companionDamage": 0,
         "kills": 1298,
         "defeats": 1279,
         "goldEarned": 77234,
@@ -51,7 +55,7 @@
     {
       "elapsedMs": 57600000,
       "state": {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "lastSavedAt": 0,
         "rng": {
           "algorithm": "xorshift32-v1",
@@ -67,7 +71,8 @@
           "currentHp": 314,
           "skillPoints": 51,
           "upgrades": { "weapon": 0, "armor": 0, "charm": 0 },
-          "skills": { "powerStrike": 1, "ironWill": 0, "fortune": 0 }
+          "skills": { "powerStrike": 1, "ironWill": 0, "fortune": 0 },
+          "companion": { "id": null, "rank": 0 }
         },
         "battle": {
           "stage": 28,
@@ -75,6 +80,7 @@
           "enemyHp": 3011,
           "roundRemainderMs": 0,
           "powerStrikeCooldownMs": 2000,
+          "companionCooldownMs": 0,
           "kills": 2319,
           "defeats": 2292
         },
@@ -84,6 +90,8 @@
         "elapsedMs": 57600000,
         "rounds": 57600,
         "criticalHits": 8554,
+        "companionAttacks": 0,
+        "companionDamage": 0,
         "kills": 2319,
         "defeats": 2292,
         "goldEarned": 184201,
@@ -95,7 +103,7 @@
     {
       "elapsedMs": 86400000,
       "state": {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "lastSavedAt": 0,
         "rng": {
           "algorithm": "xorshift32-v1",
@@ -111,7 +119,8 @@
           "currentHp": 75,
           "skillPoints": 66,
           "upgrades": { "weapon": 0, "armor": 0, "charm": 0 },
-          "skills": { "powerStrike": 1, "ironWill": 0, "fortune": 0 }
+          "skills": { "powerStrike": 1, "ironWill": 0, "fortune": 0 },
+          "companion": { "id": null, "rank": 0 }
         },
         "battle": {
           "stage": 30,
@@ -119,6 +128,7 @@
           "enemyHp": 23268,
           "roundRemainderMs": 0,
           "powerStrikeCooldownMs": 2000,
+          "companionCooldownMs": 0,
           "kills": 3307,
           "defeats": 3278
         },
@@ -128,6 +138,8 @@
         "elapsedMs": 86400000,
         "rounds": 86400,
         "criticalHits": 12916,
+        "companionAttacks": 0,
+        "companionDamage": 0,
         "kills": 3307,
         "defeats": 3278,
         "goldEarned": 348394,

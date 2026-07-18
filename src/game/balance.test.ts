@@ -4,7 +4,14 @@ import {
   FIRST_PRESTIGE_HP_GROWTH,
   getEnemyDefinition,
 } from './content'
-import { advanceGame, createInitialState, purchaseUpgrade, upgradeSkill } from './engine'
+import {
+  advanceGame,
+  createInitialState,
+  purchaseUpgrade,
+  recruitCompanion,
+  trainCompanion,
+  upgradeSkill,
+} from './engine'
 import { getUpgradeCost } from './formulas'
 import { UPGRADE_IDS } from './types'
 import type { GameState, SkillId, UpgradeId } from './types'
@@ -31,6 +38,17 @@ interface PlaytestResult {
   defeats: number
   longestStallSeconds: number
   finalGold: number
+  finalState: GameState
+}
+
+interface CompanionPlaytestResult {
+  name: string
+  recruitSeconds: number
+  prestigeGateSeconds: number
+  trainingPurchases: number
+  companionAttacks: number
+  companionDamage: number
+  finalRank: number
   finalState: GameState
 }
 
@@ -95,11 +113,13 @@ function assertNumericInvariants(state: GameState, profileName: string, second: 
     state.player.skillPoints,
     ...Object.values(state.player.upgrades),
     ...Object.values(state.player.skills),
+    state.player.companion.rank,
     state.battle.enemyHp,
     state.battle.stage,
     state.battle.highestStage,
     state.battle.roundRemainderMs,
     state.battle.powerStrikeCooldownMs,
+    state.battle.companionCooldownMs,
     state.battle.kills,
     state.battle.defeats,
     state.stats.goldEarned,
@@ -218,6 +238,70 @@ function runPlaytest(profile: PlaytestProfile): PlaytestResult {
   throw new Error(`${profile.name} did not reach the prestige gate within 60 minutes`)
 }
 
+function runCompanionPlaytest(profile: PlaytestProfile): CompanionPlaytestResult {
+  let state = createInitialState(0, profile.seed)
+  let recruitSeconds = 0
+  let trainingPurchases = 0
+  let companionAttacks = 0
+  let companionDamage = 0
+
+  for (let second = 1; second <= 60 * 60; second += 1) {
+    const advanced = advanceGame(state, 1_000)
+    state = advanced.state
+    companionAttacks += advanced.report.companionAttacks
+    companionDamage += advanced.report.companionDamage
+    assertNumericInvariants(state, `${profile.name}-companion`, second)
+
+    if (state.player.companion.id === null && state.battle.highestStage >= 11) {
+      const recruited = recruitCompanion(state, 'emberFox')
+      if (!recruited.success) throw new Error(`${profile.name} failed to recruit emberFox`)
+      state = recruited.state
+      recruitSeconds = second
+    }
+
+    if (second % profile.decisionCadenceSeconds === 0) {
+      while (state.player.companion.id !== null) {
+        const trained = trainCompanion(state)
+        if (!trained.success) break
+        state = trained.state
+        trainingPurchases += 1
+      }
+      const spent = spendAvailableResources(state, profile)
+      state = spent.state
+      assertNumericInvariants(state, `${profile.name}-companion`, second)
+    }
+
+    if (state.battle.highestStage >= 30) {
+      return {
+        name: profile.name,
+        recruitSeconds,
+        prestigeGateSeconds: second,
+        trainingPurchases,
+        companionAttacks,
+        companionDamage,
+        finalRank: state.player.companion.rank,
+        finalState: state,
+      }
+    }
+  }
+
+  throw new Error(`${profile.name} companion run did not reach the prestige gate within 60 minutes`)
+}
+
+function summarizeCompanionPlaytest(
+  result: CompanionPlaytestResult,
+): Omit<CompanionPlaytestResult, 'finalState'> {
+  return {
+    name: result.name,
+    recruitSeconds: result.recruitSeconds,
+    prestigeGateSeconds: result.prestigeGateSeconds,
+    trainingPurchases: result.trainingPurchases,
+    companionAttacks: result.companionAttacks,
+    companionDamage: result.companionDamage,
+    finalRank: result.finalRank,
+  }
+}
+
 describe('first prestige balance playtest', () => {
   it('keeps the median of ten deterministic play sessions between 30 and 45 minutes', () => {
     const results = PLAYTEST_PROFILES.map(runPlaytest)
@@ -244,17 +328,61 @@ describe('first prestige balance playtest', () => {
     const first = PLAYTEST_PROFILES.map(runPlaytest)
     expect(PLAYTEST_PROFILES.map(runPlaytest)).toEqual(first)
     expect(first.map(({ finalState }) => hashState(finalState))).toEqual([
-      'a98dc178',
-      '46a7b4c2',
-      '6c783b9a',
-      '6e794ff0',
-      'b1838ad5',
-      '5462fd47',
-      '95b252bc',
-      '41338009',
-      'e44e8270',
-      '581fd10c',
+      'ac143c4e',
+      '3a70f43c',
+      'f9f8c502',
+      '207f6592',
+      '7bd29bd1',
+      '63634fcd',
+      '9905f9a2',
+      'bda55a85',
+      '5791cf9c',
+      '5e3eb888',
     ])
+  })
+
+  it('keeps recruit-and-train companion profiles deterministic and inside the prestige target', () => {
+    const results = PLAYTEST_PROFILES.map(runCompanionPlaytest)
+    const replay = PLAYTEST_PROFILES.map(runCompanionPlaytest)
+    const sortedTimes = results
+      .map(({ prestigeGateSeconds }) => prestigeGateSeconds)
+      .sort((left, right) => left - right)
+    const medianSeconds = (sortedTimes[4]! + sortedTimes[5]!) / 2
+
+    expect(replay).toEqual(results)
+    expect(results.map(summarizeCompanionPlaytest)).toEqual([
+      { name: 'C5-A', recruitSeconds: 86, prestigeGateSeconds: 1885, trainingPurchases: 4, companionAttacks: 612, companionDamage: 17560, finalRank: 5 },
+      { name: 'C10-S', recruitSeconds: 92, prestigeGateSeconds: 2004, trainingPurchases: 4, companionAttacks: 647, companionDamage: 18225, finalRank: 5 },
+      { name: 'C15-G', recruitSeconds: 91, prestigeGateSeconds: 1717, trainingPurchases: 4, companionAttacks: 555, companionDamage: 15951, finalRank: 5 },
+      { name: 'O5-A', recruitSeconds: 101, prestigeGateSeconds: 1746, trainingPurchases: 4, companionAttacks: 565, companionDamage: 16697, finalRank: 5 },
+      { name: 'O10-S', recruitSeconds: 80, prestigeGateSeconds: 1882, trainingPurchases: 4, companionAttacks: 613, companionDamage: 17197, finalRank: 5 },
+      { name: 'O15-G', recruitSeconds: 85, prestigeGateSeconds: 1753, trainingPurchases: 4, companionAttacks: 565, companionDamage: 16016, finalRank: 5 },
+      { name: 'B5-A', recruitSeconds: 130, prestigeGateSeconds: 1848, trainingPurchases: 4, companionAttacks: 583, companionDamage: 16149, finalRank: 5 },
+      { name: 'B10-S', recruitSeconds: 152, prestigeGateSeconds: 2107, trainingPurchases: 4, companionAttacks: 656, companionDamage: 18257, finalRank: 5 },
+      { name: 'B15-G', recruitSeconds: 74, prestigeGateSeconds: 1883, trainingPurchases: 4, companionAttacks: 615, companionDamage: 17851, finalRank: 5 },
+      { name: 'C20-M', recruitSeconds: 96, prestigeGateSeconds: 1804, trainingPurchases: 4, companionAttacks: 586, companionDamage: 17103, finalRank: 5 },
+    ])
+    expect(results.map(({ finalState }) => hashState(finalState))).toEqual([
+      '8d7a06d0',
+      'fe05cd91',
+      'ae3c2f42',
+      '0213ed00',
+      '7426b47b',
+      'dff599bf',
+      '21170913',
+      '337b6701',
+      'ac04c4b9',
+      'a60867bb',
+    ])
+    expect(medianSeconds).toBeGreaterThanOrEqual(30 * 60)
+    expect(medianSeconds).toBeLessThanOrEqual(45 * 60)
+    expect(medianSeconds).toBe(1865)
+    expect(results.every(({ recruitSeconds }) => recruitSeconds >= 60 && recruitSeconds <= 180)).toBe(true)
+    expect(results.every(({ trainingPurchases }) => trainingPurchases > 0)).toBe(true)
+    expect(results.every(({ finalRank }) => finalRank >= 2 && finalRank <= 5)).toBe(true)
+    expect(results.every(({ companionAttacks }) => companionAttacks > 0)).toBe(true)
+    expect(results.every(({ companionDamage }) => companionDamage > 0)).toBe(true)
+    expect(results.every(({ prestigeGateSeconds }) => prestigeGateSeconds <= 60 * 60)).toBe(true)
   })
 
   it('tapers the first-prestige adjustment back to the long-term HP curve', () => {

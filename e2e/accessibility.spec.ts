@@ -60,6 +60,7 @@ test.describe('360px keyboard and screenreader semantics', () => {
       '방랑 기사 아렌',
       '성장 장비',
       '스킬 각인',
+      '동료 원정대',
       '불씨의 계승',
       '저장 백업',
     ]) {
@@ -67,10 +68,10 @@ test.describe('360px keyboard and screenreader semantics', () => {
     }
     expect(
       await page.locator('main section[aria-labelledby] > :first-child h2, main section[aria-labelledby] > h2').allTextContents(),
-    ).toEqual(['스테이지 1', '방랑 기사 아렌', '성장 장비', '스킬 각인', '불씨의 계승', '저장 백업'])
+    ).toEqual(['스테이지 1', '방랑 기사 아렌', '성장 장비', '스킬 각인', '동료 원정대', '불씨의 계승', '저장 백업'])
     await expect(page.locator('.ambient[aria-hidden="true"]')).toHaveCount(2)
     await expect(page.locator('.enemy-portrait')).toHaveAttribute('aria-hidden', 'true')
-    await expect(page.locator('.item-glyph[aria-hidden="true"]')).toHaveCount(6)
+    await expect(page.locator('.item-glyph[aria-hidden="true"]')).toHaveCount(7)
 
     await page.keyboard.press('Tab')
     const skipLink = page.getByRole('link', { name: '본문 바로가기' })

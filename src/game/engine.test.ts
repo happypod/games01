@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  COMPANION_ATTACK_INTERVAL_MS,
+  COMPANION_DEFINITIONS,
   MAX_OFFLINE_MS,
   MAX_STAGE,
   SKILL_DEFINITIONS,
@@ -11,10 +13,18 @@ import {
   createInitialState,
   performPrestige,
   purchaseUpgrade,
+  recruitCompanion,
   selectStage,
+  trainCompanion,
   upgradeSkill,
 } from './engine'
-import { getHeroStats, getUpgradeCost, getXpToNextLevel } from './formulas'
+import {
+  getCompanionDamage,
+  getCompanionTrainingCost,
+  getHeroStats,
+  getUpgradeCost,
+  getXpToNextLevel,
+} from './formulas'
 import { isGameState } from './persistence'
 import type { GameState } from './types'
 
@@ -40,6 +50,10 @@ function createUpperBoundaryState(): GameState {
         ironWill: SKILL_DEFINITIONS.ironWill.maxRank,
         fortune: SKILL_DEFINITIONS.fortune.maxRank,
       },
+      companion: {
+        id: 'emberFox',
+        rank: COMPANION_DEFINITIONS.emberFox.maxRank,
+      },
     },
     battle: {
       stage: MAX_STAGE,
@@ -47,6 +61,7 @@ function createUpperBoundaryState(): GameState {
       enemyHp: 1,
       roundRemainderMs: 0,
       powerStrikeCooldownMs: 0,
+      companionCooldownMs: 0,
       kills: Number.MAX_SAFE_INTEGER,
       defeats: Number.MAX_SAFE_INTEGER,
     },
@@ -68,12 +83,14 @@ describe('game engine', () => {
   it('creates a valid first battle', () => {
     const state = createInitialState(1234)
 
-    expect(state.schemaVersion).toBe(2)
+    expect(state.schemaVersion).toBe(3)
     expect(state.lastSavedAt).toBe(1234)
     expect(state.rng).toMatchObject({ algorithm: 'xorshift32-v1', draws: 0 })
     expect(state.player.currentHp).toBe(getHeroStats(state).maxHp)
     expect(state.battle.stage).toBe(1)
     expect(state.battle.enemyHp).toBeGreaterThan(0)
+    expect(state.player.companion).toEqual({ id: null, rank: 0 })
+    expect(state.battle.companionCooldownMs).toBe(0)
   })
 
   it('advances combat and grants each kill reward once', () => {
@@ -179,6 +196,171 @@ describe('game engine', () => {
     expect(result.state.rng).toEqual(eligible.rng)
   })
 
+  it('recruits the first companion only after the first boss victory', () => {
+    const initial = createInitialState(0)
+    const locked = recruitCompanion(initial, 'emberFox')
+    expect(locked.success).toBe(false)
+    expect(locked.state).toBe(initial)
+    expect(locked.state.rng).toEqual(initial.rng)
+
+    const eligible = {
+      ...initial,
+      battle: { ...initial.battle, highestStage: 11 },
+    }
+    const eligibleCopy = structuredClone(eligible)
+    const recruited = recruitCompanion(eligible, 'emberFox')
+    expect(recruited.success).toBe(true)
+    expect(recruited.state.player.companion).toEqual({ id: 'emberFox', rank: 1 })
+    expect(recruited.state.battle.companionCooldownMs).toBe(0)
+    expect(recruited.state.rng).toEqual(eligible.rng)
+    expect(eligible).toEqual(eligibleCopy)
+
+    const repeated = recruitCompanion(recruited.state, 'emberFox')
+    expect(repeated.success).toBe(false)
+    expect(repeated.state).toBe(recruited.state)
+  })
+
+  it('trains a recruited companion atomically up to the maximum rank', () => {
+    const initial = createInitialState(0)
+    const cost = getCompanionTrainingCost('emberFox', 1)
+    const funded = {
+      ...initial,
+      player: {
+        ...initial.player,
+        gold: cost,
+        companion: { id: 'emberFox' as const, rank: 1 },
+      },
+    }
+    const fundedCopy = structuredClone(funded)
+    const trained = trainCompanion(funded)
+    expect(trained.success).toBe(true)
+    expect(trained.state.player.gold).toBe(0)
+    expect(trained.state.player.companion.rank).toBe(2)
+    expect(trained.state.rng).toEqual(funded.rng)
+    expect(funded).toEqual(fundedCopy)
+
+    const insufficient = trainCompanion({
+      ...funded,
+      player: { ...funded.player, gold: cost - 1 },
+    })
+    expect(insufficient.success).toBe(false)
+    expect(insufficient.state.player.companion.rank).toBe(1)
+
+    const maximum = {
+      ...funded,
+      player: {
+        ...funded.player,
+        companion: {
+          id: 'emberFox' as const,
+          rank: COMPANION_DEFINITIONS.emberFox.maxRank,
+        },
+      },
+    }
+    const capped = trainCompanion(maximum)
+    expect(capped.success).toBe(false)
+    expect(capped.state).toBe(maximum)
+  })
+
+  it('adds deterministic companion damage without consuming another RNG draw', () => {
+    const initial = createInitialState(0, 0x12345678)
+    const assisted: GameState = {
+      ...initial,
+      player: {
+        ...initial.player,
+        companion: { id: 'emberFox', rank: 1 },
+      },
+      battle: {
+        ...initial.battle,
+        enemyHp: 100,
+        powerStrikeCooldownMs: 5_000,
+      },
+    }
+    const expectedDamage = getCompanionDamage(assisted)
+    const result = advanceGame(assisted, 1_000)
+
+    expect(result.report.companionAttacks).toBe(1)
+    expect(result.report.companionDamage).toBe(expectedDamage)
+    expect(result.state.battle.companionCooldownMs).toBe(COMPANION_ATTACK_INTERVAL_MS)
+    expect(result.state.rng.draws).toBe(1)
+  })
+
+  it('resolves a companion finishing blow through the single reward branch', () => {
+    const initial = createInitialState(0, 1)
+    const assisted: GameState = {
+      ...initial,
+      player: {
+        ...initial.player,
+        companion: { id: 'emberFox', rank: 1 },
+      },
+      battle: {
+        ...initial.battle,
+        enemyHp: 20,
+        powerStrikeCooldownMs: 5_000,
+      },
+    }
+    const result = advanceGame(assisted, 1_000)
+
+    expect(result.report).toMatchObject({
+      rounds: 1,
+      criticalHits: 1,
+      companionAttacks: 1,
+      companionDamage: 2,
+      kills: 1,
+    })
+    expect(result.state.battle.stage).toBe(2)
+    expect(result.state.battle.kills).toBe(1)
+    expect(result.state.stats.enemiesDefeated).toBe(1)
+    expect(result.state.player.gold).toBe(result.report.goldEarned)
+  })
+
+  it('does not consume a companion attack when the hero defeats the enemy first', () => {
+    const initial = createInitialState(0, 0x13572468)
+    const assisted: GameState = {
+      ...initial,
+      player: {
+        ...initial.player,
+        companion: { id: 'emberFox', rank: 1 },
+      },
+      battle: {
+        ...initial.battle,
+        enemyHp: 1,
+        companionCooldownMs: 2_000,
+      },
+    }
+    const inputCopy = structuredClone(assisted)
+    const result = advanceGame(assisted, 1_000)
+
+    expect(result.report.companionAttacks).toBe(0)
+    expect(result.report.companionDamage).toBe(0)
+    expect(result.state.battle.companionCooldownMs).toBe(1_000)
+    expect(assisted).toEqual(inputCopy)
+  })
+
+  it('keeps companion combat deterministic across elapsed-time chunking', () => {
+    const initial = createInitialState(0, 0x87654321)
+    const assisted: GameState = {
+      ...initial,
+      player: {
+        ...initial.player,
+        companion: { id: 'emberFox', rank: 3 },
+      },
+    }
+    const once = advanceGame(assisted, 3_000)
+    let chunked = assisted
+    let companionAttacks = 0
+    let companionDamage = 0
+    for (let index = 0; index < 3; index += 1) {
+      const result = advanceGame(chunked, 1_000)
+      chunked = result.state
+      companionAttacks += result.report.companionAttacks
+      companionDamage += result.report.companionDamage
+    }
+
+    expect(chunked).toEqual(once.state)
+    expect(companionAttacks).toBe(once.report.companionAttacks)
+    expect(companionDamage).toBe(once.report.companionDamage)
+  })
+
   it('only allows unlocked stages to be selected', () => {
     const initial = createInitialState(0)
     const locked = selectStage(initial, 2)
@@ -194,6 +376,37 @@ describe('game engine', () => {
     expect(result.state.battle.stage).toBe(4)
     expect(result.state.battle.enemyHp).toBeGreaterThan(0)
     expect(result.state.rng).toEqual(unlocked.rng)
+  })
+
+  it('preserves companion cooldown when selecting another unlocked stage', () => {
+    const initial = createInitialState(0)
+    const unlocked: GameState = {
+      ...initial,
+      player: {
+        ...initial.player,
+        companion: { id: 'emberFox', rank: 1 },
+      },
+      battle: {
+        ...initial.battle,
+        highestStage: 5,
+        companionCooldownMs: 2_000,
+      },
+    }
+    const result = selectStage(unlocked, 4)
+
+    expect(result.success).toBe(true)
+    expect(result.state.battle.companionCooldownMs).toBe(2_000)
+  })
+
+  it('heals a decodable non-canonical unrecruited cooldown during a round', () => {
+    const initial = createInitialState(0)
+    const invalid = {
+      ...initial,
+      battle: { ...initial.battle, companionCooldownMs: 3_000 },
+    }
+
+    expect(isGameState(invalid)).toBe(true)
+    expect(advanceGame(invalid, 1_000).state.battle.companionCooldownMs).toBe(0)
   })
 
   it('resets temporary progress while retaining prestige rewards and lifetime stats', () => {
@@ -215,6 +428,28 @@ describe('game engine', () => {
     expect(result.state.rng).toEqual(eligible.rng)
   })
 
+  it('keeps a recruited companion through prestige but resets rank and cooldown', () => {
+    const initial = createInitialState(100)
+    const eligible: GameState = {
+      ...initial,
+      player: {
+        ...initial.player,
+        companion: { id: 'emberFox', rank: 5 },
+      },
+      battle: {
+        ...initial.battle,
+        stage: 30,
+        highestStage: 30,
+        companionCooldownMs: 2_000,
+      },
+    }
+
+    const result = performPrestige(eligible)
+    expect(result.success).toBe(true)
+    expect(result.state.player.companion).toEqual({ id: 'emberFox', rank: 1 })
+    expect(result.state.battle.companionCooldownMs).toBe(0)
+  })
+
   it('keeps core numeric invariants during a long offline simulation', () => {
     const result = advanceGame(createInitialState(0), MAX_OFFLINE_MS)
     const values = [
@@ -232,6 +467,8 @@ describe('game engine', () => {
   it('saturates valid upper-bound rewards, counters, reports, and prestige fields', () => {
     const initial = createUpperBoundaryState()
     expect(isGameState(initial)).toBe(true)
+    expect(getCompanionDamage(initial)).toBeGreaterThan(0)
+    expect(Number.isSafeInteger(getCompanionDamage(initial))).toBe(true)
 
     const result = advanceGame(initial, 2_000)
     expect(

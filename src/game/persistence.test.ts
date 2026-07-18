@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import legacySaveV1 from './fixtures/legacy-save-v1.json'
+import legacySaveV2 from './fixtures/legacy-save-v2.json'
 import { advanceGame, createInitialState } from './engine'
 import {
   LEGACY_SAVE_KEY,
@@ -148,6 +149,65 @@ describe('A/B game persistence', () => {
     expect(storage.getItem(SAVE_SLOT_B_KEY)).toBe(beforeB)
   })
 
+  it('does not treat equivalent mixed-schema states as a conflicting revision tie', () => {
+    const storage = new MemoryStorage()
+    const migrated = parseSave(JSON.stringify(legacySaveV2))!
+    const reordered = {
+      schemaVersion: migrated.schemaVersion,
+      lastSavedAt: migrated.lastSavedAt,
+      rng: { ...migrated.rng },
+      player: {
+        companion: { ...migrated.player.companion },
+        level: migrated.player.level,
+        xp: migrated.player.xp,
+        gold: migrated.player.gold,
+        essence: migrated.player.essence,
+        currentHp: migrated.player.currentHp,
+        skillPoints: migrated.player.skillPoints,
+        upgrades: { ...migrated.player.upgrades },
+        skills: { ...migrated.player.skills },
+      },
+      battle: {
+        companionCooldownMs: migrated.battle.companionCooldownMs,
+        stage: migrated.battle.stage,
+        highestStage: migrated.battle.highestStage,
+        enemyHp: migrated.battle.enemyHp,
+        roundRemainderMs: migrated.battle.roundRemainderMs,
+        powerStrikeCooldownMs: migrated.battle.powerStrikeCooldownMs,
+        kills: migrated.battle.kills,
+        defeats: migrated.battle.defeats,
+      },
+      stats: { ...migrated.stats },
+    }
+    storage.setItem(
+      SAVE_SLOT_A_KEY,
+      JSON.stringify({
+        formatVersion: SAVE_FORMAT_VERSION,
+        revision: 7,
+        savedAt: legacySaveV2.lastSavedAt,
+        state: legacySaveV2,
+      }),
+    )
+    storage.setItem(
+      SAVE_SLOT_B_KEY,
+      JSON.stringify({
+        formatVersion: SAVE_FORMAT_VERSION,
+        revision: 7,
+        savedAt: migrated.lastSavedAt,
+        state: reordered,
+      }),
+    )
+
+    expect(saveGameAtRevision(storage, migrated, 7)).toEqual({
+      status: 'saved',
+      revision: 8,
+    })
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)).toMatchObject({
+      revision: 8,
+      state: migrated,
+    })
+  })
+
   it('loads the highest valid revision and immediately checkpoints offline progress', () => {
     const storage = new MemoryStorage()
     saveGame(storage, withGold(1_000, 10))
@@ -215,8 +275,14 @@ describe('A/B game persistence', () => {
     expect(schemaVersion).toBe(SAVE_VERSION)
     expect(migratedFields).toEqual({
       lastSavedAt: legacySaveV1.lastSavedAt,
-      player: legacySaveV1.player,
-      battle: legacySaveV1.battle,
+      player: {
+        ...legacySaveV1.player,
+        companion: { id: null, rank: 0 },
+      },
+      battle: {
+        ...legacySaveV1.battle,
+        companionCooldownMs: 0,
+      },
       stats: legacySaveV1.stats,
     })
     expect(rng).toEqual({
@@ -283,6 +349,63 @@ describe('A/B game persistence', () => {
       formatVersion: SAVE_FORMAT_VERSION,
       revision: 8,
       state: { schemaVersion: SAVE_VERSION, rng: { draws: 0 } },
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(legacyEnvelope)
+  })
+
+  it('migrates schema2 without changing its saved RNG sequence', () => {
+    const migrated = parseSave(JSON.stringify(legacySaveV2))
+
+    expect(migrated).toEqual({
+      ...legacySaveV2,
+      schemaVersion: SAVE_VERSION,
+      rng: legacySaveV2.rng,
+      player: {
+        ...legacySaveV2.player,
+        companion: { id: null, rank: 0 },
+      },
+      battle: {
+        ...legacySaveV2.battle,
+        companionCooldownMs: 0,
+      },
+    })
+  })
+
+  it('reads a format3/schema2 A/B winner and checkpoints schema3 only as writer', () => {
+    const storage = new MemoryStorage()
+    const legacyEnvelope = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 12,
+      savedAt: legacySaveV2.lastSavedAt,
+      state: legacySaveV2,
+    })
+    storage.setItem(SAVE_SLOT_A_KEY, legacyEnvelope)
+
+    const reader = bootstrapGame(storage, legacySaveV2.lastSavedAt, 'reader')
+    expect(reader).toMatchObject({
+      state: {
+        schemaVersion: SAVE_VERSION,
+        rng: legacySaveV2.rng,
+        player: { companion: { id: null, rank: 0 } },
+        battle: { companionCooldownMs: 0 },
+      },
+      revision: 12,
+      saveBlocked: false,
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(legacyEnvelope)
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBeNull()
+
+    const writer = bootstrapGame(storage, legacySaveV2.lastSavedAt)
+    expect(writer.saveHealthy).toBe(true)
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)).toMatchObject({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 13,
+      state: {
+        schemaVersion: SAVE_VERSION,
+        rng: legacySaveV2.rng,
+        player: { companion: { id: null, rank: 0 } },
+        battle: { companionCooldownMs: 0 },
+      },
     })
     expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(legacyEnvelope)
   })
@@ -502,6 +625,40 @@ describe('A/B game persistence', () => {
     const loaded = bootstrapGame(storage, state.lastSavedAt, 'reader')
     expect(loaded.state.battle.powerStrikeCooldownMs).toBe(5_000)
     expect(loaded.saveHealthy).toBe(true)
+  })
+
+  it('normalizes companion rank and cooldown without inventing a legacy recruitment', () => {
+    const active = createInitialState(100)
+    active.player.companion = { id: 'emberFox', rank: Number.MAX_SAFE_INTEGER }
+    active.battle.companionCooldownMs = Number.MAX_SAFE_INTEGER
+    expect(parseSave(JSON.stringify(active))).toMatchObject({
+      player: { companion: { id: 'emberFox', rank: 5 } },
+      battle: { companionCooldownMs: 3_000 },
+    })
+
+    const inactive = createInitialState(100)
+    inactive.battle.companionCooldownMs = 2_000
+    expect(parseSave(JSON.stringify(inactive))).toMatchObject({
+      player: { companion: { id: null, rank: 0 } },
+      battle: { companionCooldownMs: 0 },
+    })
+
+    expect(
+      parseSave(
+        JSON.stringify({
+          ...active,
+          player: { ...active.player, companion: { id: 'unknown', rank: 1 } },
+        }),
+      ),
+    ).toBeNull()
+    expect(
+      parseSave(
+        JSON.stringify({
+          ...active,
+          player: { ...active.player, companion: { id: 'emberFox', rank: 0 } },
+        }),
+      ),
+    ).toBeNull()
   })
 
   it('clears legacy and both A/B slots', () => {

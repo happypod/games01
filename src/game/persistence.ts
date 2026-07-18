@@ -1,4 +1,6 @@
 import {
+  COMPANION_ATTACK_INTERVAL_MS,
+  COMPANION_DEFINITIONS,
   MAX_OFFLINE_MS,
   MAX_STAGE,
   SKILL_DEFINITIONS,
@@ -8,13 +10,20 @@ import {
 import { advanceGame, createInitialState } from './engine'
 import { getHeroStats } from './formulas'
 import { MAX_UINT32, createRngState, seedFromText } from './rng'
-import { RNG_ALGORITHM, SAVE_VERSION, SKILL_IDS, UPGRADE_IDS } from './types'
+import {
+  COMPANION_IDS,
+  RNG_ALGORITHM,
+  SAVE_VERSION,
+  SKILL_IDS,
+  UPGRADE_IDS,
+} from './types'
 import type {
   AdvanceReport,
   BattleState,
   GameState,
   LifetimeStats,
   PlayerState,
+  RngState,
   StorageLike,
 } from './types'
 
@@ -67,11 +76,23 @@ type LegacyRead =
   | { status: 'error' }
   | { status: 'valid'; state: GameState }
 
+type LegacyPlayerState = Omit<PlayerState, 'companion'>
+type LegacyBattleState = Omit<BattleState, 'companionCooldownMs'>
+
 interface LegacyGameStateV1 {
   schemaVersion: 1
   lastSavedAt: number
-  player: PlayerState
-  battle: BattleState
+  player: LegacyPlayerState
+  battle: LegacyBattleState
+  stats: LifetimeStats
+}
+
+interface LegacyGameStateV2 {
+  schemaVersion: 2
+  lastSavedAt: number
+  rng: RngState
+  player: LegacyPlayerState
+  battle: LegacyBattleState
   stats: LifetimeStats
 }
 
@@ -121,21 +142,45 @@ function isLegacyGameStateV1(value: unknown): value is LegacyGameStateV1 {
   return isRecord(value) && value.schemaVersion === 1 && hasValidSharedState(value)
 }
 
+function hasValidRng(value: unknown): value is RngState {
+  return (
+    isRecord(value) &&
+    value.algorithm === RNG_ALGORITHM &&
+    isSafeNonNegativeInteger(value.seed) &&
+    value.seed >= 1 &&
+    value.seed <= MAX_UINT32 &&
+    isSafeNonNegativeInteger(value.state) &&
+    value.state >= 1 &&
+    value.state <= MAX_UINT32 &&
+    isSafeNonNegativeInteger(value.draws)
+  )
+}
+
+function isLegacyGameStateV2(value: unknown): value is LegacyGameStateV2 {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === 2 &&
+    hasValidSharedState(value) &&
+    hasValidRng(value.rng)
+  )
+}
+
 export function isGameState(value: unknown): value is GameState {
   if (!isRecord(value) || value.schemaVersion !== SAVE_VERSION || !hasValidSharedState(value)) {
     return false
   }
-  const rng = value.rng
+  const player = value.player
+  const battle = value.battle
+  if (!isRecord(player) || !isRecord(battle)) return false
+  const companion = player.companion
+  if (!isRecord(companion) || !isSafeNonNegativeInteger(companion.rank)) return false
+  const validCompanion =
+    (companion.id === null && companion.rank === 0) ||
+    (COMPANION_IDS.some((id) => id === companion.id) && companion.rank >= 1)
   return (
-    isRecord(rng) &&
-    rng.algorithm === RNG_ALGORITHM &&
-    isSafeNonNegativeInteger(rng.seed) &&
-    rng.seed >= 1 &&
-    rng.seed <= MAX_UINT32 &&
-    isSafeNonNegativeInteger(rng.state) &&
-    rng.state >= 1 &&
-    rng.state <= MAX_UINT32 &&
-    isSafeNonNegativeInteger(rng.draws)
+    validCompanion &&
+    isSafeNonNegativeInteger(battle.companionCooldownMs) &&
+    hasValidRng(value.rng)
   )
 }
 
@@ -150,6 +195,19 @@ function normalizeGameState(value: GameState): GameState {
   state.battle.enemyHp = Math.min(enemy.maxHp, Math.max(1, state.battle.enemyHp))
   state.battle.roundRemainderMs = Math.min(999, state.battle.roundRemainderMs)
   state.battle.powerStrikeCooldownMs = Math.min(5_000, state.battle.powerStrikeCooldownMs)
+  if (state.player.companion.id === null) {
+    state.player.companion.rank = 0
+    state.battle.companionCooldownMs = 0
+  } else {
+    state.player.companion.rank = Math.min(
+      COMPANION_DEFINITIONS[state.player.companion.id].maxRank,
+      Math.max(1, state.player.companion.rank),
+    )
+    state.battle.companionCooldownMs = Math.min(
+      COMPANION_ATTACK_INTERVAL_MS,
+      state.battle.companionCooldownMs,
+    )
+  }
   state.player.level = Math.min(999, state.player.level)
   for (const id of UPGRADE_IDS) {
     state.player.upgrades[id] = Math.min(
@@ -189,18 +247,34 @@ function deriveLegacySeed(state: LegacyGameStateV1): number {
   return seedFromText(`emberwatch-game-state-v1|${values.join('|')}`)
 }
 
-function migrateLegacyGameState(state: LegacyGameStateV1): GameState {
+function migrateLegacyGameState(
+  state: LegacyGameStateV1 | LegacyGameStateV2,
+  rng: RngState,
+): GameState {
+  const legacy = structuredClone(state)
   const migrated: GameState = {
-    ...structuredClone(state),
     schemaVersion: SAVE_VERSION,
-    rng: createRngState(deriveLegacySeed(state)),
+    lastSavedAt: legacy.lastSavedAt,
+    rng: { ...rng },
+    player: {
+      ...legacy.player,
+      companion: { id: null, rank: 0 },
+    },
+    battle: {
+      ...legacy.battle,
+      companionCooldownMs: 0,
+    },
+    stats: { ...legacy.stats },
   }
   return normalizeGameState(migrated)
 }
 
 export function decodeGameState(value: unknown): GameState | null {
   if (isGameState(value)) return normalizeGameState(value)
-  return isLegacyGameStateV1(value) ? migrateLegacyGameState(value) : null
+  if (isLegacyGameStateV2(value)) return migrateLegacyGameState(value, value.rng)
+  return isLegacyGameStateV1(value)
+    ? migrateLegacyGameState(value, createRngState(deriveLegacySeed(value)))
+    : null
 }
 
 /** 단일 키의 지원 가능한 raw GameState를 읽는 migration 진입점입니다. */
@@ -226,12 +300,6 @@ export function parseSaveEnvelope(raw: string): SaveEnvelope | null {
       return null
     }
 
-    if (
-      parsed.formatVersion === SAVE_FORMAT_VERSION &&
-      (!isRecord(parsed.state) || parsed.state.schemaVersion !== SAVE_VERSION)
-    ) {
-      return null
-    }
     const state = decodeGameState(parsed.state)
     if (state === null || state.lastSavedAt !== parsed.savedAt) return null
     return {
@@ -313,6 +381,19 @@ function selectLatestSlot(slots: readonly SlotRead[]): Extract<SlotRead, { statu
   })
 }
 
+function canonicalStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalStringify).join(',')}]`
+  }
+  if (isRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalStringify(value[key])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'null'
+}
+
 function hasConflictingRevisionTie(slots: readonly SlotRead[]): boolean {
   const valid = slots.filter(
     (slot): slot is Extract<SlotRead, { status: 'valid' }> => slot.status === 'valid',
@@ -321,7 +402,7 @@ function hasConflictingRevisionTie(slots: readonly SlotRead[]): boolean {
   if (valid.length !== 2 || first === undefined || second === undefined) return false
   return (
     first.envelope.revision === second.envelope.revision &&
-    JSON.stringify(first.envelope.state) !== JSON.stringify(second.envelope.state)
+    canonicalStringify(first.envelope.state) !== canonicalStringify(second.envelope.state)
   )
 }
 

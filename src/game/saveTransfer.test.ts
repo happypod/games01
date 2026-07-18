@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import portableSaveV1 from './fixtures/portable-save-v1.json'
+import legacySaveV2 from './fixtures/legacy-save-v2.json'
 import { createInitialState } from './engine'
 import { SAVE_SLOT_A_KEY, SAVE_SLOT_B_KEY, parseSaveEnvelope, saveGameAtRevision } from './persistence'
 import {
@@ -9,6 +10,7 @@ import {
   createPortableSave,
   parsePortableSave,
 } from './saveTransfer'
+import { SAVE_VERSION } from './types'
 
 class MemoryStorage {
   private values = new Map<string, string>()
@@ -62,6 +64,35 @@ describe('portable save transfer', () => {
     })
   })
 
+  it('round-trips and commits an active companion rank and cooldown', () => {
+    const state = exportedState()
+    state.player.companion = { id: 'emberFox', rank: 4 }
+    state.battle.companionCooldownMs = 2_000
+    const parsed = parsePortableSave(createPortableSave(state, 2_000)!)
+
+    expect(parsed).toMatchObject({
+      success: true,
+      preview: {
+        state: {
+          player: { companion: { id: 'emberFox', rank: 4 } },
+          battle: { companionCooldownMs: 2_000 },
+        },
+      },
+    })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+
+    const storage = new MemoryStorage()
+    expect(commitPortableSave(storage, parsed.preview, null, 3_000)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+      state: {
+        player: { companion: { id: 'emberFox', rank: 4 } },
+        battle: { companionCooldownMs: 2_000 },
+      },
+    })
+  })
+
   it('migrates and commits a checked-in schema1 portable backup', () => {
     const parsed = parsePortableSave(JSON.stringify(portableSaveV1))
     expect(parsed).toMatchObject({
@@ -69,9 +100,10 @@ describe('portable save transfer', () => {
       preview: {
         exportedAt: portableSaveV1.exportedAt,
         state: {
-          schemaVersion: 2,
+          schemaVersion: SAVE_VERSION,
           rng: { algorithm: 'xorshift32-v1', seed: 873835004, draws: 0 },
-          player: { gold: 87 },
+          player: { gold: 87, companion: { id: null, rank: 0 } },
+          battle: { companionCooldownMs: 0 },
         },
       },
     })
@@ -86,7 +118,45 @@ describe('portable save transfer', () => {
     expect(commitPortableSave(storage, parsed.preview, 1, 5_000)).toMatchObject({
       status: 'saved',
       revision: 2,
-      state: { schemaVersion: 2, rng: { seed: 873835004 }, lastSavedAt: 5_000 },
+      state: { schemaVersion: SAVE_VERSION, rng: { seed: 873835004 }, lastSavedAt: 5_000 },
+    })
+  })
+
+  it('migrates and commits a schema2 portable backup without changing its RNG', () => {
+    const exportedAt = legacySaveV2.lastSavedAt + 1_000
+    const portableV2 = {
+      kind: 'emberwatch-portable-save',
+      exportVersion: PORTABLE_SAVE_VERSION,
+      exportedAt,
+      state: legacySaveV2,
+      checksum: checksumText(JSON.stringify(legacySaveV2)),
+    }
+    const parsed = parsePortableSave(JSON.stringify(portableV2))
+
+    expect(parsed).toMatchObject({
+      success: true,
+      preview: {
+        exportedAt,
+        state: {
+          schemaVersion: SAVE_VERSION,
+          rng: legacySaveV2.rng,
+          player: { companion: { id: null, rank: 0 } },
+          battle: { companionCooldownMs: 0 },
+        },
+      },
+    })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+
+    const storage = new MemoryStorage()
+    expect(commitPortableSave(storage, parsed.preview, null, exportedAt + 1_000)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+      state: {
+        schemaVersion: SAVE_VERSION,
+        rng: legacySaveV2.rng,
+        player: { companion: { id: null, rank: 0 } },
+      },
     })
   })
 

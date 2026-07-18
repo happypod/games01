@@ -1,4 +1,4 @@
-import type { EnemyDefinition, SkillId, UpgradeId } from './types'
+import type { CompanionId, EnemyDefinition, SkillId, UpgradeId } from './types'
 
 export const COMBAT_ROUND_MS = 1_000
 export const MAX_OFFLINE_MS = 8 * 60 * 60 * 1_000
@@ -9,6 +9,7 @@ export const CRITICAL_DAMAGE_MULTIPLIER = 1.75
 export const ENEMY_HP_GROWTH = 1.15
 export const FIRST_PRESTIGE_HP_GROWTH = 1.188
 export const PRESTIGE_PACING_TAPER_STAGE = 60
+export const COMPANION_ATTACK_INTERVAL_MS = 3_000
 
 export interface UpgradeDefinition {
   id: UpgradeId
@@ -25,6 +26,18 @@ export interface SkillDefinition {
   description: string
   unlockLevel: number
   maxRank: number
+}
+
+export interface CompanionDefinition {
+  id: CompanionId
+  name: string
+  description: string
+  unlockStage: number
+  maxRank: number
+  baseTrainingCost: number
+  trainingCostGrowth: number
+  baseDamageRatio: number
+  damageRatioPerRank: number
 }
 
 export const UPGRADE_DEFINITIONS: Record<UpgradeId, UpgradeDefinition> = {
@@ -75,6 +88,20 @@ export const SKILL_DEFINITIONS: Record<SkillId, SkillDefinition> = {
     description: '모든 전투의 골드 획득량을 높입니다.',
     unlockLevel: 5,
     maxRank: 10,
+  },
+}
+
+export const COMPANION_DEFINITIONS: Record<CompanionId, CompanionDefinition> = {
+  emberFox: {
+    id: 'emberFox',
+    name: '불씨 여우 루미',
+    description: '3초마다 영웅 공격력에 비례한 불꽃 협공을 가합니다.',
+    unlockStage: 11,
+    maxRank: 5,
+    baseTrainingCost: 100,
+    trainingCostGrowth: 1.8,
+    baseDamageRatio: 0.2,
+    damageRatioPerRank: 0.05,
   },
 }
 

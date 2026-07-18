@@ -28,6 +28,8 @@ export function OfflineReport({ report, onClose }: OfflineReportProps) {
           <div><dt>획득 골드</dt><dd>{formatNumber(report.goldEarned)}</dd></div>
           <div><dt>획득 경험치</dt><dd>{formatNumber(report.xpEarned)}</dd></div>
           <div><dt>도달 스테이지</dt><dd>+{formatNumber(report.stagesGained)}</dd></div>
+          <div><dt>동료 협공</dt><dd>{formatNumber(report.companionAttacks)}</dd></div>
+          <div><dt>동료 피해</dt><dd>{formatNumber(report.companionDamage)}</dd></div>
         </dl>
         <button type="button" onClick={onClose} data-initial-focus>보상 확인</button>
       </section>
