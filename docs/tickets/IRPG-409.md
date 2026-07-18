@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: In Progress
+- Status: Done
 - Skill tags: ART-2D, FE-GAME, UX-FEEDBACK
 - Owner / Reviewer: Codex / independent game UI, art, and accessibility reviewers
 
@@ -101,4 +101,8 @@ asset ID와 이미지 활성화 여부는 `GameState`·portable backup에 저장
 
 ## Test evidence
 
-- 예정: 구현 후 로컬·GitHub CI run과 canonical artifact ID를 기록한다.
+- 독립 contract·game UI/accessibility·art review에서 최종 P0/P1 없음으로 승인했다. 6개 고유 silhouette와 feathered edge, 총비용을 포함한 접근성 이름, `cost + 1`·정확 비용·1 부족·잠금·MAX·전역 비활성 경계를 재검토했다.
+- `CI=true npm run verify`: lint·typecheck·build, Vitest 25파일·161/161, manifest validator 27/27, 일반 Playwright 26/26, production asset Playwright 3/3 통과. 로컬 OS visual 비교는 IRPG-506 계약에 따라 skip하고 Ubuntu에서 강제했다.
+- 구현 commit `5f8f6ee`의 Ubuntu [visual-baseline run 29650669449](https://github.com/happypod/games01/actions/runs/29650669449)은 28개 canonical을 생성하고 3회 반복 84/84를 통과했다. artifact `8431402541`의 ZIP digest `84c86050991e600c1d4d9ccc0180596439ed2940af12e6383295364d3055d67c`를 다운로드 SHA-256과 대조했고, 기존 20개는 byte-identical이며 새 카드 8개만 육안 승인해 체크인했다.
+- canonical commit `402555f`에서 [push quality-gate 29651111244](https://github.com/happypod/games01/actions/runs/29651111244), [pull_request quality-gate 29651112959](https://github.com/happypod/games01/actions/runs/29651112959), [visual-baseline 29651111226](https://github.com/happypod/games01/actions/runs/29651111226)이 모두 성공했다. 두 품질 게이트는 체크인된 Ubuntu canonical 28/28 비교를 포함하고 visual workflow는 84/84 안정성을 재확인해 artifact `8431524990`을 업로드했다.
+- 저장 영향은 없다. `SAVE_VERSION = 3`, A/B envelope, revision, RNG·전투·보상 수식은 변경하지 않았다.

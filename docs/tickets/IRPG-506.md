@@ -42,7 +42,7 @@
 - Content config: deterministic visual fixture IDs
 - Accessibility: viewport and reduced-motion matrix retained
 - Files: `src/debug/visualFixtures.ts`, `e2e/visualHarness.ts`, `e2e/visual-regression.spec.ts`, `playwright.visual.config.ts`, `e2e/__screenshots__/irpg-506`, `src/assets/fonts`, CI·package scripts
-- Fixtures: `visual.combat.hero-default`, `visual.combat.enemy-default`, `visual.combat.boss-default`, `visual.combat.fallback`; 각 fixture의 360×800·1440×900 × default·reduced 4 variants
+- Fixtures: 기본 전투 4종, `visual.map.stage-frontier`, `visual.cards.mixed-states`, `visual.cards.fallback`; 각 fixture의 360×800·1440×900 × default·reduced 4 variants
 
 ## Acceptance criteria
 
@@ -62,7 +62,7 @@ CI image는 floating `ubuntu-latest`가 아니라 `ubuntu-24.04`, Chromium revis
 
 baseline은 `ubuntu-24.04` 전용 workflow dispatch에서 생성하고 같은 runner에서 3회 반복 비교한 artifact만 Review 뒤 체크인한다. Windows에서 생성한 이미지는 canonical baseline으로 승인하지 않는다. 승인 갱신은 ticket ID와 이유를 기록하고 `e2e/__screenshots__/irpg-506`의 관련 파일만 바꾼다.
 
-`npm run test:e2e:visual`의 canonical 비교는 Ubuntu GitHub Actions에서만 실행한다. 로컬 OS의 글리프 rasterization 차이는 승인 baseline을 다시 생성하는 근거가 아니며, 필요할 때만 `IRPG_FORCE_VISUAL_COMPARE=1`로 진단 비교한다. 전체 품질 게이트는 Ubuntu CI에서 16개 canonical baseline을 반드시 비교한다.
+`npm run test:e2e:visual`의 canonical 비교는 Ubuntu GitHub Actions에서만 실행한다. 로컬 OS의 글리프 rasterization 차이는 승인 baseline을 다시 생성하는 근거가 아니며, 필요할 때만 `IRPG_FORCE_VISUAL_COMPARE=1`로 진단 비교한다. 전체 품질 게이트는 Ubuntu CI에서 현재 28개 canonical baseline을 반드시 비교한다.
 
 ## Verification
 
@@ -76,3 +76,4 @@ baseline은 `ubuntu-24.04` 전용 workflow dispatch에서 생성하고 같은 ru
 - 같은 최종 커밋의 [quality-gate push run 29644940565](https://github.com/happypod/games01/actions/runs/29644940565)와 [PR run 29644941794](https://github.com/happypod/games01/actions/runs/29644941794)가 모두 성공해 체크인된 16개 baseline 비교를 포함한 전체 `npm run verify`를 통과했다.
 - 최종 로컬 `npm run verify`: Vitest 21파일·130/130, manifest validator 21/21, 일반 Playwright 17/17, production 자산 Playwright 3/3, lint·typecheck·build 통과.
 - Windows 강제 진단 비교는 Ubuntu와 글리프 rasterization 차이 2%를 확인했으며 canonical을 덮어쓰지 않았다. 기본 로컬 `npm run verify`는 이 OS 전용 비교만 건너뛰고, GitHub Actions의 Ubuntu CI는 비교를 강제한다.
+- IRPG-408·409 확장 뒤 canonical은 28개다. 최종 [visual-baseline run 29651111226](https://github.com/happypod/games01/actions/runs/29651111226)이 28개 생성과 3회 반복 84/84를 통과했고 artifact `8431524990`을 업로드했으며, 같은 commit `402555f`의 push·PR quality-gate도 모두 성공했다.
