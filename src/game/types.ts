@@ -7,6 +7,14 @@ export type UpgradeId = (typeof UPGRADE_IDS)[number]
 export const SKILL_IDS = ['powerStrike', 'ironWill', 'fortune'] as const
 export type SkillId = (typeof SKILL_IDS)[number]
 
+export type ProgressionCardAssetId =
+  | 'equipment.ember-blade'
+  | 'equipment.guard-armor'
+  | 'equipment.fortune-charm'
+  | 'skill.power-strike'
+  | 'skill.iron-will'
+  | 'skill.loot-sense'
+
 export const COMPANION_IDS = ['emberFox'] as const
 export type CompanionId = (typeof COMPANION_IDS)[number]
 

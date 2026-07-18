@@ -20,8 +20,13 @@ export function observeBrowserErrors(page: Page): BrowserErrors {
 }
 
 async function installFailureRoute(page: Page, fixture: VisualFixtureDefinition) {
-  if (fixture.failureRoute !== 'hero-and-enemy-corrupt') return
-  await page.route(/\/(?:ashen-knight-default|ash-slime)[^/]*\.webp(?:\?.*)?$/, async (route) => {
+  const pattern = fixture.failureRoute === 'hero-and-enemy-corrupt'
+    ? /\/(?:ashen-knight-default|ash-slime)[^/]*\.webp(?:\?.*)?$/
+    : fixture.failureRoute === 'cards-corrupt'
+      ? /\/(?:equipment-(?:ember-blade|guard-armor|fortune-charm)|skill-(?:power-strike|iron-will|loot-sense))[^/]*\.webp(?:\?.*)?$/
+      : null
+  if (pattern === null) return
+  await page.route(pattern, async (route) => {
     if (route.request().resourceType() !== 'image') {
       await route.continue()
       return
@@ -96,6 +101,20 @@ export async function openVisualFixture(
     )
   }
 
+  if (fixture.setupAction === 'open-growth-cards') {
+    const artSlots = page.locator('[data-card-asset-id]')
+    await expect(artSlots).toHaveCount(6)
+    for (let index = 0; index < 6; index += 1) {
+      const slot = artSlots.nth(index)
+      await slot.scrollIntoViewIfNeeded()
+      await expect(slot).toHaveAttribute('data-art-active', 'true')
+      await expect(slot.locator('.growth-card__asset')).toHaveAttribute(
+        'data-state',
+        fixture.failureRoute === 'cards-corrupt' ? 'fallback' : 'loaded',
+      )
+    }
+  }
+
   const target = page.locator(fixture.captureTarget)
   await expect(target).toBeVisible()
   if (fixture.failureRoute === 'hero-and-enemy-corrupt') {
@@ -104,6 +123,17 @@ export async function openVisualFixture(
       await expect(page.locator(selector)).toHaveAttribute(
         'data-resolved-asset-id',
         'fallback.character',
+      )
+    }
+  }
+  if (fixture.failureRoute === 'cards-corrupt') {
+    const cardAssets = target.locator('.growth-card__asset')
+    await expect(cardAssets).toHaveCount(6)
+    for (let index = 0; index < 6; index += 1) {
+      await expect(cardAssets.nth(index)).toHaveAttribute('data-state', 'fallback')
+      await expect(cardAssets.nth(index)).toHaveAttribute(
+        'data-resolved-asset-id',
+        'fallback.card',
       )
     }
   }

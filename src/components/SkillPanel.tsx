@@ -1,6 +1,7 @@
 import { SKILL_DEFINITIONS } from '../game/content'
-import { getSkillPointCost, isSkillUnlocked } from '../game/formulas'
+import { getSkillEffectComparison, getSkillPointCost, isSkillUnlocked } from '../game/formulas'
 import { SKILL_IDS, type GameState, type SkillId } from '../game/types'
+import { GrowthCard, type GrowthCardStatus } from './GrowthCard'
 
 const SKILL_GLYPHS: Record<SkillId, string> = {
   powerStrike: '火',
@@ -30,37 +31,53 @@ export function SkillPanel({ state, onBuy, disabled = false }: SkillPanelProps) 
           const rank = state.player.skills[id]
           const unlocked = isSkillUnlocked(state, id)
           const cost = getSkillPointCost(id, rank)
-          const isMax = rank >= definition.maxRank
-          const descriptionId = `skill-${id}-description`
-          const statusId = `skill-${id}-status`
+          const comparison = getSkillEffectComparison(state, id)
+          const shortage = Math.max(0, cost - state.player.skillPoints)
+          const status: GrowthCardStatus = !unlocked
+            ? 'locked'
+            : comparison.isMax
+              ? 'max'
+              : disabled
+                ? 'globally-disabled'
+                : shortage > 0
+                  ? 'insufficient'
+                  : 'available'
+          const statusText = status === 'locked'
+            ? `영웅 레벨 ${definition.unlockLevel}에 해금됩니다.`
+            : status === 'max'
+              ? '최대 랭크에 도달했습니다.'
+              : status === 'globally-disabled'
+                ? '읽기 전용이거나 저장 소유권을 확인 중입니다.'
+                : status === 'insufficient'
+                  ? `스킬 포인트가 ${shortage} 부족합니다.`
+                  : '지금 각인할 수 있습니다.'
+          const buttonAriaLabel = status === 'locked'
+            ? `${definition.name} 잠김, 영웅 레벨 ${definition.unlockLevel} 필요, 비용 ${cost} 스킬 포인트`
+            : status === 'max'
+              ? `${definition.name} 최대 랭크`
+              : status === 'globally-disabled'
+                ? `${definition.name} 각인 불가, 비용 ${cost} 스킬 포인트, 읽기 전용 또는 저장 확인 중`
+                : status === 'insufficient'
+                  ? `${definition.name} 각인 불가, 비용 ${cost} 스킬 포인트, 스킬 포인트 ${shortage} 부족`
+                  : `${definition.name} 각인, 비용 ${cost} 스킬 포인트`
+
           return (
-            <article className={`upgrade-card ${unlocked ? '' : 'upgrade-card--locked'}`} key={id}>
-              <div className="item-glyph item-glyph--skill" aria-hidden="true">{SKILL_GLYPHS[id]}</div>
-              <div className="upgrade-card__copy">
-                <div><strong>{definition.name}</strong><span>Rank {rank}</span></div>
-                <p id={descriptionId}>{unlocked ? definition.description : `영웅 레벨 ${definition.unlockLevel}에 해금`}</p>
-                <span className="sr-only" id={statusId}>
-                  {isMax
-                    ? '최대 랭크입니다.'
-                    : !unlocked
-                      ? `영웅 레벨 ${definition.unlockLevel}부터 강화할 수 있습니다.`
-                      : disabled
-                        ? '읽기 전용이거나 저장 소유권을 확인 중이라 랭크를 올릴 수 없습니다.'
-                        : state.player.skillPoints < cost
-                        ? `스킬 포인트가 ${cost - state.player.skillPoints} 부족합니다.`
-                        : '랭크를 올릴 수 있습니다.'}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => onBuy(id)}
-                disabled={disabled || !unlocked || isMax || state.player.skillPoints < cost}
-                aria-label={`${definition.name} 랭크 상승, 비용 ${cost} 스킬 포인트`}
-                aria-describedby={`${descriptionId} ${statusId}`}
-              >
-                {isMax ? 'MAX' : <><span>각인</span><small>{cost} SP</small></>}
-              </button>
-            </article>
+            <GrowthCard
+              key={id}
+              id={`skill-${id}`}
+              assetId={definition.assetId}
+              fallbackGlyph={SKILL_GLYPHS[id]}
+              name={definition.name}
+              rankLabel={`Rank ${rank}`}
+              description={definition.description}
+              comparison={comparison}
+              status={status}
+              statusText={statusText}
+              buttonLabel={status === 'max' ? 'MAX' : status === 'locked' ? '잠김' : '각인'}
+              {...(status === 'max' ? {} : { costLabel: `${cost} SP` })}
+              buttonAriaLabel={buttonAriaLabel}
+              onAction={() => onBuy(id)}
+            />
           )
         })}
       </div>

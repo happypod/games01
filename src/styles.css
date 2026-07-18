@@ -221,8 +221,9 @@ h2 { font-size: 20px; letter-spacing: -.02em; }
 .stat-grid dd { margin: 0; font: 600 17px/1 'Emberwatch Sans', sans-serif; color: #e9dfd3; }
 .notice-strip { padding: 12px 15px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.025); color: #958b83; font-size: 10px; min-height: 38px; }
 
-.growth-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
-.collection-panel { padding: 25px; }
+.growth-grid { display: grid; gap: 18px; margin-top: 18px; }
+.progression-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.collection-panel { container-type: inline-size; padding: 25px; }
 .companion-panel { grid-column: 1 / -1; border-color: rgba(104,201,180,.13); }
 .companion-pill { color: #bce9df; border: 1px solid rgba(104,201,180,.2); background: rgba(104,201,180,.07); border-radius: 999px; padding: 7px 10px; font: 700 10px/1 'Emberwatch Sans', sans-serif; }
 .point-pill { color: #bce9df; border: 1px solid rgba(104,201,180,.2); background: rgba(104,201,180,.07); border-radius: 999px; padding: 7px 10px; font: 700 10px/1 'Emberwatch Sans', sans-serif; }
@@ -249,6 +250,40 @@ h2 { font-size: 20px; letter-spacing: -.02em; }
 .upgrade-card button:hover:not(:disabled) { background: rgba(230,184,93,.13); border-color: rgba(230,184,93,.35); }
 .upgrade-card button small { color: #c5a870; font-size: 9px; }
 .upgrade-card button:disabled { filter: grayscale(.6); opacity: .35; cursor: not-allowed; }
+
+.growth-card { display: grid; grid-template-columns: 80px minmax(0, 1fr) 86px; align-items: start; gap: 13px; padding: 13px; border: 1px solid rgba(255,255,255,.075); background: rgba(255,255,255,.024); border-radius: 8px; transition: border-color .2s, background .2s; }
+.growth-card:hover { border-color: rgba(230,184,93,.19); background: rgba(255,255,255,.036); }
+.growth-card--available { border-color: rgba(230,184,93,.16); }
+.growth-card--locked .growth-card__art, .growth-card--globally-disabled .growth-card__art { filter: grayscale(.72); opacity: .78; }
+.growth-card__art { width: 80px; min-width: 0; aspect-ratio: 1; align-self: start; overflow: hidden; border: 1px solid rgba(230,184,93,.18); border-radius: 7px; background: linear-gradient(145deg, rgba(135,87,34,.17), rgba(45,34,25,.4)); }
+.growth-card__asset { width: 100%; height: 100%; }
+.growth-card__art-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #e6bc6d; font: 700 28px/1 'Emberwatch Sans', sans-serif; }
+.growth-card__body { min-width: 0; }
+.growth-card__heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 8px; }
+.growth-card__heading h3 { margin: 0; color: #ded4c9; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.growth-card__heading > span { color: #aaa097; font: 600 10px/1 'Emberwatch Sans', sans-serif; }
+.growth-card__description { margin: 5px 0 0; color: #aaa097; font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.growth-card__effects { display: grid; gap: 4px; margin: 9px 0 0; }
+.growth-card__effects > div { display: grid; grid-template-columns: minmax(62px, auto) 1fr; align-items: baseline; gap: 7px; }
+.growth-card__effects dt { color: #8f8780; font-size: 10px; }
+.growth-card__effects dd { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 6px; margin: 0; color: #e4d8cb; font: 650 11px/1.35 'Emberwatch Sans', sans-serif; }
+.growth-card__effects dd > span { display: inline-flex; align-items: baseline; gap: 3px; }
+.growth-card__effects dd small { color: #8f8780; font-size: 10px; font-weight: 500; }
+.growth-card__effects dd i { color: #6f6861; font-style: normal; }
+.growth-card__status { display: inline-block; max-width: 100%; margin: 9px 0 0; padding: 4px 7px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; color: #b5aaa0; background: rgba(255,255,255,.025); font-size: 10px; line-height: 1.35; overflow-wrap: anywhere; }
+.growth-card--available .growth-card__status { color: #f0ce8c; border-color: rgba(230,184,93,.24); background: rgba(230,184,93,.07); }
+.growth-card--locked .growth-card__status, .growth-card--insufficient .growth-card__status { color: #d39a7b; border-color: rgba(238,125,61,.18); background: rgba(238,125,61,.055); }
+.growth-card--max .growth-card__status { color: #9ddccd; border-color: rgba(104,201,180,.22); background: rgba(104,201,180,.065); }
+.growth-card > button { align-self: stretch; min-width: 0; min-height: 44px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; padding: 8px 5px; border: 1px solid rgba(230,184,93,.2); background: rgba(230,184,93,.065); color: #e3bc72; border-radius: 6px; font-size: 11px; cursor: pointer; }
+.growth-card > button:hover:not(:disabled) { background: rgba(230,184,93,.14); border-color: rgba(230,184,93,.38); }
+.growth-card > button small { color: #c5a870; font-size: 10px; }
+.growth-card > button:disabled { filter: grayscale(.45); opacity: .54; cursor: not-allowed; }
+
+@container (max-width: 520px) {
+  .growth-card { grid-template-columns: 64px minmax(0, 1fr); gap: 11px; padding: 12px; }
+  .growth-card__art { width: 64px; }
+  .growth-card > button { grid-column: 1 / -1; width: 100%; min-height: 44px; }
+}
 
 .prestige-panel { margin-top: 18px; padding: 27px; display: flex; align-items: center; justify-content: space-between; gap: 30px; border-color: rgba(104,201,180,.13); background: linear-gradient(110deg, rgba(28,40,37,.68), rgba(25,22,20,.92)); }
 .prestige-panel > div:first-child { max-width: 680px; }
@@ -290,7 +325,7 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
 @media (max-width: 900px) {
   .dashboard { grid-template-columns: 1fr; }
   .battle { min-height: auto; }
-  .growth-grid { grid-template-columns: 1fr; }
+  .progression-panels { grid-template-columns: 1fr; }
   .stage-map-node-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
 }
 
@@ -321,6 +356,9 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .upgrade-card { grid-template-columns: 38px minmax(0, 1fr) 66px; gap: 9px; padding: 10px; }
   .companion-card { grid-template-columns: 38px minmax(0, 1fr) 72px; }
   .item-glyph { width: 38px; height: 38px; }
+  .growth-card { grid-template-columns: 64px minmax(0, 1fr); gap: 11px; padding: 12px; }
+  .growth-card__art { width: 64px; }
+  .growth-card > button { grid-column: 1 / -1; width: 100%; min-height: 44px; }
   .prestige-panel { align-items: stretch; flex-direction: column; gap: 18px; }
   .prestige-panel__action { min-width: 0; text-align: left; }
   .save-transfer { padding: 22px 20px 18px; }

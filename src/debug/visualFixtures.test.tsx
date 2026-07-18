@@ -41,6 +41,16 @@ const EXPECTED_FIXTURES = {
     hash: 'fnv1a32-v1:f9a209ad',
     seed: 2652276946,
   },
+  'visual.cards.mixed-states': {
+    stage: 3,
+    hash: 'fnv1a32-v1:ad431c22',
+    seed: 2691896847,
+  },
+  'visual.cards.fallback': {
+    stage: 3,
+    hash: 'fnv1a32-v1:6e071ccc',
+    seed: 1091907769,
+  },
 } as const
 
 function reverseObjectKeys(value: unknown): unknown {
@@ -96,7 +106,11 @@ describe('IRPG-506 named visual fixtures', () => {
 
       expect(definition).toMatchObject({
         id,
-        ownerTicket: id === 'visual.map.stage-frontier' ? 'IRPG-408' : 'IRPG-506',
+        ownerTicket: id === 'visual.map.stage-frontier'
+          ? 'IRPG-408'
+          : id.startsWith('visual.cards.')
+            ? 'IRPG-409'
+            : 'IRPG-506',
         stage: expected.stage,
         seedKey: `irpg-506:${id}:v1`,
         canonicalHash: expected.hash,
@@ -122,11 +136,22 @@ describe('IRPG-506 named visual fixtures', () => {
 
     expect(VISUAL_FIXTURE_REGISTRY['visual.combat.fallback'].failureRoute)
       .toBe('hero-and-enemy-corrupt')
-    expect(
-      VISUAL_FIXTURE_IDS
-        .filter((id) => id !== 'visual.combat.fallback')
-        .map((id) => VISUAL_FIXTURE_REGISTRY[id].failureRoute),
-    ).toEqual(['none', 'none', 'none', 'none'])
+    expect(VISUAL_FIXTURE_REGISTRY['visual.cards.fallback'].failureRoute)
+      .toBe('cards-corrupt')
+    expect(VISUAL_FIXTURE_REGISTRY['visual.cards.mixed-states']).toMatchObject({
+      captureTarget: '.progression-panels',
+      setupAction: 'open-growth-cards',
+    })
+
+    const cardState = createVisualFixtureState('visual.cards.mixed-states')
+    expect(cardState.player).toMatchObject({
+      level: 3,
+      gold: 35,
+      skillPoints: 1,
+      currentHp: 316,
+      upgrades: { weapon: 2, armor: 1, charm: 50 },
+      skills: { powerStrike: 3, ironWill: 10, fortune: 0 },
+    })
   })
 
   it('sorts every object level before hashing and returns fresh states', () => {

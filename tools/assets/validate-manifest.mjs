@@ -107,10 +107,16 @@ const OPTIONAL_FIELDS = [
 ]
 const ALLOWED_FIELDS = new Set([...REQUIRED_FIELDS, ...OPTIONAL_FIELDS])
 
-const CONTENT_HASH_REQUIRED_IDS = new Set([
+const FINAL_CONTENT_ASSET_IDS = new Set([
   'region.ashen-border',
   'region.moonfall-pass',
   'region.forgotten-caldera',
+  'equipment.ember-blade',
+  'equipment.guard-armor',
+  'equipment.fortune-charm',
+  'skill.power-strike',
+  'skill.iron-will',
+  'skill.loot-sense',
 ])
 
 const SPEC_BY_KIND = Object.freeze({
@@ -672,12 +678,12 @@ export async function validateManifest(options = {}) {
     if (!STATUSES.has(entry.status)) {
       addError(errors, ERROR_CODES.INVALID_STATUS, 'status is not ready or placeholder', entry.id, 'status')
     }
-    if (CONTENT_HASH_REQUIRED_IDS.has(entry.id)) {
+    if (FINAL_CONTENT_ASSET_IDS.has(entry.id)) {
       if (entry.status !== 'ready') {
-        addError(errors, ERROR_CODES.INVALID_STATUS, 'final region art must be ready', entry.id, 'status')
+        addError(errors, ERROR_CODES.INVALID_STATUS, 'final content asset must be ready', entry.id, 'status')
       }
       if (!isNonEmptyString(entry.sha256)) {
-        addError(errors, ERROR_CODES.HASH_REQUIRED, 'final region art requires sha256', entry.id, 'sha256')
+        addError(errors, ERROR_CODES.HASH_REQUIRED, 'final content asset requires sha256', entry.id, 'sha256')
       }
     }
 
@@ -699,11 +705,11 @@ export async function validateManifest(options = {}) {
   const contentSources = new Map()
   const contentHashes = new Map()
   for (const entry of manifest.assets) {
-    if (!isObject(entry) || !CONTENT_HASH_REQUIRED_IDS.has(entry.id)) continue
+    if (!isObject(entry) || !FINAL_CONTENT_ASSET_IDS.has(entry.id)) continue
     if (isNonEmptyString(entry.src)) {
       const owner = contentSources.get(entry.src)
       if (owner !== undefined) {
-        addError(errors, ERROR_CODES.DUPLICATE_SRC, `final region art shares src with ${owner}`, entry.id, 'src')
+        addError(errors, ERROR_CODES.DUPLICATE_SRC, `final content asset shares src with ${owner}`, entry.id, 'src')
       } else {
         contentSources.set(entry.src, entry.id)
       }
@@ -711,7 +717,7 @@ export async function validateManifest(options = {}) {
     if (typeof entry.sha256 === 'string' && /^[a-f0-9]{64}$/.test(entry.sha256)) {
       const owner = contentHashes.get(entry.sha256)
       if (owner !== undefined) {
-        addError(errors, ERROR_CODES.DUPLICATE_SHA256, `final region art shares sha256 with ${owner}`, entry.id, 'sha256')
+        addError(errors, ERROR_CODES.DUPLICATE_SHA256, `final content asset shares sha256 with ${owner}`, entry.id, 'sha256')
       } else {
         contentHashes.set(entry.sha256, entry.id)
       }

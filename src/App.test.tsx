@@ -38,6 +38,6 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByRole('button', { name: /불씨 검 강화/ })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /전리품 감각 랭크 상승/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /전리품 감각 잠김/ })).toBeDisabled()
   })
 })

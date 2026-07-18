@@ -147,8 +147,10 @@ export function GameScreen({
         />
 
         <div className="growth-grid">
-          <UpgradePanel state={game.state} onBuy={game.buyUpgrade} disabled={controlsDisabled} />
-          <SkillPanel state={game.state} onBuy={game.buySkill} disabled={controlsDisabled} />
+          <div className="progression-panels">
+            <UpgradePanel state={game.state} onBuy={game.buyUpgrade} disabled={controlsDisabled} />
+            <SkillPanel state={game.state} onBuy={game.buySkill} disabled={controlsDisabled} />
+          </div>
           <CompanionPanel
             state={game.state}
             onRecruit={game.recruitCompanion}

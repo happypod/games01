@@ -141,7 +141,7 @@ test('compares declared bytes to the real file', async () => {
   assert.equal(hasError(result, ERROR_CODES.BYTES_MISMATCH, 'hero.ashen-knight.default'), true)
 })
 
-test('requires final region art to be ready with a content hash', async () => {
+test('requires final content art to be ready with a content hash', async () => {
   const result = await runFixture(async ({ manifest }) => {
     const entry = findEntry(manifest, 'region.ashen-border')
     entry.status = 'placeholder'
@@ -151,6 +151,16 @@ test('requires final region art to be ready with a content hash', async () => {
   assert.equal(hasError(result, ERROR_CODES.HASH_REQUIRED, 'region.ashen-border'), true)
 })
 
+test('requires final progression cards to be ready with a content hash', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    const entry = findEntry(manifest, 'equipment.ember-blade')
+    entry.status = 'placeholder'
+    delete entry.sha256
+  })
+  assert.equal(hasError(result, ERROR_CODES.INVALID_STATUS, 'equipment.ember-blade'), true)
+  assert.equal(hasError(result, ERROR_CODES.HASH_REQUIRED, 'equipment.ember-blade'), true)
+})
+
 test('compares declared region hashes to the real files', async () => {
   const result = await runFixture(async ({ manifest }) => {
     findEntry(manifest, 'region.moonfall-pass').sha256 = '0'.repeat(64)
@@ -158,7 +168,7 @@ test('compares declared region hashes to the real files', async () => {
   assert.equal(hasError(result, ERROR_CODES.HASH_MISMATCH, 'region.moonfall-pass'), true)
 })
 
-test('rejects shared source paths and hashes across final region art', async () => {
+test('rejects shared source paths and hashes across final content art', async () => {
   const sharedSource = await runFixture(async ({ manifest }) => {
     findEntry(manifest, 'region.moonfall-pass').src = findEntry(
       manifest,
@@ -175,6 +185,27 @@ test('rejects shared source paths and hashes across final region art', async () 
   })
   assert.equal(
     hasError(sharedHash, ERROR_CODES.DUPLICATE_SHA256, 'region.moonfall-pass'),
+    true,
+  )
+})
+
+test('rejects shared source paths and hashes across final progression cards', async () => {
+  const sharedSource = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'skill.iron-will').src = findEntry(
+      manifest,
+      'equipment.guard-armor',
+    ).src
+  })
+  assert.equal(hasError(sharedSource, ERROR_CODES.DUPLICATE_SRC, 'skill.iron-will'), true)
+
+  const sharedHash = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'skill.loot-sense').sha256 = findEntry(
+      manifest,
+      'equipment.fortune-charm',
+    ).sha256
+  })
+  assert.equal(
+    hasError(sharedHash, ERROR_CODES.DUPLICATE_SHA256, 'skill.loot-sense'),
     true,
   )
 })

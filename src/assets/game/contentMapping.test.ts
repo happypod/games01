@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { getEnemyDefinition } from '../../game/content'
+import {
+  SKILL_DEFINITIONS,
+  UPGRADE_DEFINITIONS,
+  getEnemyDefinition,
+} from '../../game/content'
 import manifestJson from './manifest.json'
 
 describe('combat visual asset mapping', () => {
@@ -39,5 +43,39 @@ describe('combat visual asset mapping', () => {
     }
 
     expect(portraitSources.size).toBe(expectedByStage.length)
+  })
+})
+
+describe('IRPG-409 progression card asset mapping', () => {
+  it('maps every fixed upgrade and skill to unique production-ready card art', () => {
+    const declaredById = new Map(manifestJson.assets.map((asset) => [asset.id, asset]))
+    const expected = [
+      ['불씨 검', UPGRADE_DEFINITIONS.weapon.assetId, 'equipment'],
+      ['수호 갑옷', UPGRADE_DEFINITIONS.armor.assetId, 'equipment'],
+      ['행운 부적', UPGRADE_DEFINITIONS.charm.assetId, 'equipment'],
+      ['화염 강타', SKILL_DEFINITIONS.powerStrike.assetId, 'skill'],
+      ['강철 의지', SKILL_DEFINITIONS.ironWill.assetId, 'skill'],
+      ['전리품 감각', SKILL_DEFINITIONS.fortune.assetId, 'skill'],
+    ] as const
+    const sources = new Set<string>()
+    const hashes = new Set<string>()
+
+    for (const [name, assetId, kind] of expected) {
+      const asset = declaredById.get(assetId)
+      if (!asset) throw new Error(`Missing ${name} manifest asset: ${assetId}`)
+      expect(asset).toMatchObject({
+        kind,
+        status: 'ready',
+        width: 512,
+        height: 512,
+        promptRecord: 'docs/assets/prompts/equipment-skill-cards.md',
+      })
+      expect(asset.sha256).toMatch(/^[a-f0-9]{64}$/)
+      sources.add(asset.src)
+      hashes.add(asset.sha256 ?? '')
+    }
+
+    expect(sources.size).toBe(expected.length)
+    expect(hashes.size).toBe(expected.length)
   })
 })

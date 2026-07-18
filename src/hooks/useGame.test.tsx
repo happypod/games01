@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createInitialState } from '../game/engine'
+import { SAVE_SLOT_KEYS, parseSaveEnvelope } from '../game/persistence'
 import { createPortableSave, parsePortableSave } from '../game/saveTransfer'
 import { useGame } from './useGame'
 
@@ -99,6 +100,44 @@ describe('useGame persistence safety', () => {
 
     await act(async () => vi.advanceTimersByTimeAsync(10_000))
     expect(setItem).not.toHaveBeenCalled()
+    unmount()
+  })
+
+  it('does not advance save revision when progression commands are rejected', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(result.current.readOnly).toBe(false)
+
+    const stateBefore = structuredClone(result.current.state)
+    const slotsBefore = SAVE_SLOT_KEYS.map((key) => window.localStorage.getItem(key))
+    const revisionsBefore = slotsBefore.map((raw) =>
+      raw === null ? null : parseSaveEnvelope(raw)?.revision ?? null,
+    )
+
+    act(() => {
+      result.current.buyUpgrade('weapon')
+      result.current.buySkill('fortune')
+    })
+
+    expect(result.current.state).toEqual(stateBefore)
+    expect(result.current.state.rng).toEqual(stateBefore.rng)
+    const slotsAfter = SAVE_SLOT_KEYS.map((key) => window.localStorage.getItem(key))
+    expect(slotsAfter).toEqual(slotsBefore)
+    expect(slotsAfter.map((raw) =>
+      raw === null ? null : parseSaveEnvelope(raw)?.revision ?? null,
+    )).toEqual(revisionsBefore)
     unmount()
   })
 })

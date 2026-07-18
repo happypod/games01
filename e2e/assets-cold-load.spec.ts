@@ -477,6 +477,19 @@ test('production cold load stays within the asset budget and preserves lazy name
       regionImageOutputsById.set(entry.id, imageOutputs)
       addOutputFiles(allRegionImageOutputs, imageOutputs)
     }
+    const cardImageOutputsById = new Map<string, Set<string>>()
+    const allCardImageOutputs = new Set<string>()
+    for (const entry of assetManifest.assets.filter(({ id }) =>
+      /^(?:equipment|skill)\./.test(id),
+    )) {
+      const imageOutputs = new Set(
+        [...(outputsByAssetId.get(entry.id) ?? [])].filter((file) =>
+          IMAGE_EXTENSIONS.has(extname(file).toLowerCase()),
+        ),
+      )
+      cardImageOutputsById.set(entry.id, imageOutputs)
+      addOutputFiles(allCardImageOutputs, imageOutputs)
+    }
 
     const lazyOutputs = new Set<string>()
     const nonCurrentCombatOutputs = new Set<string>()
@@ -503,6 +516,7 @@ test('production cold load stays within the asset budget and preserves lazy name
       heroOutputs: [...heroImageOutputs].sort(),
       currentEnemyOutputs: [...currentEnemyImageOutputs].sort(),
       initialRegionImageRequests: intersection(allRegionImageOutputs, requestedDistFiles),
+      initialCardImageRequests: intersection(allCardImageOutputs, requestedDistFiles),
       lazyOutputRequests: intersection(lazyOutputs, requestedDistFiles),
       nonCurrentCombatRequests: intersection(nonCurrentCombatOutputs, requestedDistFiles),
       resources: budgetResources.sort((left, right) => left.url.localeCompare(right.url)),
@@ -533,6 +547,7 @@ test('production cold load stays within the asset budget and preserves lazy name
     const activeRegionId = 'region.ashen-border'
     const activeRegionImageOutputs = regionImageOutputsById.get(activeRegionId) ?? new Set<string>()
     expect(evidence.initialRegionImageRequests, 'A region image loaded before map disclosure').toEqual([])
+    expect(evidence.initialCardImageRequests, 'A progression card loaded before entering the panel').toEqual([])
     expect(activeRegionImageOutputs.size, 'Vite manifest has no unique active-region image').toBe(1)
 
     await page.getByRole('button', { name: '원정 지도 열기' }).click()
@@ -572,6 +587,55 @@ test('production cold load stays within the asset budget and preserves lazy name
       regionImageRequestsAfterDisclosure,
       'Opening the map requested an inactive region image',
     ).toEqual(expectedActiveRegionRequests)
+
+    const cardSlots = page.locator('[data-card-asset-id]')
+    await expect(cardSlots).toHaveCount(6)
+    for (let index = 0; index < 6; index += 1) {
+      const slot = cardSlots.nth(index)
+      const assetId = await slot.getAttribute('data-card-asset-id')
+      expect(assetId).not.toBeNull()
+      expect(cardImageOutputsById.get(assetId ?? '')?.size).toBe(1)
+      await slot.scrollIntoViewIfNeeded()
+      await expect(slot).toHaveAttribute('data-art-active', 'true')
+      await expect(slot.locator('.growth-card__asset')).toHaveAttribute('data-state', 'loaded')
+    }
+    while (pendingResponses.size > 0) await Promise.all([...pendingResponses])
+
+    const imageRequestsAfterCards = new Set(
+      captured
+        .filter(({ resourceType, status }) =>
+          resourceType === 'image' && status >= 200 && status < 300,
+        )
+        .map(({ url }) => resolveRequestedDistFile(url).relative),
+    )
+    const cardImageRequestsAfterActivation = intersection(
+      allCardImageOutputs,
+      imageRequestsAfterCards,
+    )
+    const cardImageResponseFiles = captured
+      .filter(({ resourceType, status }) =>
+        resourceType === 'image' && status >= 200 && status < 300,
+      )
+      .map(({ url }) => resolveRequestedDistFile(url).relative)
+      .filter((file) => allCardImageOutputs.has(file))
+      .sort()
+    const expectedCardRequests = [...cardImageOutputsById.values()]
+      .flatMap((files) => [...files])
+      .sort()
+    const cardLazyLoadEvidence = {
+      cardIds: [...cardImageOutputsById.keys()],
+      initialCardImageRequests: evidence.initialCardImageRequests,
+      cardImageRequestsAfterActivation,
+      cardImageResponseFiles,
+      expectedCardRequests,
+    }
+    await testInfo.attach('irpg-409-card-lazy-load.json', {
+      body: Buffer.from(JSON.stringify(cardLazyLoadEvidence, null, 2)),
+      contentType: 'application/json',
+    })
+
+    expect(cardImageRequestsAfterActivation).toEqual(expectedCardRequests)
+    expect(cardImageResponseFiles).toEqual(expectedCardRequests)
   } finally {
     await context.close()
   }

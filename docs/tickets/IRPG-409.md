@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Ready
+- Status: In Progress
 - Skill tags: ART-2D, FE-GAME, UX-FEEDBACK
 - Owner / Reviewer: Codex / independent game UI, art, and accessibility reviewers
 

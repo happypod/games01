@@ -5,6 +5,24 @@ import {
 } from './content'
 import type { CompanionId, GameState, HeroStats, SkillId, UpgradeId } from './types'
 
+export type GrowthEffectMetricKey =
+  | 'attack'
+  | 'maxHp'
+  | 'defense'
+  | 'goldBonusPercent'
+  | 'powerStrikeMultiplier'
+
+export interface GrowthEffectMetric {
+  readonly key: GrowthEffectMetricKey
+  readonly current: number | null
+  readonly next: number | null
+}
+
+export interface GrowthEffectComparison {
+  readonly isMax: boolean
+  readonly metrics: readonly GrowthEffectMetric[]
+}
+
 export const toSafeInteger = (value: number, minimum = 0) =>
   Math.min(Number.MAX_SAFE_INTEGER, Math.max(minimum, Math.round(value)))
 
@@ -53,6 +71,109 @@ export function getHeroStats(state: GameState): HeroStats {
     ),
     goldMultiplier: 1 + upgrades.charm * 0.1 + skills.fortune * 0.12,
     powerStrikeMultiplier: 2.5 + Math.max(0, skills.powerStrike - 1) * 0.25,
+  }
+}
+
+const percentBonus = (multiplier: number) =>
+  Math.round((multiplier - 1) * 1_000) / 10
+
+function withUpgradeLevel(state: GameState, id: UpgradeId, level: number): GameState {
+  return {
+    ...state,
+    player: {
+      ...state.player,
+      upgrades: { ...state.player.upgrades, [id]: level },
+    },
+  }
+}
+
+function withSkillRank(state: GameState, id: SkillId, rank: number): GameState {
+  return {
+    ...state,
+    player: {
+      ...state.player,
+      skills: { ...state.player.skills, [id]: rank },
+    },
+  }
+}
+
+export function getUpgradeEffectComparison(
+  state: GameState,
+  id: UpgradeId,
+): GrowthEffectComparison {
+  const definition = UPGRADE_DEFINITIONS[id]
+  const level = state.player.upgrades[id]
+  const isMax = level >= definition.maxLevel
+  const currentStats = getHeroStats(state)
+  const nextStats = isMax
+    ? null
+    : getHeroStats(withUpgradeLevel(state, id, Math.min(level + 1, definition.maxLevel)))
+
+  switch (id) {
+    case 'weapon':
+      return {
+        isMax,
+        metrics: [{ key: 'attack', current: currentStats.attack, next: nextStats?.attack ?? null }],
+      }
+    case 'armor':
+      return {
+        isMax,
+        metrics: [
+          { key: 'maxHp', current: currentStats.maxHp, next: nextStats?.maxHp ?? null },
+          { key: 'defense', current: currentStats.defense, next: nextStats?.defense ?? null },
+        ],
+      }
+    case 'charm':
+      return {
+        isMax,
+        metrics: [{
+          key: 'goldBonusPercent',
+          current: percentBonus(currentStats.goldMultiplier),
+          next: nextStats === null ? null : percentBonus(nextStats.goldMultiplier),
+        }],
+      }
+  }
+}
+
+export function getSkillEffectComparison(
+  state: GameState,
+  id: SkillId,
+): GrowthEffectComparison {
+  const definition = SKILL_DEFINITIONS[id]
+  const rank = state.player.skills[id]
+  const isMax = rank >= definition.maxRank
+  const currentStats = getHeroStats(state)
+  const nextStats = isMax
+    ? null
+    : getHeroStats(withSkillRank(state, id, Math.min(rank + 1, definition.maxRank)))
+
+  switch (id) {
+    case 'powerStrike':
+      return {
+        isMax,
+        metrics: [{
+          key: 'powerStrikeMultiplier',
+          current: rank === 0 ? null : currentStats.powerStrikeMultiplier,
+          next: nextStats?.powerStrikeMultiplier ?? null,
+        }],
+      }
+    case 'ironWill':
+      return {
+        isMax,
+        metrics: [
+          { key: 'maxHp', current: currentStats.maxHp, next: nextStats?.maxHp ?? null },
+          { key: 'defense', current: currentStats.defense, next: nextStats?.defense ?? null },
+        ],
+      }
+    case 'fortune':
+      return {
+        isMax,
+        metrics: [{
+          key: 'goldBonusPercent',
+          current: percentBonus(currentStats.goldMultiplier),
+          next: nextStats === null ? null : percentBonus(nextStats.goldMultiplier),
+        }],
+      }
   }
 }
 

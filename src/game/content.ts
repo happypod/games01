@@ -2,6 +2,7 @@ import type {
   CompanionId,
   EnemyAssetId,
   EnemyDefinition,
+  ProgressionCardAssetId,
   SkillId,
   UpgradeId,
 } from './types'
@@ -19,6 +20,7 @@ export const COMPANION_ATTACK_INTERVAL_MS = 3_000
 
 export interface UpgradeDefinition {
   id: UpgradeId
+  assetId: ProgressionCardAssetId
   name: string
   description: string
   baseCost: number
@@ -28,6 +30,7 @@ export interface UpgradeDefinition {
 
 export interface SkillDefinition {
   id: SkillId
+  assetId: ProgressionCardAssetId
   name: string
   description: string
   unlockLevel: number
@@ -49,6 +52,7 @@ export interface CompanionDefinition {
 export const UPGRADE_DEFINITIONS: Record<UpgradeId, UpgradeDefinition> = {
   weapon: {
     id: 'weapon',
+    assetId: 'equipment.ember-blade',
     name: '불씨 검',
     description: '공격력을 크게 올립니다.',
     baseCost: 18,
@@ -57,6 +61,7 @@ export const UPGRADE_DEFINITIONS: Record<UpgradeId, UpgradeDefinition> = {
   },
   armor: {
     id: 'armor',
+    assetId: 'equipment.guard-armor',
     name: '수호 갑옷',
     description: '최대 체력과 방어력을 올립니다.',
     baseCost: 24,
@@ -65,6 +70,7 @@ export const UPGRADE_DEFINITIONS: Record<UpgradeId, UpgradeDefinition> = {
   },
   charm: {
     id: 'charm',
+    assetId: 'equipment.fortune-charm',
     name: '행운 부적',
     description: '적에게서 얻는 골드를 늘립니다.',
     baseCost: 30,
@@ -76,6 +82,7 @@ export const UPGRADE_DEFINITIONS: Record<UpgradeId, UpgradeDefinition> = {
 export const SKILL_DEFINITIONS: Record<SkillId, SkillDefinition> = {
   powerStrike: {
     id: 'powerStrike',
+    assetId: 'skill.power-strike',
     name: '화염 강타',
     description: '5초마다 자동으로 강력한 일격을 가합니다.',
     unlockLevel: 1,
@@ -83,6 +90,7 @@ export const SKILL_DEFINITIONS: Record<SkillId, SkillDefinition> = {
   },
   ironWill: {
     id: 'ironWill',
+    assetId: 'skill.iron-will',
     name: '강철 의지',
     description: '최대 체력과 방어력을 영구히 강화합니다.',
     unlockLevel: 3,
@@ -90,6 +98,7 @@ export const SKILL_DEFINITIONS: Record<SkillId, SkillDefinition> = {
   },
   fortune: {
     id: 'fortune',
+    assetId: 'skill.loot-sense',
     name: '전리품 감각',
     description: '모든 전투의 골드 획득량을 높입니다.',
     unlockLevel: 5,

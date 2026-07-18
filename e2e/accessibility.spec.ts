@@ -72,7 +72,8 @@ test.describe('360px keyboard and screenreader semantics', () => {
     ).toEqual(['스테이지 1', '방랑 기사 아렌', '3지역 원정 지도', '성장 장비', '스킬 각인', '동료 원정대', '불씨의 계승', '저장 백업'])
     await expect(page.locator('.ambient[aria-hidden="true"]')).toHaveCount(2)
     await expect(page.locator('.enemy-portrait')).toHaveAttribute('aria-hidden', 'true')
-    await expect(page.locator('.item-glyph[aria-hidden="true"]')).toHaveCount(7)
+    await expect(page.locator('.growth-card__art[aria-hidden="true"]')).toHaveCount(6)
+    await expect(page.locator('.item-glyph[aria-hidden="true"]')).toHaveCount(1)
 
     await page.keyboard.press('Tab')
     const skipLink = page.getByRole('link', { name: '본문 바로가기' })

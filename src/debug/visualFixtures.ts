@@ -1,4 +1,5 @@
 import { createInitialState } from '../game/engine'
+import { getHeroStats } from '../game/formulas'
 import { seedFromText } from '../game/rng'
 import type { GameState } from '../game/types'
 import { setDebugStage } from './debugSession'
@@ -11,6 +12,8 @@ export const VISUAL_FIXTURE_IDS = [
   'visual.combat.boss-default',
   'visual.combat.fallback',
   'visual.map.stage-frontier',
+  'visual.cards.mixed-states',
+  'visual.cards.fallback',
 ] as const
 
 export type VisualFixtureId = (typeof VISUAL_FIXTURE_IDS)[number]
@@ -38,13 +41,13 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408'
-  readonly stage: 1 | 5 | 10 | 105
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409'
+  readonly stage: 1 | 3 | 5 | 10 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
-  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel'
-  readonly failureRoute: 'none' | 'hero-and-enemy-corrupt'
-  readonly setupAction: 'none' | 'open-stage-map'
+  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel' | '.progression-panels'
+  readonly failureRoute: 'none' | 'hero-and-enemy-corrupt' | 'cards-corrupt'
+  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards'
   readonly variants: readonly VisualVariantId[]
 }
 
@@ -142,6 +145,30 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     setupAction: 'open-stage-map',
     variants: VISUAL_VARIANT_IDS,
   },
+  'visual.cards.mixed-states': {
+    id: 'visual.cards.mixed-states',
+    label: '장비·스킬 혼합 상태',
+    ownerTicket: 'IRPG-409',
+    stage: 3,
+    seedKey: 'irpg-506:visual.cards.mixed-states:v1',
+    canonicalHash: 'fnv1a32-v1:ad431c22',
+    captureTarget: '.progression-panels',
+    failureRoute: 'none',
+    setupAction: 'open-growth-cards',
+    variants: VISUAL_VARIANT_IDS,
+  },
+  'visual.cards.fallback': {
+    id: 'visual.cards.fallback',
+    label: '장비·스킬 fallback 상태',
+    ownerTicket: 'IRPG-409',
+    stage: 3,
+    seedKey: 'irpg-506:visual.cards.fallback:v1',
+    canonicalHash: 'fnv1a32-v1:6e071ccc',
+    captureTarget: '.progression-panels',
+    failureRoute: 'cards-corrupt',
+    setupAction: 'open-growth-cards',
+    variants: VISUAL_VARIANT_IDS,
+  },
 }
 
 function canonicalStringify(value: unknown): string {
@@ -176,9 +203,27 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
   const definition = VISUAL_FIXTURE_REGISTRY[id]
   const seed = seedFromText(definition.seedKey)
   const initial = createInitialState(VISUAL_FIXTURE_NOW, seed)
-  const state = definition.stage === 1
+  let state = definition.stage === 1
     ? initial
     : setDebugStage(initial, definition.stage)
+  if (id === 'visual.cards.mixed-states' || id === 'visual.cards.fallback') {
+    state = {
+      ...state,
+      player: {
+        ...state.player,
+        level: 3,
+        xp: 0,
+        gold: 35,
+        skillPoints: 1,
+        upgrades: { weapon: 2, armor: 1, charm: 50 },
+        skills: { powerStrike: 3, ironWill: 10, fortune: 0 },
+      },
+    }
+    state = {
+      ...state,
+      player: { ...state.player, currentHp: getHeroStats(state).maxHp },
+    }
+  }
   const actualHash = hashVisualGameState(state)
 
   if (actualHash !== definition.canonicalHash) {
