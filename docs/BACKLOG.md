@@ -34,7 +34,7 @@
 | IRPG-305 | 다중 탭 충돌 방지 | P2 | Done | 303 | ENG-SAVE, FE-GAME, QA-E2E | writer lock과 revision guard로 두 번째 탭을 읽기 전용 처리한다. |
 | IRPG-401 | 전투·영웅·성장 UI | P0 | Done | 103,202 | FE-GAME, UX-FEEDBACK | 상태와 HUD가 일치하고 구매 불가 버튼이 비활성화된다. |
 | IRPG-402 | 오프라인·복구·저장 피드백 | P0 | Done | 302,401 | FE-GAME | 오프라인 합계와 저장 오류·복구 상태가 표시된다. |
-| IRPG-403 | 접근성·모바일 감사 | P1 | Ready | 401 | UX-FEEDBACK, QA-E2E | 360px·키보드·스크린리더·모션 감소 핵심 흐름이 통과한다. |
+| IRPG-403 | 접근성·모바일 감사 | P1 | Done | 401,304 | UX-FEEDBACK, QA-E2E | 360px·키보드·의미 구조·모션 감소 핵심 흐름이 통과한다. |
 | IRPG-404 | 초기 안내·전투 피드백 강화 | P1 | Draft | 401 | UX-FEEDBACK | 3초 안에 자동 전투와 첫 강화 목표를 이해한다. |
 | IRPG-405 | Windows 원클릭 실행기 | P1 | Done | 003 | REL-CI, UX-FEEDBACK | 더블클릭 한 번으로 의존성을 준비하고 게임과 브라우저를 실행한다. |
 | IRPG-501 | 엔진·저장·UI 자동 테스트 | P0 | Done | 302,402 | QA-DOMAIN | 전투·명령·저장·오프라인·첫 화면 회귀가 통과한다. |

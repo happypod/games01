@@ -20,6 +20,7 @@
 | 밸런스 스모크 | 구현 | 자동 재투자 45분 내 첫 환생 관문 |
 | 브라우저 E2E | 구현 | 신규 시작, UI 강화, 실제 reload, 1분 오프라인 보고, 같은 구간 중복 방지, page/console error |
 | 다중 탭 E2E | 구현 | 두 번째 탭 읽기 전용, 열린 reader 동기화, writer 종료 뒤 lock 인계 |
+| 접근성 E2E | 구현 | 360px overflow·44px target·skip link·키보드 명령·progressbar·modal focus·200% 확대·모션 감소 |
 | 장시간 soak | 다음 | 24시간·7일 배속, NaN·정체·폭주 탐지 |
 
 IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 coverage는 statements 93.42%, branches 87.95%, functions 97.91%, lines 95.60%다. IRPG-504는 별도의 Playwright 전체 흐름 1개를 추가한다.
@@ -38,7 +39,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 | 저장 백업 | checksum·크기·schema·stale revision·read-back rollback, Playwright 다운로드·취소·복원 | 다른 기기 파일 이동 |
 | 오프라인 중복 방지 | 같은 시각 재부팅, Playwright 닫기·재접속·재새로고침 | 탭 숨김과 OS 절전 복귀 |
 | 다중 탭 충돌 | stale revision 원문 불변, reader 무쓰기, 동일 revision 충돌 차단, 두 페이지 lock 인계 | 비정상 브라우저 종료 복구 |
-| 반응형·접근성 | semantic role smoke | 360px, 키보드, 스크린리더 |
+| 반응형·접근성 | progressbar·modal focus 컴포넌트 테스트, 360px·키보드·reduced-motion Playwright | 실제 보조공학 조합의 외부 전문 감사 |
 | 첫 환생 목표 | 45분 자동 전략 | 10회 이상 실제 플레이 |
 
 ## 4. 필수 경계값
@@ -116,5 +117,7 @@ npm run test:e2e
 - `불씨 검` 강화 비용이 18G에서 26G로 변경되고 새로고침 뒤에도 26G로 유지됨을 확인
 - [IRPG-504 개발 서버 점검](../artifacts/irpg-504-dev-check.png): 본문·핵심 landmark·상호작용 요소 렌더링, Vite 오류 overlay와 console error 없음
 - Playwright Chromium에서 신규→Lv.1 강화→reload 유지→1분 오프라인 보고→확인 후 reload 중복 없음 흐름 자동화
+- [IRPG-403 360×800 전체 화면](../artifacts/irpg-403-360.png): 단일 열, 핵심 조작 44px, 텍스트·버튼 잘림 없음 확인
+- IRPG-403 접근성 시나리오는 bundled Chromium, 설치된 Chrome, Edge에서 각각 2/2 통과했으며 page/console error가 없었다.
 
 이 스크린샷은 자동 생성된 검증 증거이며 미술 방향의 최종 승인을 뜻하지 않는다.

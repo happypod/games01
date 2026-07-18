@@ -21,20 +21,21 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <div className="ambient ambient--one" />
-      <div className="ambient ambient--two" />
-      <header className="topbar">
+      <a className="skip-link" href="#main-content">본문 바로가기</a>
+      <div className="ambient ambient--one" aria-hidden="true" />
+      <div className="ambient ambient--two" aria-hidden="true" />
+      <header className="topbar" id="top">
         <a className="brand" href="#top" aria-label="Emberwatch 홈">
-          <span className="brand__mark">E</span>
+          <span className="brand__mark" aria-hidden="true">E</span>
           <span><strong>EMBERWATCH</strong><small>IDLE CHRONICLE</small></span>
         </a>
-        <div className="resource-rack" aria-label="보유 자원">
-          <div><span className="resource-icon resource-icon--gold">●</span><span>골드<strong>{formatNumber(game.state.player.gold)}</strong></span></div>
-          <div><span className="resource-icon resource-icon--essence">✦</span><span>불씨 정수<strong>{formatNumber(game.state.player.essence)}</strong></span></div>
+        <div className="resource-rack" role="group" aria-label="보유 자원">
+          <div><span className="resource-icon resource-icon--gold" aria-hidden="true">●</span><span>골드<strong>{formatNumber(game.state.player.gold)}</strong></span></div>
+          <div><span className="resource-icon resource-icon--essence" aria-hidden="true">✦</span><span>불씨 정수<strong>{formatNumber(game.state.player.essence)}</strong></span></div>
         </div>
       </header>
 
-      <main id="top">
+      <main id="main-content" tabIndex={-1}>
         <section className="intro">
           <div>
             <p className="eyebrow">CHAPTER I · 재의 변경</p>

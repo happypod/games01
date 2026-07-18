@@ -9,7 +9,15 @@ export function StatBar({ label, value, maximum, tone = 'health' }: StatBarProps
   const safeMaximum = Math.max(1, maximum)
   const percentage = Math.min(100, Math.max(0, (value / safeMaximum) * 100))
   return (
-    <div className="stat-bar" aria-label={`${label} ${Math.round(percentage)}%`}>
+    <div
+      className="stat-bar"
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={safeMaximum}
+      aria-valuenow={Math.min(safeMaximum, Math.max(0, value))}
+      aria-valuetext={`${Math.max(0, Math.ceil(value)).toLocaleString('ko-KR')} / ${Math.ceil(maximum).toLocaleString('ko-KR')}, ${Math.round(percentage)}%`}
+    >
       <div className="stat-bar__line">
         <span>{label}</span>
         <span>

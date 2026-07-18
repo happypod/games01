@@ -31,18 +31,30 @@ export function UpgradePanel({ state, onBuy, disabled = false }: UpgradePanelPro
           const cost = getUpgradeCost(id, level)
           const isMax = level >= definition.maxLevel
           const canAfford = state.player.gold >= cost
+          const descriptionId = `upgrade-${id}-description`
+          const statusId = `upgrade-${id}-status`
           return (
             <article className="upgrade-card" key={id}>
-              <div className="item-glyph">{UPGRADE_GLYPHS[id]}</div>
+              <div className="item-glyph" aria-hidden="true">{UPGRADE_GLYPHS[id]}</div>
               <div className="upgrade-card__copy">
                 <div><strong>{definition.name}</strong><span>Lv.{level}</span></div>
-                <p>{definition.description}</p>
+                <p id={descriptionId}>{definition.description}</p>
+                <span className="sr-only" id={statusId}>
+                  {isMax
+                    ? '최대 강화입니다.'
+                    : disabled
+                      ? '읽기 전용이거나 저장 소유권을 확인 중이라 강화할 수 없습니다.'
+                      : canAfford
+                      ? '강화할 수 있습니다.'
+                      : `골드가 ${formatNumber(cost - state.player.gold)} 부족합니다.`}
+                </span>
               </div>
               <button
                 type="button"
                 onClick={() => onBuy(id)}
                 disabled={disabled || isMax || !canAfford}
                 aria-label={`${definition.name} 강화, 비용 ${formatNumber(cost)} 골드`}
+                aria-describedby={`${descriptionId} ${statusId}`}
               >
                 {isMax ? 'MAX' : <><span>강화</span><small>{formatNumber(cost)} G</small></>}
               </button>

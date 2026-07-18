@@ -27,10 +27,13 @@ export function BattleArena({ state, onChooseStage, disabled = false }: BattleAr
             {enemy.isBoss && <span className="boss-tag">BOSS</span>}
           </h2>
         </div>
-        <span className="live-badge"><i /> 자동 원정 중</span>
+        <span className="live-badge"><i aria-hidden="true" /> 자동 원정 중</span>
       </div>
 
-      <div className={`enemy-portrait ${enemy.isBoss ? 'enemy-portrait--boss' : ''}`}>
+      <div
+        className={`enemy-portrait ${enemy.isBoss ? 'enemy-portrait--boss' : ''}`}
+        aria-hidden="true"
+      >
         <div className="enemy-portrait__aura" />
         <div className="enemy-portrait__core">
           <span>{enemy.isBoss ? '♛' : '◆'}</span>
@@ -50,7 +53,7 @@ export function BattleArena({ state, onChooseStage, disabled = false }: BattleAr
       </div>
 
       <div className="skill-cycle">
-        <div className="skill-cycle__icon">火</div>
+        <div className="skill-cycle__icon" aria-hidden="true">火</div>
         <div className="skill-cycle__body">
           <div className="skill-cycle__title">
             <span>화염 강타</span>

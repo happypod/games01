@@ -12,6 +12,18 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: '성장 장비' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '스킬 각인' })).toBeInTheDocument()
     expect(screen.getByText('자동 원정 중')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: '적 체력' })).toHaveAttribute(
+      'aria-valuenow',
+      '34',
+    )
+    expect(screen.getByRole('progressbar', { name: '생명력' })).toHaveAttribute(
+      'aria-valuetext',
+      expect.stringContaining('100%'),
+    )
+    expect(screen.getByRole('progressbar', { name: '경험치' })).toHaveAttribute(
+      'aria-valuemin',
+      '0',
+    )
   })
 
   it('disables purchases that cannot be afforded', () => {

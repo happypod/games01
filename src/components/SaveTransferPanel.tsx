@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useCallback, useRef, useState, type ChangeEvent } from 'react'
 import { formatNumber } from '../game/format'
 import {
   MAX_PORTABLE_SAVE_BYTES,
@@ -7,6 +7,7 @@ import {
   type SaveImportPreview,
 } from '../game/saveTransfer'
 import type { GameState } from '../game/types'
+import { useModalFocus } from '../hooks/useModalFocus'
 
 interface SaveTransferPanelProps {
   state: GameState
@@ -24,6 +25,11 @@ export function SaveTransferPanel({
   const [preview, setPreview] = useState<SaveImportPreview | null>(null)
   const [message, setMessage] = useState('')
   const selectionRef = useRef(0)
+  const cancelImport = useCallback(() => {
+    setPreview(null)
+    setMessage('백업 복원을 취소했습니다.')
+  }, [])
+  const dialogRef = useModalFocus<HTMLElement>(cancelImport, preview !== null)
 
   const exportSave = () => {
     const raw = createPortableSave(state)
@@ -115,10 +121,12 @@ export function SaveTransferPanel({
       {preview && (
         <div className="modal-backdrop" role="presentation">
           <section
+            ref={dialogRef}
             className="offline-modal import-preview"
             role="dialog"
             aria-modal="true"
             aria-labelledby="import-preview-title"
+            tabIndex={-1}
           >
             <p className="eyebrow">검증 완료</p>
             <h2 id="import-preview-title">이 진행으로 복원할까요?</h2>
@@ -134,11 +142,8 @@ export function SaveTransferPanel({
             <div className="import-preview__actions">
               <button
                 type="button"
-                onClick={() => {
-                  setPreview(null)
-                  setMessage('백업 복원을 취소했습니다.')
-                }}
-                autoFocus
+                onClick={cancelImport}
+                data-initial-focus
               >
                 취소
               </button>

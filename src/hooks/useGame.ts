@@ -385,6 +385,7 @@ export function useGame(): GameController {
     },
     [commit, readOnly, ready, stopWriting],
   )
+  const dismissOfflineReport = useCallback(() => setOfflineReport(null), [])
 
   return {
     state,
@@ -401,6 +402,6 @@ export function useGame(): GameController {
     prestige,
     reset,
     restoreSave,
-    dismissOfflineReport: () => setOfflineReport(null),
+    dismissOfflineReport,
   }
 }

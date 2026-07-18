@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { createInitialState } from '../game/engine'
 import { createPortableSave } from '../game/saveTransfer'
@@ -64,5 +64,44 @@ describe('SaveTransferPanel', () => {
 
     expect(await screen.findByText('저장 파일을 읽지 못했습니다.')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('traps modal focus, closes with Escape, and restores the file input focus', async () => {
+    const backup = new File(['backup'], 'backup.json', { type: 'application/json' })
+    Object.defineProperty(backup, 'text', {
+      value: () => Promise.resolve(createPortableSave(stateWithGold(222), 2_000)!),
+    })
+    render(
+      <SaveTransferPanel
+        state={createInitialState(0)}
+        onRestore={() => ({ success: true, message: 'ok' })}
+      />,
+    )
+    const input = screen.getByLabelText('저장 파일 선택')
+    input.focus()
+    fireEvent.change(input, { target: { files: [backup] } })
+
+    const dialog = await screen.findByRole('dialog', { name: '이 진행으로 복원할까요?' })
+    const cancel = within(dialog).getByRole('button', { name: '취소' })
+    const restore = within(dialog).getByRole('button', { name: '검증된 저장 복원' })
+    await waitFor(() => expect(cancel).toHaveFocus())
+
+    dialog.focus()
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true })
+    expect(restore).toHaveFocus()
+
+    input.focus()
+    expect(cancel).toHaveFocus()
+
+    restore.focus()
+    fireEvent.keyDown(restore, { key: 'Tab' })
+    expect(cancel).toHaveFocus()
+    fireEvent.keyDown(cancel, { key: 'Tab', shiftKey: true })
+    expect(restore).toHaveFocus()
+
+    fireEvent.keyDown(restore, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(input).toHaveFocus()
+    expect(screen.getByText('백업 복원을 취소했습니다.')).toBeInTheDocument()
   })
 })

@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const isCi = Boolean(process.env.CI)
+const browserChannel = process.env.PLAYWRIGHT_CHANNEL as 'chrome' | 'msedge' | undefined
 
 export default defineConfig({
   testDir: './e2e',
@@ -19,6 +20,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:4173',
     ...devices['Desktop Chrome'],
+    ...(browserChannel ? { channel: browserChannel } : {}),
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
     trace: 'on-first-retry',
