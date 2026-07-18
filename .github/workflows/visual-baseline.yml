@@ -2,6 +2,10 @@ name: visual-baseline
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'agent/**'
+      - 'codex/**'
 
 permissions:
   contents: read
