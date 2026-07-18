@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import portableSaveV1 from './fixtures/portable-save-v1.json'
 import { createInitialState } from './engine'
 import { SAVE_SLOT_A_KEY, SAVE_SLOT_B_KEY, parseSaveEnvelope, saveGameAtRevision } from './persistence'
 import {
@@ -58,6 +59,34 @@ describe('portable save transfer', () => {
         checksum: expect.stringMatching(/^[0-9a-f]{8}$/),
         state,
       },
+    })
+  })
+
+  it('migrates and commits a checked-in schema1 portable backup', () => {
+    const parsed = parsePortableSave(JSON.stringify(portableSaveV1))
+    expect(parsed).toMatchObject({
+      success: true,
+      preview: {
+        exportedAt: portableSaveV1.exportedAt,
+        state: {
+          schemaVersion: 2,
+          rng: { algorithm: 'xorshift32-v1', seed: 873835004, draws: 0 },
+          player: { gold: 87 },
+        },
+      },
+    })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    expect(parsed.preview.checksum).not.toBe(portableSaveV1.checksum)
+
+    const storage = new MemoryStorage()
+    expect(saveGameAtRevision(storage, createInitialState(100), null)).toMatchObject({
+      revision: 1,
+    })
+    expect(commitPortableSave(storage, parsed.preview, 1, 5_000)).toMatchObject({
+      status: 'saved',
+      revision: 2,
+      state: { schemaVersion: 2, rng: { seed: 873835004 }, lastSavedAt: 5_000 },
     })
   })
 

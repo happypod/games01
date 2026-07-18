@@ -14,6 +14,7 @@
 | 계층 | 현재 | 검증 내용 |
 |---|---:|---|
 | 엔진 단위 | 구현 | 최초 상태, 보상, 결정론, 경과 시간 상한, 구매 원자성, 스킬 잠금, 스테이지, 환생, 숫자 불변식 |
+| RNG·치명타 | 구현 | xorshift32 vector, 1 draw/round, 치명타 수식, 동일 seed·분할 실행·환생 연속성 |
 | 저장 통합 | 구현 | A/B 교대, revision 선택·동률, 부분 쓰기, 손상 fallback, 미래 포맷 차단, v1 migration, 오프라인 1회 적용, 초기화 |
 | 저장 전송 | 구현 | portable checksum·버전·크기, preview no-write, stale CAS, target rollback, export/import 브라우저 왕복 |
 | UI 컴포넌트 | 구현 | 첫 화면 landmark와 주요 패널, 구매 불가 상태 |
@@ -31,6 +32,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 |---|---|---|
 | 보상 1회 지급 | `engine.test.ts` 처치 보상 | 전투 표시와 숫자 체감 확인 |
 | 동일 시간 결정론 | 20초 단일/분할 비교 | 브라우저 백그라운드 복귀 |
+| 저장 RNG·치명타 | known vector, 999/1000ms draw 경계, 동일 seed·분할·reload/offline, 환생 sequence | 치명타 시각 피드백은 후속 이벤트 UI 티켓 |
 | 구매 원자성 | 성공·골드 부족 | 연속 클릭 탐색 테스트 |
 | 스킬 잠금·비용 | 레벨·포인트 경계 | 잠금 사유 시각 확인 |
 | 스테이지·패배 | 선택 범위와 장시간 엔진 | 보스 패배 후 피드백 |
@@ -67,7 +69,7 @@ IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 cove
 - 필드 누락, 음수·무한 숫자, 잘못된 버전
 - localStorage 읽기·쓰기 예외
 - A/B 슬롯 한쪽 손상, revision 동률·충돌, migration 실패
-- 미래 포맷, revision overflow, 저장소 read/write/remove 예외
+- 미래 envelope·state schema, 잘못된 RNG algorithm/state/draws, revision overflow, 저장소 read/write/remove 예외
 
 ## 5. 수동 브라우저 체크리스트
 

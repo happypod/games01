@@ -110,7 +110,7 @@ export function parsePortableSave(raw: string): SaveImportParseResult {
     success: true,
     preview: {
       exportedAt: parsed.exportedAt,
-      checksum: parsed.checksum,
+      checksum: checksumText(JSON.stringify(state)),
       state,
     },
   }

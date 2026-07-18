@@ -4,6 +4,8 @@ export const COMBAT_ROUND_MS = 1_000
 export const MAX_OFFLINE_MS = 8 * 60 * 60 * 1_000
 export const MAX_STAGE = 300
 export const PRESTIGE_STAGE = 30
+export const CRITICAL_CHANCE = 0.15
+export const CRITICAL_DAMAGE_MULTIPLIER = 1.75
 
 export interface UpgradeDefinition {
   id: UpgradeId

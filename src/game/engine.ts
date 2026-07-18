@@ -1,5 +1,7 @@
 import {
   COMBAT_ROUND_MS,
+  CRITICAL_CHANCE,
+  CRITICAL_DAMAGE_MULTIPLIER,
   MAX_OFFLINE_MS,
   MAX_STAGE,
   PRESTIGE_STAGE,
@@ -15,6 +17,7 @@ import {
   getXpToNextLevel,
   isSkillUnlocked,
 } from './formulas'
+import { createRngState, nextRandom, seedFromText } from './rng'
 import { SAVE_VERSION } from './types'
 import type {
   AdvanceReport,
@@ -28,6 +31,7 @@ import type {
 const emptyReport = (elapsedMs: number): AdvanceReport => ({
   elapsedMs,
   rounds: 0,
+  criticalHits: 0,
   kills: 0,
   defeats: 0,
   goldEarned: 0,
@@ -38,6 +42,7 @@ const emptyReport = (elapsedMs: number): AdvanceReport => ({
 
 const cloneState = (state: GameState): GameState => ({
   ...state,
+  rng: { ...state.rng },
   player: {
     ...state.player,
     upgrades: { ...state.player.upgrades },
@@ -47,11 +52,15 @@ const cloneState = (state: GameState): GameState => ({
   stats: { ...state.stats },
 })
 
-export function createInitialState(now = Date.now()): GameState {
+export function createInitialState(
+  now = Date.now(),
+  seed = seedFromText(`new-game:${now}`),
+): GameState {
   const firstEnemy = getEnemyDefinition(1)
   return {
     schemaVersion: SAVE_VERSION,
     lastSavedAt: now,
+    rng: createRngState(seed),
     player: {
       level: 1,
       xp: 0,
@@ -104,11 +113,19 @@ function resolveRound(state: GameState, report: AdvanceReport) {
 
   const usesPowerStrike =
     state.player.skills.powerStrike > 0 && state.battle.powerStrikeCooldownMs === 0
+  const draw = nextRandom(state.rng)
+  state.rng = draw.rng
+  const isCritical = draw.value < CRITICAL_CHANCE
   const heroDamage = Math.max(
     1,
-    Math.round(hero.attack * (usesPowerStrike ? hero.powerStrikeMultiplier : 1)),
+    Math.round(
+      hero.attack *
+        (usesPowerStrike ? hero.powerStrikeMultiplier : 1) *
+        (isCritical ? CRITICAL_DAMAGE_MULTIPLIER : 1),
+    ),
   )
   if (usesPowerStrike) state.battle.powerStrikeCooldownMs = 5_000
+  if (isCritical) report.criticalHits += 1
 
   state.battle.enemyHp -= heroDamage
   report.rounds += 1
@@ -242,6 +259,7 @@ export function performPrestige(input: GameState): CommandResult {
 
   const reward = getPrestigeReward(input.battle.highestStage)
   const state = createInitialState(input.lastSavedAt)
+  state.rng = { ...input.rng }
   state.player.essence = input.player.essence + reward
   state.player.currentHp = getHeroStats(state).maxHp
   state.stats = {

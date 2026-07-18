@@ -7,6 +7,7 @@ import { OfflineReport } from './OfflineReport'
 const REPORT: AdvanceReport = {
   elapsedMs: 60_000,
   rounds: 60,
+  criticalHits: 9,
   kills: 3,
   defeats: 0,
   goldEarned: 27,

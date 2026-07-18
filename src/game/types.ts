@@ -1,4 +1,5 @@
-export const SAVE_VERSION = 1 as const
+export const SAVE_VERSION = 2 as const
+export const RNG_ALGORITHM = 'xorshift32-v1' as const
 
 export const UPGRADE_IDS = ['weapon', 'armor', 'charm'] as const
 export type UpgradeId = (typeof UPGRADE_IDS)[number]
@@ -8,6 +9,13 @@ export type SkillId = (typeof SKILL_IDS)[number]
 
 export type UpgradeLevels = Record<UpgradeId, number>
 export type SkillRanks = Record<SkillId, number>
+
+export interface RngState {
+  algorithm: typeof RNG_ALGORITHM
+  seed: number
+  state: number
+  draws: number
+}
 
 export interface PlayerState {
   level: number
@@ -39,6 +47,7 @@ export interface LifetimeStats {
 export interface GameState {
   schemaVersion: typeof SAVE_VERSION
   lastSavedAt: number
+  rng: RngState
   player: PlayerState
   battle: BattleState
   stats: LifetimeStats
@@ -65,6 +74,7 @@ export interface EnemyDefinition {
 export interface AdvanceReport {
   elapsedMs: number
   rounds: number
+  criticalHits: number
   kills: number
   defeats: number
   goldEarned: number
