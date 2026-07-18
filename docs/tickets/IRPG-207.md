@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Verify
+- Status: Done
 - Skill tags: GD-BAL, ENG-STATE, ENG-SAVE
 - Owner / Reviewer: Codex / independent product, balance, engine, and save reviewers
 
@@ -88,4 +88,5 @@ legacy `stats.prestiges > 0`은 과거 원정의 lifetime 최고 stage가 사라
 - 최초/반복 stage 10·300, 영웅·동료 마무리, 환생 뒤 재처치, 부분/0골드 포화 claim, 단일·분할 event 결정론, offline writer checkpoint·reload, A/B 실제 fallback replay, portable import 재처치, schema1·2·3 migration과 schema4 mask 경계를 회귀 테스트로 고정했다.
 - 첫 원정은 비동료 2,008초·동료 1,886초 중앙값이고 보상 2건·45골드·mask `3`, 환생 재도달은 추가 보상 0건이며 비동료 63.6177%·동료 62.8711%, 20/20 profile이 50~70%를 통과한다.
 - 로컬 `npm run verify`: Vitest 28파일·222/222, 자산 validator 27/27, 일반 Playwright 29/29, production 자산 3/3, build 통과; canonical screenshot 비교는 계약대로 로컬 skip했다.
-- GitHub quality·Ubuntu canonical visual run과 artifact 증거를 확보한 뒤 Done으로 이동한다.
+- 구현 head `56be44b`: push quality `29656067099`, PR quality `29656068719` 성공; Playwright artifacts `8432931958` (`sha256:83bfb93af0de61eee43179ed8ecddb4ad5c5a77a9c1ddd3e48183033dc04d02d`), `8432930071` (`sha256:31a69958c42254fd0b254b9a466b56eb0f6115ddb6d4a7359f8f3ff62545525c`)
+- Ubuntu visual run `29656067106`: canonical 32/32와 같은 runner 3회 반복 96/96 성공; artifact `8432940882` (`sha256:d70f588d9d61a6c66edb28955373a9ac53f26857f1169a53494e238d1a7e6b3e`)
