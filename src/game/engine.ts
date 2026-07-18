@@ -45,6 +45,7 @@ export const MAX_COMBAT_EVENTS = 100
 const COMBAT_EVENT_ORDINAL = {
   skill: 10,
   critical: 20,
+  companionAssist: 25,
   outcome: 30,
 } as const
 
@@ -372,12 +373,29 @@ function resolveRound(
   }
 
   if (state.player.companion.id !== null && state.battle.companionCooldownMs === 0) {
+    const companionId = state.player.companion.id
     const companionDamage = getCompanionDamage(state)
     const appliedDamage = Math.min(state.battle.enemyHp, companionDamage)
     state.battle.enemyHp -= companionDamage
     state.battle.companionCooldownMs = COMPANION_ATTACK_INTERVAL_MS
     report.companionAttacks = addSafeIntegers(report.companionAttacks, 1)
     report.companionDamage = addSafeIntegers(report.companionDamage, appliedDamage)
+    appendCombatEvent(batch, {
+      id: createCombatEventId(
+        roundSequence,
+        eventContext.rngState,
+        COMBAT_EVENT_ORDINAL.companionAssist,
+        'companionAssist',
+      ),
+      type: 'companionAssist',
+      roundSequence,
+      ordinal: COMBAT_EVENT_ORDINAL.companionAssist,
+      rngState: eventContext.rngState,
+      stage: enemy.stage,
+      companionId,
+      damage: appliedDamage,
+      snapshot: captureCombatEventSnapshot(state),
+    })
   }
 
   if (state.battle.enemyHp <= 0) {

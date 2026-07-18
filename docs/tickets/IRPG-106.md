@@ -17,6 +17,7 @@
 - 치명타, 화염 강타, 일반 처치, 보스 승리, 플레이어 패배 이벤트
 - event type·stream round sequence·고정 ordinal·안정 event ID·stage·이벤트 발생 시점 snapshot 계약
 - `bossVictory { defeatedStage, nextStage, gold, xp }`와 `defeat { defeatedAtStage, returnStage, highestStage }` payload
+- `companionAssist { companionId, damage }` 적용 피해 snapshot과 ordinal 25
 - 호출당 최근 100개와 총 event 수, 단일·분할 batch를 합치는 bounded reducer
 
 ## Non-scope
@@ -50,12 +51,12 @@
 
 이벤트는 각 엔진 상태 전이가 확정되는 시점에 snapshot을 잡는 읽기 전용 `CombatEventBatch { nextCursor, totalEvents, events }`다. 호출자는 저장하지 않는 `CombatEventCursor`를 canonical non-negative decimal string으로 전달하며 엔진은 event 유무와 관계없이 combat round마다 BigInt로 1을 더한다. 브라우저 생명주기는 이 cursor를 메모리에 보유하고 reload 때 queue와 함께 `"0"`으로 초기화하므로 과거 결과를 재생하지 않는다. RNG `draws`가 포화되어도 cursor는 독립적으로 증가한다.
 
-`mergeCombatEventBatches`는 total을 더하고 event ID는 중복 제거에만 사용한다. 정렬과 절단은 문자열 ID가 아니라 decimal `roundSequence`의 수치 비교와 `ordinal` 오름차순을 보존해 최근 100개를 유지하며, 같은 좌표의 서로 다른 ID는 계약 오류로 실패시킨다. 보상 지급 주체는 기존 처치 분기 하나뿐이며 UI는 이벤트를 근거로 다시 지급하지 않는다. 동일 round에서 발생한 이벤트는 `skill → critical → kill/bossVictory 또는 defeat`의 고정 ordinal을 따른다.
+`mergeCombatEventBatches`는 total을 더하고 event ID는 중복 제거에만 사용한다. 정렬과 절단은 문자열 ID가 아니라 decimal `roundSequence`의 수치 비교와 `ordinal` 오름차순을 보존해 최근 100개를 유지하며, 같은 좌표의 서로 다른 ID는 계약 오류로 실패시킨다. 보상 지급 주체는 기존 처치 분기 하나뿐이며 UI는 이벤트를 근거로 다시 지급하지 않는다. 동일 round에서 발생한 이벤트는 `skill → critical → companionAssist → kill/bossVictory 또는 defeat`의 고정 ordinal을 따른다. 협공 이벤트는 영웅 공격 뒤 적이 생존하고 준비된 동료가 실제 피해를 적용한 경우에만 발행하며 RNG를 더 소비하지 않는다.
 
 ## Verification
 
-- `skill(10) → critical(20) → outcome(30)` 고정 순서, BigInt decimal cursor, draw 이후 RNG state 기반 ID와 발생 직후 snapshot을 독립 리뷰했다.
-- 보스 처치는 `kill`을 중복 발생시키지 않고 `bossVictory` 한 건만 만들며, 영웅·동료 마무리 모두 기존 공통 보상 분기만 사용하는 것을 확인했다.
+- `skill(10) → critical(20) → companionAssist(25) → outcome(30)` 고정 순서, BigInt decimal cursor, draw 이후 RNG state 기반 ID와 발생 직후 snapshot을 독립 리뷰했다.
+- 보스 처치는 `kill`을 중복 발생시키지 않고 `bossVictory` 한 건만 만들며, 영웅·동료 마무리 모두 기존 공통 보상 분기만 사용하는 것을 확인했다. 영웅 선처치는 협공 event·cooldown을 만들지 않고 동료 마무리는 `companionAssist(25)` 뒤 outcome 한 건만 발생한다.
 - 단일·분할 batch, 최근 100개 상한, MAX_SAFE 초과 cursor, hook 메모리 queue와 저장 비영속 계약을 검토한 결과 P0/P1/P2가 없었다.
 
 ## Test evidence

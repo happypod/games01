@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { BattleArena } from './BattleArena'
+import { CombatLogPanel } from './CombatLogPanel'
 import { CompanionPanel } from './CompanionPanel'
 import { HeroPanel } from './HeroPanel'
 import { OfflineReport } from './OfflineReport'
@@ -133,6 +134,8 @@ export function GameScreen({
             <div className="notice-strip" role="status" aria-live="polite">{game.notice}</div>
           </div>
         </div>
+
+        <CombatLogPanel batch={game.combatEventBatch} />
 
         <StageMapPanel
           currentStage={game.state.battle.stage}

@@ -221,6 +221,25 @@ h2 { font-size: 20px; letter-spacing: -.02em; }
 .stat-grid dd { margin: 0; font: 600 17px/1 'Emberwatch Sans', sans-serif; color: #e9dfd3; }
 .notice-strip { padding: 12px 15px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255,255,255,.025); color: #958b83; font-size: 10px; min-height: 38px; }
 
+.combat-log-panel { margin-top: 18px; padding: 24px 27px 27px; }
+.combat-log-panel__header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.combat-log-panel__summary { margin: 7px 0 0; color: #aaa097; font-size: 11px; line-height: 1.5; }
+.combat-log-panel__toggle { flex: 0 0 auto; min-width: 144px; padding: 9px 14px; border: 1px solid rgba(104,201,180,.28); border-radius: 6px; background: rgba(104,201,180,.08); color: #aee3d7; font-size: 11px; cursor: pointer; }
+.combat-log-panel__toggle:hover { background: rgba(104,201,180,.14); }
+.combat-log-filters { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 20px 0 0; padding: 0; border: 0; }
+.combat-log-filters legend { width: 100%; margin-bottom: 2px; color: #aaa097; font-size: 10px; }
+.combat-log-filters label { min-height: 44px; display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.025); color: #c8bdb2; font-size: 10px; cursor: pointer; }
+.combat-log-filters input { width: 18px; height: 18px; accent-color: var(--teal); }
+.combat-log-filter-summary, .combat-log-empty { margin: 14px 0 0; color: #aaa097; font-size: 11px; line-height: 1.6; }
+.combat-log-list { display: grid; gap: 7px; margin: 15px 0 0; padding: 0; list-style: none; }
+.combat-log-entry { min-width: 0; display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.065); border-radius: 7px; background: rgba(255,255,255,.022); }
+.combat-log-entry__badge { color: #f0b184; font-size: 10px; font-weight: 700; }
+.combat-log-entry--companionAssist .combat-log-entry__badge { color: #8fd8c8; }
+.combat-log-entry--victory .combat-log-entry__badge { color: #e6c274; }
+.combat-log-entry--defeat .combat-log-entry__badge { color: #e9877d; }
+.combat-log-entry__copy { min-width: 0; overflow-wrap: anywhere; color: #ddd2c7; font-size: 11px; line-height: 1.5; }
+.combat-log-entry small { color: #8e857d; font-size: 9px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
 .growth-grid { display: grid; gap: 18px; margin-top: 18px; }
 .progression-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .collection-panel { container-type: inline-size; padding: 25px; }
@@ -366,6 +385,14 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .save-transfer__actions > * { flex: 1; }
   footer { flex-direction: column; gap: 5px; }
   .offline-modal { padding: 28px 22px; }
+  .combat-log-panel { padding: 22px 20px; }
+  .combat-log-panel__header { align-items: stretch; flex-direction: column; gap: 14px; }
+  .combat-log-panel__toggle { width: 100%; }
+  .combat-log-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .combat-log-filters legend { grid-column: 1 / -1; }
+  .combat-log-filters label { width: 100%; }
+  .combat-log-entry { grid-template-columns: 66px minmax(0, 1fr); }
+  .combat-log-entry small { grid-column: 1 / -1; white-space: normal; }
 }
 
 @media (prefers-reduced-motion: reduce) {

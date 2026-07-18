@@ -52,7 +52,8 @@ performPrestige(state): CommandResult
 - 입력 상태를 수정하지 않고 복제한 다음 새 상태를 반환한다.
 - 명령은 성공 여부와 사용자 메시지를 함께 반환한다.
 - 전투 보고서는 UI 알림과 오프라인 결과에 쓰며 영속 상태에는 저장하지 않는다.
-- 전투 이벤트는 `skill`, `critical`, `kill`, `bossVictory`, `defeat`의 비영속 discriminated union이다. 브라우저 생명주기는 canonical decimal cursor와 최근 100개 queue만 메모리에 보유하고 bootstrap·reset·import에서 폐기한다.
+- 전투 이벤트는 `skill`, `critical`, `companionAssist`, `kill`, `bossVictory`, `defeat`의 비영속 discriminated union이다. 같은 round는 `skill(10) → critical(20) → companionAssist(25) → outcome(30)` 순서를 고정하며 협공 이벤트는 적용 피해와 동료 ID를 즉시 snapshot으로 남기되 RNG draw와 보상 분기를 추가하지 않는다. 브라우저 생명주기는 canonical decimal cursor와 최근 100개 queue만 메모리에 보유하고 bootstrap·reset·import에서 폐기한다.
+- 전투 로그 UI는 queue의 마지막 20개를 먼저 고정한 뒤 메모리 filter를 적용한다. 보이는 ordered list는 live region이 아니며, 별도 atomic polite region만 첫 새 이벤트부터 5초 고정 window로 유형별 건수를 한 번 발표한다. 로그·filter·접힘·announcement 상태는 저장 경계 밖이다.
 - 이벤트 cursor는 RNG draw 수와 분리해 완성된 라운드마다 BigInt로 증가한다. ID는 round sequence, draw 직후 RNG state, 고정 ordinal과 type으로 만들며 단일·분할 실행에서 같다.
 - `mergeCombatEventBatches`는 round sequence를 문자열이 아닌 수치로 정렬하고 좌표·payload 충돌을 거부한다. UI는 이벤트 snapshot을 표시만 하며 보상을 다시 지급하지 않는다.
 - 전투 라운드마다 저장된 `xorshift32-v1` state를 정확히 한 번 전진시킨다. 같은 RNG state·게임 상태·경과 시간은 치명타 순서와 최종 결과가 같으며, 동료 협공·UI·비전투 명령은 RNG를 호출하지 않는다.

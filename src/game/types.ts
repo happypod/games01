@@ -133,6 +133,13 @@ export interface CriticalCombatEvent extends CombatEventBase {
   readonly damage: number
 }
 
+export interface CompanionAssistCombatEvent extends CombatEventBase {
+  readonly type: 'companionAssist'
+  readonly ordinal: 25
+  readonly companionId: CompanionId
+  readonly damage: number
+}
+
 export interface KillCombatEvent extends CombatEventBase {
   readonly type: 'kill'
   readonly ordinal: 30
@@ -163,6 +170,7 @@ export interface DefeatCombatEvent extends CombatEventBase {
 export type CombatEvent =
   | SkillCombatEvent
   | CriticalCombatEvent
+  | CompanionAssistCombatEvent
   | KillCombatEvent
   | BossVictoryCombatEvent
   | DefeatCombatEvent

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { getEnemyDefinition } from './content'
+import {
+  COMPANION_ATTACK_INTERVAL_MS,
+  CRITICAL_CHANCE,
+  getEnemyDefinition,
+} from './content'
 import {
   MAX_COMBAT_EVENTS,
   advanceGame,
@@ -7,10 +11,12 @@ import {
   mergeCombatEventBatches,
 } from './engine'
 import { getCompanionDamage, getHeroStats } from './formulas'
+import { nextRandom } from './rng'
 import type {
   AdvanceReport,
   CombatEvent,
   CombatEventBatch,
+  CompanionAssistCombatEvent,
   GameState,
 } from './types'
 
@@ -164,6 +170,77 @@ describe('combat event stream', () => {
     expect(defeat?.snapshot.playerHp).toBeGreaterThan(result.state.player.currentHp)
   })
 
+  it('emits one applied companion assist without changing RNG, rewards, or combat state', () => {
+    const initial = createInitialState(0, 0x1234_5678)
+    const state: GameState = {
+      ...initial,
+      player: {
+        ...initial.player,
+        skills: { ...initial.player.skills, powerStrike: 0 },
+        companion: { id: 'emberFox', rank: 5 },
+      },
+      battle: {
+        ...initial.battle,
+        enemyHp: getEnemyDefinition(1).maxHp,
+        companionCooldownMs: 0,
+      },
+    }
+    const stateBefore = structuredClone(state)
+    const enemy = getEnemyDefinition(1)
+    const hero = getHeroStats(state)
+    const companionDamage = getCompanionDamage(state)
+    const draw = nextRandom(state.rng)
+    expect(draw.value).toBeGreaterThanOrEqual(CRITICAL_CHANCE)
+
+    const result = advanceGame(state, 1_000, '8')
+    const assists = result.events.filter(
+      (event): event is CompanionAssistCombatEvent => event.type === 'companionAssist',
+    )
+    const expectedEnemyHp = state.battle.enemyHp - hero.attack - companionDamage
+    const expectedEnemyDamage = Math.max(1, enemy.attack - hero.defense)
+    const expectedState: GameState = {
+      ...state,
+      rng: draw.rng,
+      player: {
+        ...state.player,
+        currentHp: state.player.currentHp - expectedEnemyDamage,
+      },
+      battle: {
+        ...state.battle,
+        enemyHp: expectedEnemyHp,
+        companionCooldownMs: COMPANION_ATTACK_INTERVAL_MS,
+      },
+    }
+
+    expect(assists).toHaveLength(1)
+    expect(assists[0]).toMatchObject({
+      type: 'companionAssist',
+      roundSequence: '9',
+      ordinal: 25,
+      rngState: draw.rng.state,
+      stage: 1,
+      companionId: 'emberFox',
+      damage: companionDamage,
+      snapshot: {
+        stage: 1,
+        enemyHp: expectedEnemyHp,
+        playerHp: state.player.currentHp,
+        gold: state.player.gold,
+        xp: state.player.xp,
+      },
+    })
+    expect(result.report).toMatchObject({
+      companionAttacks: 1,
+      companionDamage,
+      kills: 0,
+      goldEarned: 0,
+      xpEarned: 0,
+    })
+    expect(result.state).toEqual(expectedState)
+    expect(result.state.rng.draws).toBe(state.rng.draws + 1)
+    expect(state).toEqual(stateBefore)
+  })
+
   it('uses the common outcome branch once when a companion lands the finishing blow', () => {
     const initial = createInitialState(0, 0x1234_5678)
     const state: GameState = {
@@ -184,18 +261,57 @@ describe('combat event stream', () => {
     state.battle.enemyHp = heroDamage + companionDamage
 
     const result = advanceGame(state, 1_000, '5')
+    const assists = result.events.filter(
+      (event): event is CompanionAssistCombatEvent => event.type === 'companionAssist',
+    )
     const outcomes = result.events.filter(
       ({ type }) => type === 'kill' || type === 'bossVictory',
     )
 
     expect(result.report).toMatchObject({ companionAttacks: 1, kills: 1 })
     expect(result.state.rng.draws).toBe(state.rng.draws + 1)
+    expect(assists).toHaveLength(1)
+    expect(assists[0]).toMatchObject({
+      type: 'companionAssist',
+      ordinal: 25,
+      companionId: 'emberFox',
+      damage: companionDamage,
+      snapshot: { stage: 1, enemyHp: 0, gold: 0 },
+    })
     expect(outcomes).toHaveLength(1)
     expect(outcomes[0]).toMatchObject({
       type: 'kill',
+      ordinal: 30,
       defeatedStage: 1,
       nextStage: 2,
     })
+    expect(result.events.indexOf(assists[0]!)).toBeLessThan(result.events.indexOf(outcomes[0]!))
+    expect(result.state.player.gold).toBe(getEnemyDefinition(1).goldReward)
+    expect(result.report.goldEarned).toBe(getEnemyDefinition(1).goldReward)
+  })
+
+  it('does not emit or consume a companion assist when the hero finishes first', () => {
+    const initial = createInitialState(0, 1)
+    const state: GameState = {
+      ...initial,
+      player: {
+        ...initial.player,
+        skills: { ...initial.player.skills, powerStrike: 0 },
+        companion: { id: 'emberFox', rank: 5 },
+      },
+      battle: {
+        ...initial.battle,
+        enemyHp: 1,
+        companionCooldownMs: 0,
+      },
+    }
+
+    const result = advanceGame(state, 1_000, '12')
+
+    expect(result.events.some(({ type }) => type === 'companionAssist')).toBe(false)
+    expect(result.report).toMatchObject({ companionAttacks: 0, companionDamage: 0, kills: 1 })
+    expect(result.state.battle.companionCooldownMs).toBe(0)
+    expect(result.state.rng.draws).toBe(state.rng.draws + 1)
   })
 
   it('keeps a stage-one defeat at stage one and aligns event counts with the report', () => {
@@ -225,8 +341,13 @@ describe('combat event stream', () => {
   })
 
   it('matches bounded event type counts and rewards to the aggregate report', () => {
-    const result = advanceGame(createInitialState(0, 0xdead_beef), 20_000, '10')
+    const initial = createInitialState(0, 0xdead_beef)
+    initial.player.companion = { id: 'emberFox', rank: 3 }
+    const result = advanceGame(initial, 20_000, '10')
     const criticals = result.events.filter(({ type }) => type === 'critical')
+    const assists = result.events.filter(
+      (event): event is CompanionAssistCombatEvent => event.type === 'companionAssist',
+    )
     const outcomes = result.events.filter(
       ({ type }) => type === 'kill' || type === 'bossVictory',
     )
@@ -241,6 +362,9 @@ describe('combat event stream', () => {
 
     expect(result.totalEvents).toBe(result.events.length)
     expect(criticals).toHaveLength(result.report.criticalHits)
+    expect(assists).toHaveLength(result.report.companionAttacks)
+    expect(assists.reduce((total, event) => total + event.damage, 0))
+      .toBe(result.report.companionDamage)
     expect(outcomes).toHaveLength(result.report.kills)
     expect(defeats).toHaveLength(result.report.defeats)
     expect(rewardTotals).toEqual({
@@ -251,6 +375,7 @@ describe('combat event stream', () => {
 
   it('keeps state, reports, IDs, ordering, and overflow equal across split execution', () => {
     const initial = createInitialState(0, 0xdead_beef)
+    initial.player.companion = { id: 'emberFox', rank: 3 }
     initial.rng.draws = Number.MAX_SAFE_INTEGER - 1
     const startCursor = (BigInt(Number.MAX_SAFE_INTEGER) - 1n).toString()
     const once = advanceGame(initial, 300_000, startCursor)

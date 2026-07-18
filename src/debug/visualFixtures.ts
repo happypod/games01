@@ -1,7 +1,12 @@
 import { createInitialState } from '../game/engine'
 import { getHeroStats } from '../game/formulas'
 import { seedFromText } from '../game/rng'
-import type { GameState } from '../game/types'
+import type {
+  CombatEvent,
+  CombatEventBatch,
+  CombatEventSnapshot,
+  GameState,
+} from '../game/types'
 import { setDebugStage } from './debugSession'
 
 export const VISUAL_FIXTURE_NOW = Date.parse('2026-01-01T00:00:00.000Z')
@@ -14,6 +19,7 @@ export const VISUAL_FIXTURE_IDS = [
   'visual.map.stage-frontier',
   'visual.cards.mixed-states',
   'visual.cards.fallback',
+  'visual.combat.event-log',
 ] as const
 
 export type VisualFixtureId = (typeof VISUAL_FIXTURE_IDS)[number]
@@ -41,13 +47,14 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409'
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-411'
   readonly stage: 1 | 3 | 5 | 10 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
-  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel' | '.progression-panels'
+  readonly canonicalEventHash?: `fnv1a32-v1:${string}`
+  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel' | '.progression-panels' | '.combat-log-panel'
   readonly failureRoute: 'none' | 'hero-and-enemy-corrupt' | 'cards-corrupt'
-  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards'
+  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards' | 'open-combat-log'
   readonly variants: readonly VisualVariantId[]
 }
 
@@ -169,6 +176,19 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     setupAction: 'open-growth-cards',
     variants: VISUAL_VARIANT_IDS,
   },
+  'visual.combat.event-log': {
+    id: 'visual.combat.event-log',
+    label: '최근 전투 이벤트 6종 로그',
+    ownerTicket: 'IRPG-411',
+    stage: 10,
+    seedKey: 'irpg-506:visual.combat.event-log:v1',
+    canonicalHash: 'fnv1a32-v1:b7aed32d',
+    canonicalEventHash: 'fnv1a32-v1:8ec7c58f',
+    captureTarget: '.combat-log-panel',
+    failureRoute: 'none',
+    setupAction: 'open-combat-log',
+    variants: VISUAL_VARIANT_IDS,
+  },
 }
 
 function canonicalStringify(value: unknown): string {
@@ -193,6 +213,86 @@ export function hashVisualGameState(state: GameState): `fnv1a32-v1:${string}` {
     hash = Math.imul(hash, 0x01000193)
   }
   return `fnv1a32-v1:${(hash >>> 0).toString(16).padStart(8, '0')}`
+}
+
+export function hashVisualCombatEventBatch(
+  batch: CombatEventBatch,
+): `fnv1a32-v1:${string}` {
+  let hash = 0x811c9dc5
+  for (const character of canonicalStringify(batch)) {
+    hash ^= character.charCodeAt(0)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return `fnv1a32-v1:${(hash >>> 0).toString(16).padStart(8, '0')}`
+}
+
+function createVisualCombatEvent(
+  round: number,
+  ordinal: 10 | 20 | 25 | 30,
+  type: CombatEvent['type'],
+): CombatEvent {
+  const stage = type === 'kill' ? 9 : 10
+  const snapshot: CombatEventSnapshot = {
+    stage: type === 'kill' || type === 'bossVictory' ? stage + 1 : type === 'defeat' ? 9 : stage,
+    highestStage: 11,
+    playerHp: type === 'defeat' ? 318 : 342,
+    enemyHp: type === 'kill' || type === 'bossVictory' ? 180 : type === 'defeat' ? 96 : 48,
+    gold: 1_240 + round,
+    xp: 72,
+  }
+  const base = {
+    id: `visual-log-${round}-${ordinal}-${type}`,
+    roundSequence: String(round),
+    ordinal,
+    rngState: 0x4110_0000 + round,
+    stage,
+    snapshot,
+  }
+  if (type === 'skill') {
+    return { ...base, type, ordinal: 10, skillId: 'powerStrike', damage: 84 + round }
+  }
+  if (type === 'critical') return { ...base, type, ordinal: 20, damage: 126 + round }
+  if (type === 'companionAssist') {
+    return { ...base, type, ordinal: 25, companionId: 'emberFox', damage: 63 + round }
+  }
+  if (type === 'kill' || type === 'bossVictory') {
+    return {
+      ...base,
+      type,
+      ordinal: 30,
+      defeatedStage: stage,
+      nextStage: stage + 1,
+      gold: type === 'bossVictory' ? 240 : 82,
+      xp: type === 'bossVictory' ? 120 : 44,
+    }
+  }
+  return {
+    ...base,
+    type: 'defeat',
+    ordinal: 30,
+    damage: 96,
+    defeatedAtStage: 10,
+    returnStage: 9,
+    highestStage: 11,
+  }
+}
+
+export function createVisualFixtureCombatEventBatch(id: VisualFixtureId): CombatEventBatch {
+  if (id !== 'visual.combat.event-log') {
+    return { nextCursor: '0', totalEvents: 0, events: [] }
+  }
+
+  const outcomeTypes = ['kill', 'bossVictory', 'defeat'] as const
+  const events = Array.from({ length: 6 }, (_, index) => {
+    const round = 41 + index
+    return [
+      createVisualCombatEvent(round, 10, 'skill'),
+      createVisualCombatEvent(round, 20, 'critical'),
+      createVisualCombatEvent(round, 25, 'companionAssist'),
+      createVisualCombatEvent(round, 30, outcomeTypes[index % outcomeTypes.length]!),
+    ]
+  }).flat()
+  return { nextCursor: '46', totalEvents: events.length, events }
 }
 
 export function isVisualFixtureId(value: string): value is VisualFixtureId {

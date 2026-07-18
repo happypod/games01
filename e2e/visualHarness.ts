@@ -87,6 +87,13 @@ export async function openVisualFixture(
     'data-expected-canonical-state-hash',
     fixture.canonicalHash,
   )
+  if (fixture.canonicalEventHash !== undefined) {
+    await expect(root).toHaveAttribute('data-canonical-event-hash', fixture.canonicalEventHash)
+    await expect(root).toHaveAttribute(
+      'data-expected-canonical-event-hash',
+      fixture.canonicalEventHash,
+    )
+  }
 
   if (fixture.setupAction === 'open-stage-map') {
     await page.getByRole('button', { name: '원정 지도 열기' }).click()
@@ -112,6 +119,16 @@ export async function openVisualFixture(
         'data-state',
         fixture.failureRoute === 'cards-corrupt' ? 'fallback' : 'loaded',
       )
+    }
+  }
+
+  if (fixture.setupAction === 'open-combat-log') {
+    await page.getByRole('button', { name: '전투 로그 펼치기' }).click()
+    const list = page.getByTestId('combat-log-list')
+    await expect(list.getByRole('listitem')).toHaveCount(20)
+    await expect(page.getByText('최근 20건 · 이전 4건 요약')).toBeVisible()
+    for (const type of ['skill', 'critical', 'companionAssist', 'kill', 'bossVictory', 'defeat']) {
+      await expect(list.locator(`[data-combat-event-type="${type}"]`).first()).toBeVisible()
     }
   }
 
@@ -145,6 +162,7 @@ export async function openVisualFixture(
       ownerTicket: fixture.ownerTicket,
       seedKey: fixture.seedKey,
       canonicalHash: fixture.canonicalHash,
+      canonicalEventHash: fixture.canonicalEventHash,
       captureTarget: fixture.captureTarget,
       failureRoute: fixture.failureRoute,
       setupAction: fixture.setupAction,

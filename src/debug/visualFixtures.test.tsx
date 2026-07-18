@@ -5,7 +5,9 @@ import { seedFromText } from '../game/rng'
 import type { GameState } from '../game/types'
 import { DebugSessionApp } from './DebugSessionApp'
 import {
+  createVisualFixtureCombatEventBatch,
   createVisualFixtureState,
+  hashVisualCombatEventBatch,
   hashVisualGameState,
   VISUAL_FIXTURE_IDS,
   VISUAL_FIXTURE_NOW,
@@ -50,6 +52,11 @@ const EXPECTED_FIXTURES = {
     stage: 3,
     hash: 'fnv1a32-v1:6e071ccc',
     seed: 1091907769,
+  },
+  'visual.combat.event-log': {
+    stage: 10,
+    hash: 'fnv1a32-v1:b7aed32d',
+    seed: 4251790753,
   },
 } as const
 
@@ -110,6 +117,8 @@ describe('IRPG-506 named visual fixtures', () => {
           ? 'IRPG-408'
           : id.startsWith('visual.cards.')
             ? 'IRPG-409'
+            : id === 'visual.combat.event-log'
+              ? 'IRPG-411'
             : 'IRPG-506',
         stage: expected.stage,
         seedKey: `irpg-506:${id}:v1`,
@@ -142,6 +151,27 @@ describe('IRPG-506 named visual fixtures', () => {
       captureTarget: '.progression-panels',
       setupAction: 'open-growth-cards',
     })
+    const eventDefinition = VISUAL_FIXTURE_REGISTRY['visual.combat.event-log']
+    const eventBatch = createVisualFixtureCombatEventBatch('visual.combat.event-log')
+    expect(eventDefinition).toMatchObject({
+      captureTarget: '.combat-log-panel',
+      setupAction: 'open-combat-log',
+      canonicalEventHash: 'fnv1a32-v1:8ec7c58f',
+    })
+    expect(eventBatch).toMatchObject({ nextCursor: '46', totalEvents: 24 })
+    expect(eventBatch.events).toHaveLength(24)
+    expect(new Set(eventBatch.events.map(({ type }) => type))).toEqual(new Set([
+      'skill',
+      'critical',
+      'companionAssist',
+      'kill',
+      'bossVictory',
+      'defeat',
+    ]))
+    expect(hashVisualCombatEventBatch(eventBatch)).toBe(eventDefinition.canonicalEventHash)
+    expect(hashVisualCombatEventBatch(createVisualFixtureCombatEventBatch(
+      'visual.combat.hero-default',
+    ))).not.toBe(eventDefinition.canonicalEventHash)
 
     const cardState = createVisualFixtureState('visual.cards.mixed-states')
     expect(cardState.player).toMatchObject({
@@ -205,5 +235,29 @@ describe('IRPG-506 visual fixture UI adapter', () => {
       .toBeVisible()
     expect(JSON.stringify({ ...window.localStorage })).toBe(rawBefore)
     expect(onExit).not.toHaveBeenCalled()
+  })
+
+  it('injects the non-persistent combat event fixture independently of GameState', () => {
+    render(<DebugSessionApp onExit={vi.fn()} />)
+    const stateBefore = hashVisualGameState(createVisualFixtureState('visual.combat.event-log'))
+
+    fireEvent.change(screen.getByLabelText('시각 회귀 fixture'), {
+      target: { value: 'visual.combat.event-log' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'fixture 적용' }))
+
+    const root = screen.getByTestId('visual-fixture-root')
+    expect(root).toHaveAttribute('data-canonical-state-hash', stateBefore)
+    expect(root).toHaveAttribute('data-canonical-event-hash', 'fnv1a32-v1:8ec7c58f')
+    expect(root).toHaveAttribute(
+      'data-expected-canonical-event-hash',
+      'fnv1a32-v1:8ec7c58f',
+    )
+    expect(screen.queryByTestId('combat-log-list')).not.toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: '전투 로그 펼치기' }))
+    expect(screen.getAllByRole('listitem')).toHaveLength(20)
+    expect(hashVisualGameState(createVisualFixtureState('visual.combat.event-log')))
+      .toBe(stateBefore)
+    expect(window.localStorage).toHaveLength(0)
   })
 })

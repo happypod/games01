@@ -30,7 +30,9 @@ import {
   type DebugSpeed,
 } from './debugSession'
 import {
+  createVisualFixtureCombatEventBatch,
   createVisualFixtureState,
+  hashVisualCombatEventBatch,
   hashVisualGameState,
   VISUAL_FIXTURE_REGISTRY,
   type VisualFixtureId,
@@ -139,10 +141,11 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
 
   const applyVisualFixture = useCallback((id: VisualFixtureId) => {
     const next = createVisualFixtureState(id)
+    const eventBatch = createVisualFixtureCombatEventBatch(id)
     const definition = VISUAL_FIXTURE_REGISTRY[id]
     commit(next)
-    eventCursorRef.current = '0'
-    setCombatEventBatch(emptyCombatEvents())
+    eventCursorRef.current = eventBatch.nextCursor
+    setCombatEventBatch(eventBatch)
     setOfflineReport(null)
     setSpeed(1)
     setPanelRevision((current) => current + 1)
@@ -151,6 +154,7 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
   }, [commit])
 
   const visualFixtureHash = hashVisualGameState(state)
+  const visualFixtureEventHash = hashVisualCombatEventBatch(combatEventBatch)
 
   const controller: GameController = {
     state,
@@ -184,6 +188,14 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
       data-expected-canonical-state-hash={
         activeVisualFixtureId
           ? VISUAL_FIXTURE_REGISTRY[activeVisualFixtureId].canonicalHash
+          : undefined
+      }
+      data-canonical-event-hash={
+        activeVisualFixtureId ? visualFixtureEventHash : undefined
+      }
+      data-expected-canonical-event-hash={
+        activeVisualFixtureId
+          ? VISUAL_FIXTURE_REGISTRY[activeVisualFixtureId].canonicalEventHash
           : undefined
       }
     >
