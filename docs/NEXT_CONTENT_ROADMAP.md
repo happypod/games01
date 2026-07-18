@@ -17,7 +17,7 @@ IRPG-503·504·204·304·403·104·505·305는 Done이다. 현재 기준선은 C
 | 2A | IRPG-407 | Done | 플레이 화면 영웅 아렌 일러스트와 실패 fallback |
 | 2B | IRPG-507 | Done | 정상 저장과 격리된 브라우저 UI fixture 조작 패널 |
 | 2C | IRPG-413 | Done | 일반 적 5종·보스 3종 일러스트와 실패 fallback |
-| 3 | IRPG-506 | Draft | 기본 전투 screenshot harness와 CI artifact 계약 |
+| 3 | IRPG-506 | Ready | 기본 전투 screenshot harness와 CI artifact 계약 |
 | 4A | IRPG-408 | Draft | 3지역 맵과 roving keyboard 스테이지 탐색 |
 | 4B | IRPG-409 | Draft | 무기·갑옷·부적과 스킬의 일러스트 카드 |
 | 4C | IRPG-411 | Draft | 비영속·제한된 전투 이벤트 로그 UI |

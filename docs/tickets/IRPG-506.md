@@ -7,9 +7,9 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Draft
+- Status: Ready
 - Skill tags: QA-E2E, REL-CI, ART-DIR
-- Owner / Reviewer: unassigned / QA and art direction reviewers
+- Owner / Reviewer: Codex implementation / independent QA and art direction reviewers
 
 ## Scope
 
@@ -18,6 +18,7 @@
 - 후속 티켓이 자기 region map·equipment/skill card·victory/defeat·event baseline을 같은 registry에 추가하는 계약
 - named fixture ID·canonical state hash·고정 time/seed·UI-only setup과 Playwright screenshot comparison
 - 실패 diff·actual·expected·trace의 CI artifact
+- 저장소 고정 Noto Sans KR subset WOFF2·OFL 권리 기록과 font-ready gate
 
 ## Non-scope
 
@@ -40,6 +41,8 @@
 - Save schema: none
 - Content config: deterministic visual fixture IDs
 - Accessibility: viewport and reduced-motion matrix retained
+- Files: `src/debug/visualFixtures.ts`, `e2e/visualHarness.ts`, `e2e/visual-regression.spec.ts`, `playwright.visual.config.ts`, `e2e/__screenshots__/irpg-506`, `src/assets/fonts`, CI·package scripts
+- Fixtures: `visual.combat.hero-default`, `visual.combat.enemy-default`, `visual.combat.boss-default`, `visual.combat.fallback`; 각 fixture의 360×800·1440×900 × default·reduced 4 variants
 
 ## Acceptance criteria
 
@@ -48,12 +51,16 @@
 - Given 360px·1440px·reduced motion일 때, when matrix를 실행하면, then 가로 overflow·가려진 명령·지속 모션 회귀도 함께 검출한다.
 - Given baseline 갱신일 때, when Review하면, then 관련 티켓 ID와 미술·접근성 승인 이유가 변경 설명에 남는다.
 - Given IRPG-408~412 중 하나를 구현할 때, when 그 티켓을 Test로 옮기면, then 소유 화면의 360×800·1440×900·reduced-motion baseline을 registry에 추가하고 동일 artifact 계약을 통과한다.
+- Given named fixture를 적용할 때, when screenshot 전에 상태를 검증하면, then `seedFromText('irpg-506:<fixture-id>:v1')`로 만든 seed와 전체 `GameState`의 재귀 key-sort JSON에 대한 `fnv1a32-v1:<8hex>`가 registry 값과 정확히 일치한다.
+- Given visual runner가 시작될 때, when capture를 준비하면, then 저장소의 Noto Sans KR WOFF2와 모든 현재 fixture 이미지 decode가 완료된 뒤에만 비교하며 초기 mask는 비어 있다.
 
 ## Design
 
-CI image는 floating `ubuntu-latest`가 아니라 `ubuntu-24.04`, Chromium revision은 lockfile의 `@playwright/test`, 글꼴은 저장소에 고정한 WOFF2를 사용한다. browser context는 DPR 1, `ko-KR`, `Asia/Seoul`, fixed clock `2026-01-01T00:00:00Z`, color scheme과 viewport를 variant에 명시한다. 비교 옵션은 channel당 `threshold: 0.15`, 전체 이미지 `maxDiffPixelRatio: 0.001`로 고정한다.
+CI image는 floating `ubuntu-latest`가 아니라 `ubuntu-24.04`, Chromium revision은 lockfile의 `@playwright/test`, 글꼴은 저장소에 고정한 OFL Noto Sans KR subset WOFF2를 사용한다. browser context는 DPR 1, `ko-KR`, `Asia/Seoul`, fixed clock `2026-01-01T00:00:00Z`, dark color scheme과 viewport를 variant에 명시한다. 비교 옵션은 channel당 `threshold: 0.15`, 전체 이미지 `maxDiffPixelRatio: 0.001`로 고정한다.
 
-브라우저 context는 IRPG-507의 development/test 전용 저장 격리 debug UI·공개 게임 UI만 사용한다. production bundle에 debug panel을 포함하지 않으면서 CI의 test mode에서 동일 명령 adapter를 사용할 수 있어야 한다. 최초 named fixture는 `visual.combat.hero-default`, `visual.combat.enemy-default`, `visual.combat.boss-default`, `visual.combat.fallback`이며 registry entry는 소유 티켓 ID·canonical game-state hash·viewport·motion·color variant를 필수 metadata로 갖는다. hash가 다르면 screenshot 전에 실패한다. snapshot masking은 실제 비결정 영역에만 제한하며 전투 수치·카드 상태를 숨기지 않는다. 이 티켓은 harness와 기본 전투 baseline을 만들고 후속 UI 티켓은 자기 baseline을 같은 변경에서 확장한다.
+브라우저 context는 IRPG-507의 development/test 전용 저장 격리 debug UI·공개 게임 UI만 사용한다. production bundle에 debug panel을 포함하지 않으면서 CI의 test mode에서 동일 명령 adapter를 사용할 수 있어야 한다. fixture 선택과 적용은 접근 가능한 debug select·button으로만 수행하며 E2E가 도메인 함수나 localStorage를 직접 호출하지 않는다. 최초 named fixture는 `visual.combat.hero-default`, `visual.combat.enemy-default`, `visual.combat.boss-default`, `visual.combat.fallback`이며 registry entry는 소유 티켓 ID·seed key·canonical game-state hash·capture target·failure route·viewport·motion·color variant를 필수 metadata로 갖는다. hash가 다르면 screenshot 전에 실패한다. snapshot masking은 실제 비결정 영역에만 제한하며 초기 registry에는 mask가 없다. 이 티켓은 harness와 기본 전투 baseline을 만들고 후속 UI 티켓은 자기 baseline을 같은 변경에서 확장한다.
+
+baseline은 `ubuntu-24.04` 전용 workflow dispatch에서 생성하고 같은 runner에서 3회 반복 비교한 artifact만 Review 뒤 체크인한다. Windows에서 생성한 이미지는 canonical baseline으로 승인하지 않는다. 승인 갱신은 ticket ID와 이유를 기록하고 `e2e/__screenshots__/irpg-506`의 관련 파일만 바꾼다.
 
 ## Verification
 
