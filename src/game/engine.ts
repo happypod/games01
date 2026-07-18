@@ -24,6 +24,11 @@ import {
   isSkillUnlocked,
   toSafeInteger,
 } from './formulas'
+import {
+  claimBossMilestone,
+  getBossMilestoneReward,
+  hasClaimedBossMilestone,
+} from './bossMilestones'
 import { createRngState, nextRandom, seedFromText } from './rng'
 import { SAVE_VERSION } from './types'
 import type {
@@ -33,6 +38,7 @@ import type {
   CombatEventBatch,
   CombatEventCursor,
   CombatEventSnapshot,
+  BossMilestoneRewardSnapshot,
   CompanionId,
   CommandResult,
   GameState,
@@ -194,6 +200,7 @@ export function createInitialState(
   return {
     schemaVersion: SAVE_VERSION,
     lastSavedAt: now,
+    claimedBossMilestoneMask: 0,
     rng: createRngState(seed),
     player: {
       level: 1,
@@ -253,6 +260,27 @@ function resolveEnemyDefeat(
   state.stats.enemiesDefeated = addSafeIntegers(state.stats.enemiesDefeated, 1)
   report.kills = addSafeIntegers(report.kills, 1)
   report.goldEarned = addSafeIntegers(report.goldEarned, gold)
+
+  let milestoneReward: BossMilestoneRewardSnapshot | null = null
+  const configuredMilestone = enemy.isBoss ? getBossMilestoneReward(defeatedStage) : null
+  if (
+    configuredMilestone !== null &&
+    !hasClaimedBossMilestone(state.claimedBossMilestoneMask, defeatedStage)
+  ) {
+    const goldBeforeMilestone = state.player.gold
+    state.player.gold = addSafeIntegers(
+      state.player.gold,
+      configuredMilestone.configuredGold,
+    )
+    const appliedGold = state.player.gold - goldBeforeMilestone
+    state.stats.goldEarned = addSafeIntegers(state.stats.goldEarned, appliedGold)
+    report.goldEarned = addSafeIntegers(report.goldEarned, appliedGold)
+    state.claimedBossMilestoneMask = claimBossMilestone(
+      state.claimedBossMilestoneMask,
+      defeatedStage,
+    )
+    milestoneReward = { ...configuredMilestone, appliedGold }
+  }
   grantExperience(state, enemy.xpReward, report)
 
   const previousStage = state.battle.stage
@@ -269,15 +297,13 @@ function resolveEnemyDefeat(
   )
   state.battle.enemyHp = getEnemyDefinition(state.battle.stage).maxHp
 
-  const type = enemy.isBoss ? 'bossVictory' : 'kill'
-  appendCombatEvent(eventContext.batch, {
+  const commonOutcome = {
     id: createCombatEventId(
       eventContext.roundSequence,
       eventContext.rngState,
       COMBAT_EVENT_ORDINAL.outcome,
-      type,
+      enemy.isBoss ? 'bossVictory' : 'kill',
     ),
-    type,
     roundSequence: eventContext.roundSequence,
     ordinal: COMBAT_EVENT_ORDINAL.outcome,
     rngState: eventContext.rngState,
@@ -287,7 +313,13 @@ function resolveEnemyDefeat(
     gold,
     xp: enemy.xpReward,
     snapshot: captureCombatEventSnapshot(state),
-  })
+  } as const
+  appendCombatEvent(
+    eventContext.batch,
+    enemy.isBoss
+      ? { ...commonOutcome, type: 'bossVictory', milestoneReward }
+      : { ...commonOutcome, type: 'kill' },
+  )
 }
 
 function resolveRound(
@@ -581,6 +613,7 @@ export function performPrestige(input: GameState): CommandResult {
 
   const reward = getPrestigeReward(input.battle.highestStage)
   const state = createInitialState(input.lastSavedAt)
+  state.claimedBossMilestoneMask = input.claimedBossMilestoneMask
   state.rng = { ...input.rng }
   state.player.essence = addSafeIntegers(input.player.essence, reward)
   state.player.companion = input.player.companion.id === null

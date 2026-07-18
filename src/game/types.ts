@@ -1,4 +1,4 @@
-export const SAVE_VERSION = 3 as const
+export const SAVE_VERSION = 4 as const
 export const RNG_ALGORITHM = 'xorshift32-v1' as const
 
 export const UPGRADE_IDS = ['weapon', 'armor', 'charm'] as const
@@ -75,6 +75,7 @@ export interface LifetimeStats {
 export interface GameState {
   schemaVersion: typeof SAVE_VERSION
   lastSavedAt: number
+  claimedBossMilestoneMask: number
   rng: RngState
   player: PlayerState
   battle: BattleState
@@ -156,6 +157,15 @@ export interface BossVictoryCombatEvent extends CombatEventBase {
   readonly nextStage: number
   readonly gold: number
   readonly xp: number
+  readonly milestoneReward: BossMilestoneRewardSnapshot | null
+}
+
+export interface BossMilestoneRewardSnapshot {
+  readonly tableId: 'boss-milestone-v1'
+  readonly kind: 'gold'
+  readonly milestoneStage: number
+  readonly configuredGold: number
+  readonly appliedGold: number
 }
 
 export interface DefeatCombatEvent extends CombatEventBase {

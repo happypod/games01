@@ -124,10 +124,17 @@ describe('combat event stream', () => {
       nextStage: 11,
       gold: getEnemyDefinition(10).goldReward,
       xp: getEnemyDefinition(10).xpReward,
+      milestoneReward: {
+        tableId: 'boss-milestone-v1',
+        kind: 'gold',
+        milestoneStage: 10,
+        configuredGold: 15,
+        appliedGold: 15,
+      },
       snapshot: {
         stage: 11,
         highestStage: 11,
-        gold: 123 + getEnemyDefinition(10).goldReward,
+        gold: 123 + getEnemyDefinition(10).goldReward + 15,
       },
     })
     expect(result.events.some((event) => event.type === 'kill' && event.stage === 10)).toBe(false)
@@ -354,7 +361,8 @@ describe('combat event stream', () => {
     const defeats = result.events.filter(({ type }) => type === 'defeat')
     const rewardTotals = outcomes.reduce(
       (total, event) => ({
-        gold: total.gold + ('gold' in event ? event.gold : 0),
+        gold: total.gold + ('gold' in event ? event.gold : 0) +
+          (event.type === 'bossVictory' ? event.milestoneReward?.appliedGold ?? 0 : 0),
         xp: total.xp + ('xp' in event ? event.xp : 0),
       }),
       { gold: 0, xp: 0 },
@@ -405,6 +413,45 @@ describe('combat event stream', () => {
     expect(once.events).toHaveLength(MAX_COMBAT_EVENTS)
     expect(once.totalEvents - once.events.length).toBeGreaterThan(0)
     expect(new Set(once.events.map(({ id }) => id)).size).toBe(once.events.length)
+  })
+
+  it('keeps a first boss reward snapshot deterministic across a split boundary', () => {
+    const initial = createInitialState(0, 0x1234_5678)
+    const ready: GameState = {
+      ...initial,
+      player: {
+        ...initial.player,
+        upgrades: { ...initial.player.upgrades, weapon: 100 },
+        skills: { ...initial.player.skills, powerStrike: 0 },
+      },
+      battle: {
+        ...initial.battle,
+        stage: 10,
+        highestStage: 10,
+        enemyHp: 1,
+      },
+    }
+
+    const once = advanceGame(ready, 2_000, '700')
+    const first = advanceGame(ready, 1_000, '700')
+    const second = advanceGame(first.state, 1_000, first.nextCursor)
+    const merged = mergeCombatEventBatches(first, second)
+
+    expect(second.state).toEqual(once.state)
+    expect(addReports([first.report, second.report])).toEqual(once.report)
+    expect(merged).toEqual({
+      nextCursor: once.nextCursor,
+      totalEvents: once.totalEvents,
+      events: once.events,
+    })
+    const victory = once.events.find((event) => event.type === 'bossVictory')
+    expect(victory?.milestoneReward).toEqual({
+      tableId: 'boss-milestone-v1',
+      kind: 'gold',
+      milestoneStage: 10,
+      configuredGold: 15,
+      appliedGold: 15,
+    })
   })
 
   it('increments the cursor for every complete round, including rounds without events', () => {

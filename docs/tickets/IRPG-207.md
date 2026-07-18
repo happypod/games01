@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Ready
+- Status: Verify
 - Skill tags: GD-BAL, ENG-STATE, ENG-SAVE
 - Owner / Reviewer: Codex / independent product, balance, engine, and save reviewers
 
@@ -81,8 +81,11 @@ legacy `stats.prestiges > 0`은 과거 원정의 lifetime 최고 stage가 사라
 
 ## Verification
 
-- 제품 승인, 보상 단일 지급 주체, migration 원자성, offline·분할 결정론과 balance 회귀를 Review한다.
+- 고정된 v1 table, 산술 30-bit mask, 반복 골드→milestone 지급 순서, 실제 적용량 포화와 0골드 claim, 환생 보존, schema3 migration·schema4 strict 거부·future fence, A/B·portable 원자성, balance·soak·visual fixture를 독립 Review했고 최종 P0·P1·P2 결함 0건이다.
 
 ## Test evidence
 
-- 예정: 최초/반복 승리, 환생 후 재처치, reload/offline/분할 실행, A/B rollback, legacy prestige 0/1과 `highestStage` 9/10/299/300 migration 뒤 재선택, safe-integer 경계와 전체 `npm run verify`
+- 최초/반복 stage 10·300, 영웅·동료 마무리, 환생 뒤 재처치, 부분/0골드 포화 claim, 단일·분할 event 결정론, offline writer checkpoint·reload, A/B 실제 fallback replay, portable import 재처치, schema1·2·3 migration과 schema4 mask 경계를 회귀 테스트로 고정했다.
+- 첫 원정은 비동료 2,008초·동료 1,886초 중앙값이고 보상 2건·45골드·mask `3`, 환생 재도달은 추가 보상 0건이며 비동료 63.6177%·동료 62.8711%, 20/20 profile이 50~70%를 통과한다.
+- 로컬 `npm run verify`: Vitest 28파일·222/222, 자산 validator 27/27, 일반 Playwright 29/29, production 자산 3/3, build 통과; canonical screenshot 비교는 계약대로 로컬 skip했다.
+- GitHub quality·Ubuntu canonical visual run과 artifact 증거를 확보한 뒤 Done으로 이동한다.

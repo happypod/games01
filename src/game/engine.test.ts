@@ -19,6 +19,10 @@ import {
   upgradeSkill,
 } from './engine'
 import {
+  MAX_BOSS_MILESTONE_MASK,
+  claimBossMilestone,
+} from './bossMilestones'
+import {
   getCompanionDamage,
   getCompanionTrainingCost,
   getHeroStats,
@@ -83,7 +87,8 @@ describe('game engine', () => {
   it('creates a valid first battle', () => {
     const state = createInitialState(1234)
 
-    expect(state.schemaVersion).toBe(3)
+    expect(state.schemaVersion).toBe(4)
+    expect(state.claimedBossMilestoneMask).toBe(0)
     expect(state.lastSavedAt).toBe(1234)
     expect(state.rng).toMatchObject({ algorithm: 'xorshift32-v1', draws: 0 })
     expect(state.player.currentHp).toBe(getHeroStats(state).maxHp)
@@ -426,6 +431,177 @@ describe('game engine', () => {
     expect(result.state.stats.enemiesDefeated).toBe(42)
     expect(result.state.stats.prestiges).toBe(1)
     expect(result.state.rng).toEqual(eligible.rng)
+  })
+
+  it('preserves the boss milestone ledger through prestige and prevents a replayed reward', () => {
+    const initial = createInitialState(100, 0x12345678)
+    const claimedStageTen = claimBossMilestone(initial.claimedBossMilestoneMask, 10)
+    const eligible: GameState = {
+      ...initial,
+      claimedBossMilestoneMask: claimedStageTen,
+      player: {
+        ...initial.player,
+        upgrades: { ...initial.player.upgrades, weapon: 100 },
+        skills: { ...initial.player.skills, powerStrike: 0 },
+      },
+      battle: {
+        ...initial.battle,
+        stage: 30,
+        highestStage: 30,
+      },
+    }
+
+    const prestiged = performPrestige(eligible)
+    expect(prestiged.success).toBe(true)
+    expect(prestiged.state.claimedBossMilestoneMask).toBe(claimedStageTen)
+
+    const replayState: GameState = {
+      ...prestiged.state,
+      player: {
+        ...prestiged.state.player,
+        upgrades: { ...prestiged.state.player.upgrades, weapon: 100 },
+        skills: { ...prestiged.state.player.skills, powerStrike: 0 },
+      },
+      battle: {
+        ...prestiged.state.battle,
+        stage: 10,
+        highestStage: 10,
+        enemyHp: 1,
+      },
+    }
+    const replayed = advanceGame(replayState, 1_000)
+    const victory = replayed.events.find((event) => event.type === 'bossVictory')
+
+    expect(victory?.milestoneReward).toBeNull()
+    expect(replayed.state.claimedBossMilestoneMask).toBe(claimedStageTen)
+    expect(replayed.report.goldEarned).toBe(getEnemyDefinition(10).goldReward)
+  })
+
+  it('claims stage 10 once through both hero and companion finishing paths', () => {
+    const makeBossState = (companionFinishes: boolean): GameState => {
+      const initial = createInitialState(0, 0x12345678)
+      const player: GameState['player'] = {
+        ...initial.player,
+        skills: { ...initial.player.skills, powerStrike: 0 },
+        companion: companionFinishes ? { id: 'emberFox', rank: 5 } : { id: null, rank: 0 },
+      }
+      const provisional: GameState = {
+        ...initial,
+        player,
+        battle: {
+          ...initial.battle,
+          stage: 10,
+          highestStage: 10,
+          enemyHp: 1,
+        },
+      }
+      provisional.battle.enemyHp = companionFinishes
+        ? getHeroStats(provisional).attack + getCompanionDamage(provisional)
+        : 1
+      return provisional
+    }
+
+    const hero = advanceGame(makeBossState(false), 1_000)
+    const companion = advanceGame(makeBossState(true), 1_000)
+    const heroVictory = hero.events.find((event) => event.type === 'bossVictory')
+    const companionVictory = companion.events.find((event) => event.type === 'bossVictory')
+
+    expect(heroVictory?.milestoneReward).toMatchObject({
+      milestoneStage: 10,
+      configuredGold: 15,
+      appliedGold: 15,
+    })
+    expect(companion.events.map(({ type }) => type)).toContain('companionAssist')
+    expect(companionVictory?.milestoneReward).toEqual(heroVictory?.milestoneReward)
+    expect(hero.state.claimedBossMilestoneMask).toBe(1)
+    expect(companion.state.claimedBossMilestoneMask).toBe(1)
+    expect(hero.report.goldEarned).toBe(getEnemyDefinition(10).goldReward + 15)
+    expect(companion.report.goldEarned).toBe(getEnemyDefinition(10).goldReward + 15)
+  })
+
+  it('claims stage 300 once while remaining on the capped stage', () => {
+    const initial = createInitialState(0, 0x12345678)
+    const beforeTopBit = 2 ** 29 - 1
+    const ready: GameState = {
+      ...initial,
+      claimedBossMilestoneMask: beforeTopBit,
+      player: {
+        ...initial.player,
+        upgrades: { ...initial.player.upgrades, weapon: 100 },
+        skills: { ...initial.player.skills, powerStrike: 0 },
+      },
+      battle: {
+        ...initial.battle,
+        stage: MAX_STAGE,
+        highestStage: MAX_STAGE,
+        enemyHp: 1,
+      },
+    }
+
+    const first = advanceGame(ready, 1_000)
+    const firstVictory = first.events.find((event) => event.type === 'bossVictory')
+    expect(firstVictory?.milestoneReward).toMatchObject({
+      milestoneStage: 300,
+      configuredGold: 450,
+      appliedGold: 450,
+    })
+    expect(first.state.battle.stage).toBe(MAX_STAGE)
+    expect(first.state.claimedBossMilestoneMask).toBe(MAX_BOSS_MILESTONE_MASK)
+
+    const repeatInput: GameState = {
+      ...first.state,
+      battle: { ...first.state.battle, enemyHp: 1 },
+    }
+    const repeated = advanceGame(repeatInput, 1_000, first.nextCursor)
+    const repeatedVictory = repeated.events.find((event) => event.type === 'bossVictory')
+    expect(repeatedVictory?.milestoneReward).toBeNull()
+    expect(repeated.state.claimedBossMilestoneMask).toBe(MAX_BOSS_MILESTONE_MASK)
+    expect(repeated.report.goldEarned).toBe(getEnemyDefinition(MAX_STAGE).goldReward)
+  })
+
+  it('claims partial and zero-applied milestone rewards at the safe integer boundary', () => {
+    const baseGold = getEnemyDefinition(10).goldReward
+    const makeReady = (gold: number): GameState => {
+      const initial = createInitialState(0, 0x12345678)
+      return {
+        ...initial,
+        player: {
+          ...initial.player,
+          gold,
+          upgrades: { ...initial.player.upgrades, weapon: 100 },
+          skills: { ...initial.player.skills, powerStrike: 0 },
+        },
+        battle: {
+          ...initial.battle,
+          stage: 10,
+          highestStage: 10,
+          enemyHp: 1,
+        },
+      }
+    }
+
+    const partial = advanceGame(
+      makeReady(Number.MAX_SAFE_INTEGER - baseGold - 5),
+      1_000,
+    )
+    const partialVictory = partial.events.find((event) => event.type === 'bossVictory')
+    expect(partialVictory?.milestoneReward).toMatchObject({
+      configuredGold: 15,
+      appliedGold: 5,
+    })
+    expect(partial.state.player.gold).toBe(Number.MAX_SAFE_INTEGER)
+    expect(partial.state.claimedBossMilestoneMask).toBe(1)
+    expect(partial.report.goldEarned).toBe(baseGold + 5)
+
+    const zero = advanceGame(makeReady(Number.MAX_SAFE_INTEGER), 1_000)
+    const zeroVictory = zero.events.find((event) => event.type === 'bossVictory')
+    expect(zeroVictory?.milestoneReward).toMatchObject({
+      configuredGold: 15,
+      appliedGold: 0,
+    })
+    expect(zero.state.player.gold).toBe(Number.MAX_SAFE_INTEGER)
+    expect(zero.state.claimedBossMilestoneMask).toBe(1)
+    expect(zero.report.goldEarned).toBe(baseGold)
   })
 
   it('keeps a recruited companion through prestige but resets rank and cooldown', () => {

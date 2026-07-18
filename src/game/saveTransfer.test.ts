@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import portableSaveV1 from './fixtures/portable-save-v1.json'
 import legacySaveV2 from './fixtures/legacy-save-v2.json'
-import { createInitialState } from './engine'
+import { MAX_BOSS_MILESTONE_MASK } from './bossMilestones'
+import { getEnemyDefinition } from './content'
+import { advanceGame, createInitialState } from './engine'
 import { SAVE_SLOT_A_KEY, SAVE_SLOT_B_KEY, parseSaveEnvelope, saveGameAtRevision } from './persistence'
 import {
   MAX_PORTABLE_SAVE_BYTES,
@@ -47,6 +49,22 @@ function exportedState() {
   return state
 }
 
+function asLegacySchema3(state = exportedState()) {
+  const { claimedBossMilestoneMask: _claimedBossMilestoneMask, ...legacy } = structuredClone(state)
+  void _claimedBossMilestoneMask
+  return { ...legacy, schemaVersion: 3 as const }
+}
+
+function createStageTenBossReadyState(now: number) {
+  const state = createInitialState(now, 0x207_002)
+  state.player.upgrades.weapon = 100
+  state.player.skills.powerStrike = 0
+  state.battle.stage = 10
+  state.battle.highestStage = 10
+  state.battle.enemyHp = 1
+  return state
+}
+
 describe('portable save transfer', () => {
   it('round-trips a valid state with an integrity checksum', () => {
     const state = exportedState()
@@ -66,6 +84,7 @@ describe('portable save transfer', () => {
 
   it('round-trips and commits an active companion rank and cooldown', () => {
     const state = exportedState()
+    state.claimedBossMilestoneMask = 1
     state.player.companion = { id: 'emberFox', rank: 4 }
     state.battle.companionCooldownMs = 2_000
     const parsed = parsePortableSave(createPortableSave(state, 2_000)!)
@@ -74,6 +93,7 @@ describe('portable save transfer', () => {
       success: true,
       preview: {
         state: {
+          claimedBossMilestoneMask: 1,
           player: { companion: { id: 'emberFox', rank: 4 } },
           battle: { companionCooldownMs: 2_000 },
         },
@@ -87,10 +107,55 @@ describe('portable save transfer', () => {
       status: 'saved',
       revision: 1,
       state: {
+        claimedBossMilestoneMask: 1,
         player: { companion: { id: 'emberFox', rank: 4 } },
         battle: { companionCooldownMs: 2_000 },
       },
     })
+  })
+
+  it('keeps a post-claim ledger through portable import and emits no reward on replay', () => {
+    const firstVictory = advanceGame(createStageTenBossReadyState(1_000), 1_000)
+    const firstEvent = firstVictory.events.find(({ type }) => type === 'bossVictory')
+    expect(firstEvent?.type).toBe('bossVictory')
+    if (firstEvent?.type !== 'bossVictory') return
+    expect(firstEvent.milestoneReward).toMatchObject({
+      milestoneStage: 10,
+      configuredGold: 15,
+      appliedGold: 15,
+    })
+    expect(firstVictory.state.claimedBossMilestoneMask).toBe(1)
+
+    const parsed = parsePortableSave(createPortableSave(firstVictory.state, 2_000)!)
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    const storage = new MemoryStorage()
+    const imported = commitPortableSave(storage, parsed.preview, null, 3_000)
+    expect(imported).toMatchObject({
+      status: 'saved',
+      revision: 1,
+      state: {
+        claimedBossMilestoneMask: 1,
+        player: { gold: getEnemyDefinition(10).goldReward + 15 },
+      },
+    })
+    if (imported.status !== 'saved') return
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_A_KEY)!)).toMatchObject({
+      state: { claimedBossMilestoneMask: 1 },
+    })
+
+    const replayInput = structuredClone(imported.state)
+    replayInput.battle.stage = 10
+    replayInput.battle.enemyHp = 1
+    const replay = advanceGame(replayInput, 1_000)
+    const replayEvent = replay.events.find(({ type }) => type === 'bossVictory')
+    expect(replayEvent?.type).toBe('bossVictory')
+    if (replayEvent?.type !== 'bossVictory') return
+    expect(replayEvent.milestoneReward).toBeNull()
+    expect(replay.state.claimedBossMilestoneMask).toBe(1)
+    expect(replay.state.player.gold - replayInput.player.gold).toBe(
+      getEnemyDefinition(10).goldReward,
+    )
   })
 
   it('migrates and commits a checked-in schema1 portable backup', () => {
@@ -101,6 +166,7 @@ describe('portable save transfer', () => {
         exportedAt: portableSaveV1.exportedAt,
         state: {
           schemaVersion: SAVE_VERSION,
+          claimedBossMilestoneMask: 0,
           rng: { algorithm: 'xorshift32-v1', seed: 873835004, draws: 0 },
           player: { gold: 87, companion: { id: null, rank: 0 } },
           battle: { companionCooldownMs: 0 },
@@ -139,6 +205,7 @@ describe('portable save transfer', () => {
         exportedAt,
         state: {
           schemaVersion: SAVE_VERSION,
+          claimedBossMilestoneMask: 0,
           rng: legacySaveV2.rng,
           player: { companion: { id: null, rank: 0 } },
           battle: { companionCooldownMs: 0 },
@@ -154,9 +221,63 @@ describe('portable save transfer', () => {
       revision: 1,
       state: {
         schemaVersion: SAVE_VERSION,
+        claimedBossMilestoneMask: 0,
         rng: legacySaveV2.rng,
         player: { companion: { id: null, rank: 0 } },
       },
+    })
+  })
+
+  it('migrates a schema3 portable backup without retroactive gold and preserves companion state', () => {
+    const state = exportedState()
+    state.player.gold = 444
+    state.player.companion = { id: 'emberFox', rank: 4 }
+    state.battle.companionCooldownMs = 2_000
+    state.battle.highestStage = 299
+    const legacyState = {
+      ...asLegacySchema3(state),
+      claimedBossMilestoneMask: 0,
+    }
+    const exportedAt = state.lastSavedAt + 1_000
+    const portableV3 = {
+      kind: 'emberwatch-portable-save',
+      exportVersion: PORTABLE_SAVE_VERSION,
+      exportedAt,
+      state: legacyState,
+      checksum: checksumText(JSON.stringify(legacyState)),
+    }
+
+    const parsed = parsePortableSave(JSON.stringify(portableV3))
+    expect(parsed).toMatchObject({
+      success: true,
+      preview: {
+        exportedAt,
+        state: {
+          schemaVersion: SAVE_VERSION,
+          claimedBossMilestoneMask: 2 ** 29 - 1,
+          player: { gold: 444, companion: { id: 'emberFox', rank: 4 } },
+          battle: { companionCooldownMs: 2_000 },
+        },
+      },
+    })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+    expect(parsed.preview.checksum).not.toBe(portableV3.checksum)
+
+    const storage = new MemoryStorage()
+    expect(commitPortableSave(storage, parsed.preview, null, exportedAt + 1_000)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+      state: {
+        schemaVersion: SAVE_VERSION,
+        claimedBossMilestoneMask: 2 ** 29 - 1,
+        player: { gold: 444, companion: { id: 'emberFox', rank: 4 } },
+        battle: { companionCooldownMs: 2_000 },
+      },
+    })
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_A_KEY)!)).toMatchObject({
+      revision: 1,
+      state: { claimedBossMilestoneMask: 2 ** 29 - 1, player: { gold: 444 } },
     })
   })
 
@@ -203,6 +324,25 @@ describe('portable save transfer', () => {
     futureGameState.schemaVersion = 999
     futureState.checksum = checksumText(JSON.stringify(futureState.state))
     expect(parsePortableSave(JSON.stringify(futureState))).toMatchObject({ success: false })
+
+    for (const claimedBossMilestoneMask of [-1, 0.5, 2 ** 30, '1']) {
+      const invalidMask = JSON.parse(raw) as Record<string, unknown>
+      const invalidMaskState = invalidMask.state as Record<string, unknown>
+      invalidMaskState.claimedBossMilestoneMask = claimedBossMilestoneMask
+      invalidMask.checksum = checksumText(JSON.stringify(invalidMaskState))
+      expect(parsePortableSave(JSON.stringify(invalidMask))).toMatchObject({
+        success: false,
+        message: expect.stringContaining('진행 데이터'),
+      })
+    }
+    const validMaximum = JSON.parse(raw) as Record<string, unknown>
+    const maximumState = validMaximum.state as Record<string, unknown>
+    maximumState.claimedBossMilestoneMask = MAX_BOSS_MILESTONE_MASK
+    validMaximum.checksum = checksumText(JSON.stringify(maximumState))
+    expect(parsePortableSave(JSON.stringify(validMaximum))).toMatchObject({
+      success: true,
+      preview: { state: { claimedBossMilestoneMask: MAX_BOSS_MILESTONE_MASK } },
+    })
   })
 
   it('never exports an invalid state or a timestamp older than the state', () => {
@@ -219,6 +359,7 @@ describe('portable save transfer', () => {
       revision: 1,
     })
     const exported = exportedState()
+    exported.claimedBossMilestoneMask = 5
     const parsed = parsePortableSave(createPortableSave(exported, 2_000)!)
     expect(parsed.success).toBe(true)
     if (!parsed.success) return
@@ -227,12 +368,12 @@ describe('portable save transfer', () => {
     expect(committed).toMatchObject({
       status: 'saved',
       revision: 2,
-      state: { lastSavedAt: 9_000, player: { gold: 321 } },
+      state: { lastSavedAt: 9_000, claimedBossMilestoneMask: 5, player: { gold: 321 } },
     })
     expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)).toMatchObject({
       revision: 2,
       savedAt: 9_000,
-      state: { player: { gold: 321 } },
+      state: { claimedBossMilestoneMask: 5, player: { gold: 321 } },
     })
   })
 

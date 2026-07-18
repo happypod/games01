@@ -98,7 +98,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-506',
     stage: 1,
     seedKey: 'irpg-506:visual.combat.hero-default:v1',
-    canonicalHash: 'fnv1a32-v1:3edb9452',
+    canonicalHash: 'fnv1a32-v1:d806658f',
     captureTarget: '.dashboard',
     failureRoute: 'none',
     setupAction: 'none',
@@ -110,7 +110,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-506',
     stage: 5,
     seedKey: 'irpg-506:visual.combat.enemy-default:v1',
-    canonicalHash: 'fnv1a32-v1:eab1e0bd',
+    canonicalHash: 'fnv1a32-v1:4429d732',
     captureTarget: '.battle',
     failureRoute: 'none',
     setupAction: 'none',
@@ -122,7 +122,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-506',
     stage: 10,
     seedKey: 'irpg-506:visual.combat.boss-default:v1',
-    canonicalHash: 'fnv1a32-v1:b725d877',
+    canonicalHash: 'fnv1a32-v1:da34bac0',
     captureTarget: '.battle',
     failureRoute: 'none',
     setupAction: 'none',
@@ -134,7 +134,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-506',
     stage: 1,
     seedKey: 'irpg-506:visual.combat.fallback:v1',
-    canonicalHash: 'fnv1a32-v1:026af434',
+    canonicalHash: 'fnv1a32-v1:f7eb4c9d',
     captureTarget: '.dashboard',
     failureRoute: 'hero-and-enemy-corrupt',
     setupAction: 'none',
@@ -146,7 +146,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-408',
     stage: 105,
     seedKey: 'irpg-506:visual.map.stage-frontier:v1',
-    canonicalHash: 'fnv1a32-v1:f9a209ad',
+    canonicalHash: 'fnv1a32-v1:dde4ed52',
     captureTarget: '.stage-map-panel',
     failureRoute: 'none',
     setupAction: 'open-stage-map',
@@ -158,7 +158,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-409',
     stage: 3,
     seedKey: 'irpg-506:visual.cards.mixed-states:v1',
-    canonicalHash: 'fnv1a32-v1:ad431c22',
+    canonicalHash: 'fnv1a32-v1:06bae429',
     captureTarget: '.progression-panels',
     failureRoute: 'none',
     setupAction: 'open-growth-cards',
@@ -170,7 +170,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-409',
     stage: 3,
     seedKey: 'irpg-506:visual.cards.fallback:v1',
-    canonicalHash: 'fnv1a32-v1:6e071ccc',
+    canonicalHash: 'fnv1a32-v1:8828e98f',
     captureTarget: '.progression-panels',
     failureRoute: 'cards-corrupt',
     setupAction: 'open-growth-cards',
@@ -182,8 +182,8 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-411',
     stage: 10,
     seedKey: 'irpg-506:visual.combat.event-log:v1',
-    canonicalHash: 'fnv1a32-v1:b7aed32d',
-    canonicalEventHash: 'fnv1a32-v1:8ec7c58f',
+    canonicalHash: 'fnv1a32-v1:9fe0a39a',
+    canonicalEventHash: 'fnv1a32-v1:e0a7de25',
     captureTarget: '.combat-log-panel',
     failureRoute: 'none',
     setupAction: 'open-combat-log',
@@ -256,15 +256,17 @@ function createVisualCombatEvent(
     return { ...base, type, ordinal: 25, companionId: 'emberFox', damage: 63 + round }
   }
   if (type === 'kill' || type === 'bossVictory') {
-    return {
+    const outcome = {
       ...base,
-      type,
       ordinal: 30,
       defeatedStage: stage,
       nextStage: stage + 1,
       gold: type === 'bossVictory' ? 240 : 82,
       xp: type === 'bossVictory' ? 120 : 44,
-    }
+    } as const
+    return type === 'bossVictory'
+      ? { ...outcome, type, milestoneReward: null }
+      : { ...outcome, type }
   }
   return {
     ...base,

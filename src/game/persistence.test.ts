@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import legacySaveV1 from './fixtures/legacy-save-v1.json'
 import legacySaveV2 from './fixtures/legacy-save-v2.json'
+import legacySaveV3 from './fixtures/legacy-save-v3.json'
+import { MAX_BOSS_MILESTONE_MASK } from './bossMilestones'
+import { getEnemyDefinition } from './content'
 import { advanceGame, createInitialState } from './engine'
 import {
   LEGACY_SAVE_KEY,
@@ -67,6 +70,22 @@ class MemoryStorage {
 function withGold(timestamp: number, gold: number) {
   const state = createInitialState(timestamp)
   state.player.gold = gold
+  return state
+}
+
+function asLegacySchema3(state = createInitialState(1_000, 0x207207)) {
+  const { claimedBossMilestoneMask: _claimedBossMilestoneMask, ...legacy } = structuredClone(state)
+  void _claimedBossMilestoneMask
+  return { ...legacy, schemaVersion: 3 as const }
+}
+
+function createStageTenBossReadyState(now: number) {
+  const state = createInitialState(now, 0x207_001)
+  state.player.upgrades.weapon = 100
+  state.player.skills.powerStrike = 0
+  state.battle.stage = 10
+  state.battle.highestStage = 10
+  state.battle.enemyHp = 1
   return state
 }
 
@@ -183,6 +202,7 @@ describe('A/B game persistence', () => {
     const reordered = {
       schemaVersion: migrated.schemaVersion,
       lastSavedAt: migrated.lastSavedAt,
+      claimedBossMilestoneMask: migrated.claimedBossMilestoneMask,
       rng: { ...migrated.rng },
       player: {
         companion: { ...migrated.player.companion },
@@ -293,7 +313,7 @@ describe('A/B game persistence', () => {
     expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)?.revision).toBe(10)
   })
 
-  it('migrates the checked-in v1 fixture to a verified v3 envelope with a stable RNG', () => {
+  it('migrates the checked-in v1 fixture to a verified schema4 envelope with a stable RNG', () => {
     const storage = new MemoryStorage()
     storage.setItem(LEGACY_SAVE_KEY, JSON.stringify(legacySaveV1))
 
@@ -303,6 +323,7 @@ describe('A/B game persistence', () => {
     expect(schemaVersion).toBe(SAVE_VERSION)
     expect(migratedFields).toEqual({
       lastSavedAt: legacySaveV1.lastSavedAt,
+      claimedBossMilestoneMask: 0,
       player: {
         ...legacySaveV1.player,
         companion: { id: null, rank: 0 },
@@ -355,7 +376,7 @@ describe('A/B game persistence', () => {
     expect(parseSave(JSON.stringify(reordered))?.rng.seed).toBe(canonical?.rng.seed)
   })
 
-  it('reads a v2/schema1 envelope without writing and checkpoints v3 only as writer', () => {
+  it('reads a v2/schema1 envelope without writing and checkpoints schema4 only as writer', () => {
     const storage = new MemoryStorage()
     const legacyEnvelope = JSON.stringify({
       formatVersion: LEGACY_SAVE_FORMAT_VERSION,
@@ -387,6 +408,7 @@ describe('A/B game persistence', () => {
     expect(migrated).toEqual({
       ...legacySaveV2,
       schemaVersion: SAVE_VERSION,
+      claimedBossMilestoneMask: 0,
       rng: legacySaveV2.rng,
       player: {
         ...legacySaveV2.player,
@@ -399,7 +421,7 @@ describe('A/B game persistence', () => {
     })
   })
 
-  it('reads a format3/schema2 A/B winner and checkpoints schema3 only as writer', () => {
+  it('reads a format3/schema2 A/B winner and checkpoints schema4 only as writer', () => {
     const storage = new MemoryStorage()
     const legacyEnvelope = JSON.stringify({
       formatVersion: SAVE_FORMAT_VERSION,
@@ -438,6 +460,105 @@ describe('A/B game persistence', () => {
     expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(legacyEnvelope)
   })
 
+  it.each([
+    ['schema1 stage 10', { ...legacySaveV1, battle: { ...legacySaveV1.battle, highestStage: 10 } }, 1],
+    ['schema1 prior prestige', { ...legacySaveV1, stats: { ...legacySaveV1.stats, prestiges: 1 } }, MAX_BOSS_MILESTONE_MASK],
+    ['schema2 stage 299', { ...legacySaveV2, battle: { ...legacySaveV2.battle, highestStage: 299 } }, 2 ** 29 - 1],
+    ['schema2 prior prestige', { ...legacySaveV2, stats: { ...legacySaveV2.stats, prestiges: 1 } }, MAX_BOSS_MILESTONE_MASK],
+    ['schema3 stage 9', { ...asLegacySchema3(), battle: { ...asLegacySchema3().battle, highestStage: 9 } }, 0],
+    ['schema3 stage 300', { ...asLegacySchema3(), battle: { ...asLegacySchema3().battle, highestStage: 300 } }, MAX_BOSS_MILESTONE_MASK],
+    ['schema3 oversized stage', { ...asLegacySchema3(), battle: { ...asLegacySchema3().battle, highestStage: Number.MAX_SAFE_INTEGER } }, MAX_BOSS_MILESTONE_MASK],
+    ['schema3 prior prestige', { ...asLegacySchema3(), stats: { ...asLegacySchema3().stats, prestiges: 1 } }, MAX_BOSS_MILESTONE_MASK],
+  ])('derives the conservative waiver mask for %s', (_label, legacy, expectedMask) => {
+    expect(parseSave(JSON.stringify(legacy))?.claimedBossMilestoneMask).toBe(expectedMask)
+  })
+
+  it('preserves schema3 RNG and companion state while ignoring a spoofed mask', () => {
+    const current = createInitialState(1_000, 0x1234_5678)
+    current.player.companion = { id: 'emberFox', rank: 4 }
+    current.battle.companionCooldownMs = 2_000
+    current.battle.highestStage = 299
+    const legacy = {
+      ...asLegacySchema3(current),
+      claimedBossMilestoneMask: 0,
+    }
+
+    expect(parseSave(JSON.stringify(legacy))).toMatchObject({
+      schemaVersion: SAVE_VERSION,
+      claimedBossMilestoneMask: 2 ** 29 - 1,
+      rng: current.rng,
+      player: { companion: { id: 'emberFox', rank: 4 } },
+      battle: { companionCooldownMs: 2_000 },
+    })
+  })
+
+  it('migrates the checked-in schema3 fixture without drifting historical fields', () => {
+    expect(parseSave(JSON.stringify(legacySaveV3))).toMatchObject({
+      schemaVersion: SAVE_VERSION,
+      lastSavedAt: legacySaveV3.lastSavedAt,
+      claimedBossMilestoneMask: 2 ** 29 - 1,
+      rng: legacySaveV3.rng,
+      player: {
+        gold: legacySaveV3.player.gold,
+        upgrades: legacySaveV3.player.upgrades,
+        skills: legacySaveV3.player.skills,
+        companion: legacySaveV3.player.companion,
+      },
+      battle: {
+        stage: legacySaveV3.battle.stage,
+        highestStage: legacySaveV3.battle.highestStage,
+        companionCooldownMs: legacySaveV3.battle.companionCooldownMs,
+      },
+      stats: legacySaveV3.stats,
+    })
+  })
+
+  it('migrates a format3/schema3 A/B winner in memory and checkpoints only as writer', () => {
+    const storage = new MemoryStorage()
+    const current = createInitialState(1_000, 0x8765_4321)
+    current.player.companion = { id: 'emberFox', rank: 3 }
+    current.battle.companionCooldownMs = 1_500
+    current.battle.highestStage = 10
+    const legacyState = asLegacySchema3(current)
+    const legacyEnvelope = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 21,
+      savedAt: legacyState.lastSavedAt,
+      state: legacyState,
+    })
+    storage.setItem(SAVE_SLOT_A_KEY, legacyEnvelope)
+
+    const reader = bootstrapGame(storage, legacyState.lastSavedAt, 'reader')
+    expect(reader).toMatchObject({
+      revision: 21,
+      saveBlocked: false,
+      state: {
+        schemaVersion: SAVE_VERSION,
+        claimedBossMilestoneMask: 1,
+        rng: current.rng,
+        player: { companion: { id: 'emberFox', rank: 3 } },
+        battle: { companionCooldownMs: 1_500 },
+      },
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(legacyEnvelope)
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBeNull()
+
+    const writer = bootstrapGame(storage, legacyState.lastSavedAt, 'writer')
+    expect(writer).toMatchObject({ revision: 22, saveHealthy: true })
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)).toMatchObject({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 22,
+      state: {
+        schemaVersion: SAVE_VERSION,
+        claimedBossMilestoneMask: 1,
+        rng: current.rng,
+        player: { companion: { id: 'emberFox', rank: 3 } },
+        battle: { companionCooldownMs: 1_500 },
+      },
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(legacyEnvelope)
+  })
+
   it('resumes a saved RNG sequence identically through offline bootstrap', () => {
     const initial = createInitialState(0, 0x12345678)
     const midpoint = advanceGame(initial, 7_000).state
@@ -466,6 +587,98 @@ describe('A/B game persistence', () => {
     expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(stableRaw)
     expect(storage.getItem(SAVE_SLOT_B_KEY)).toBeNull()
     expect(bootstrapGame(storage, 100).state.player.gold).toBe(10)
+  })
+
+  it('rolls milestone gold and its claim mask back together when an A/B write fails', () => {
+    const storage = new MemoryStorage()
+    const beforeClaim = withGold(100, 100)
+    expect(saveGameAtRevision(storage, beforeClaim, null)).toMatchObject({ revision: 1 })
+    const stableRaw = storage.getItem(SAVE_SLOT_A_KEY)
+    const afterClaim = structuredClone(beforeClaim)
+    afterClaim.player.gold = 115
+    afterClaim.stats.goldEarned = 15
+    afterClaim.claimedBossMilestoneMask = 1
+    storage.failReadAfterNextWrite = true
+
+    expect(saveGameAtRevision(storage, afterClaim, 1)).toEqual({
+      status: 'blocked',
+      currentRevision: 1,
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(stableRaw)
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBeNull()
+    expect(bootstrapGame(storage, 100, 'reader').state).toMatchObject({
+      claimedBossMilestoneMask: 0,
+      player: { gold: 100 },
+      stats: { goldEarned: 0 },
+    })
+
+    expect(saveGameAtRevision(storage, afterClaim, 1)).toMatchObject({ revision: 2 })
+    expect(bootstrapGame(storage, 100, 'reader').state).toMatchObject({
+      claimedBossMilestoneMask: 1,
+      player: { gold: 115 },
+      stats: { goldEarned: 15 },
+    })
+  })
+
+  it('checkpoints an offline first boss reward once and does not repay it after reload', () => {
+    const storage = new MemoryStorage()
+    const initial = createStageTenBossReadyState(1_000)
+    const repeatedBossGold = getEnemyDefinition(10).goldReward
+    expect(saveGameAtRevision(storage, initial, null)).toMatchObject({ revision: 1 })
+
+    const first = bootstrapGame(storage, 2_000, 'writer')
+    expect(first).toMatchObject({ revision: 2, saveHealthy: true })
+    expect(first.state).toMatchObject({
+      claimedBossMilestoneMask: 1,
+      player: { gold: repeatedBossGold + 15 },
+      stats: { goldEarned: repeatedBossGold + 15 },
+    })
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)).toMatchObject({
+      revision: 2,
+      state: {
+        claimedBossMilestoneMask: 1,
+        player: { gold: repeatedBossGold + 15 },
+      },
+    })
+
+    const replayCheckpoint = structuredClone(first.state)
+    replayCheckpoint.battle.stage = 10
+    replayCheckpoint.battle.enemyHp = 1
+    expect(saveGameAtRevision(storage, replayCheckpoint, 2)).toMatchObject({ revision: 3 })
+
+    const second = bootstrapGame(storage, 3_000, 'writer')
+    expect(second).toMatchObject({ revision: 4, saveHealthy: true })
+    expect(second.state.claimedBossMilestoneMask).toBe(1)
+    expect(second.state.player.gold - replayCheckpoint.player.gold).toBe(repeatedBossGold)
+    expect(second.state.stats.goldEarned - replayCheckpoint.stats.goldEarned).toBe(
+      repeatedBossGold,
+    )
+  })
+
+  it('replays a pre-claim fallback to the same post-claim gold and mask after rev2 corruption', () => {
+    const storage = new MemoryStorage()
+    const preClaim = createStageTenBossReadyState(0)
+    expect(saveGameAtRevision(storage, preClaim, null)).toMatchObject({ revision: 1 })
+    const originalPostClaim = advanceGame(preClaim, 1_000)
+    expect(originalPostClaim.state).toMatchObject({
+      claimedBossMilestoneMask: 1,
+      player: { gold: getEnemyDefinition(10).goldReward + 15 },
+    })
+    expect(saveGameAtRevision(storage, originalPostClaim.state, 1)).toMatchObject({ revision: 2 })
+    storage.setItem(SAVE_SLOT_B_KEY, '{corrupt post-claim revision')
+
+    const fallback = bootstrapGame(storage, 0, 'reader')
+    expect(fallback).toMatchObject({
+      revision: 1,
+      recoveredFromInvalidSave: true,
+      state: { claimedBossMilestoneMask: 0, player: { gold: 0 } },
+    })
+    const replayedPostClaim = advanceGame(fallback.state, 1_000)
+    expect(replayedPostClaim).toEqual(originalPostClaim)
+    expect(replayedPostClaim.state).toMatchObject({
+      claimedBossMilestoneMask: 1,
+      player: { gold: getEnemyDefinition(10).goldReward + 15 },
+    })
   })
 
   it('detects a silent partial write by exact read-back verification', () => {
@@ -633,6 +846,71 @@ describe('A/B game persistence', () => {
     ]) {
       expect(parseSave(JSON.stringify({ ...state, rng }))).toBeNull()
     }
+  })
+
+  it('requires a strict bounded schema4 milestone mask without coercion', () => {
+    const state = createInitialState(100)
+    for (const claimedBossMilestoneMask of [
+      -1,
+      0.5,
+      2 ** 30,
+      Number.MAX_SAFE_INTEGER,
+      '1',
+      null,
+    ]) {
+      expect(parseSave(JSON.stringify({ ...state, claimedBossMilestoneMask }))).toBeNull()
+    }
+    const missingMask = { ...state } as Record<string, unknown>
+    delete missingMask.claimedBossMilestoneMask
+    expect(parseSave(JSON.stringify(missingMask))).toBeNull()
+    expect(parseSave(JSON.stringify({ ...state, claimedBossMilestoneMask: 0 }))).toMatchObject({
+      claimedBossMilestoneMask: 0,
+    })
+    expect(
+      parseSave(JSON.stringify({
+        ...state,
+        claimedBossMilestoneMask: MAX_BOSS_MILESTONE_MASK,
+      })),
+    ).toMatchObject({ claimedBossMilestoneMask: MAX_BOSS_MILESTONE_MASK })
+  })
+
+  it('falls back from an invalid schema4 mask without fabricating a zero-mask winner', () => {
+    const storage = new MemoryStorage()
+    const stable = withGold(100, 115)
+    stable.claimedBossMilestoneMask = 1
+    stable.stats.goldEarned = 15
+    const invalid = withGold(200, 999)
+    invalid.claimedBossMilestoneMask = 2 ** 30
+    storage.setItem(
+      SAVE_SLOT_A_KEY,
+      JSON.stringify({
+        formatVersion: SAVE_FORMAT_VERSION,
+        revision: 1,
+        savedAt: stable.lastSavedAt,
+        state: stable,
+      }),
+    )
+    storage.setItem(
+      SAVE_SLOT_B_KEY,
+      JSON.stringify({
+        formatVersion: SAVE_FORMAT_VERSION,
+        revision: 2,
+        savedAt: invalid.lastSavedAt,
+        state: invalid,
+      }),
+    )
+
+    const reader = bootstrapGame(storage, stable.lastSavedAt, 'reader')
+    expect(reader).toMatchObject({
+      recoveredFromInvalidSave: true,
+      revision: 1,
+      state: {
+        claimedBossMilestoneMask: 1,
+        player: { gold: 115 },
+        stats: { goldEarned: 15 },
+      },
+    })
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)).toBeNull()
   })
 
   it('normalizes an oversized saved power-strike cooldown at decode and bootstrap', () => {

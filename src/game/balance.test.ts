@@ -25,7 +25,7 @@ import {
   saveGameAtRevision,
 } from './persistence'
 import { UPGRADE_IDS } from './types'
-import type { GameState, SkillId, StorageLike, UpgradeId } from './types'
+import type { CombatEvent, GameState, SkillId, StorageLike, UpgradeId } from './types'
 
 type EquipmentStrategy = 'cheapest' | 'offense' | 'balanced'
 
@@ -49,6 +49,9 @@ interface PlaytestResult {
   defeats: number
   longestStallSeconds: number
   finalGold: number
+  milestoneRewardCount: number
+  milestoneConfiguredGold: number
+  milestoneAppliedGold: number
   finalState: GameState
 }
 
@@ -60,6 +63,9 @@ interface CompanionPlaytestResult {
   companionAttacks: number
   companionDamage: number
   finalRank: number
+  milestoneRewardCount: number
+  milestoneConfiguredGold: number
+  milestoneAppliedGold: number
   finalState: GameState
 }
 
@@ -70,6 +76,9 @@ interface ExpeditionProgress {
   finalState: GameState
   reachedTarget: boolean
   inputHashAfterRun: string
+  milestoneRewardCount: number
+  milestoneConfiguredGold: number
+  milestoneAppliedGold: number
 }
 
 interface PairedReattainmentResult {
@@ -86,6 +95,18 @@ interface PairedReattainmentResult {
   postPrestigeHash: string
   postPrestigeInputHashAfterRun: string
   secondFinalHash: string
+  firstMilestoneRewardCount: number
+  firstMilestoneConfiguredGold: number
+  firstMilestoneAppliedGold: number
+  secondMilestoneRewardCount: number
+  secondMilestoneConfiguredGold: number
+  secondMilestoneAppliedGold: number
+}
+
+interface MilestoneRewardTotals {
+  count: number
+  configuredGold: number
+  appliedGold: number
 }
 
 class MemoryStorage implements StorageLike {
@@ -118,16 +139,16 @@ const PLAYTEST_PROFILES: readonly PlaytestProfile[] = [
 ]
 
 const EXPECTED_PLAYTEST_SUMMARIES: readonly Omit<PlaytestResult, 'finalState'>[] = [
-  { name: 'C5-A', firstUpgradeSeconds: 5, firstBossSeconds: 31, firstBossClearSeconds: 86, prestigeGateSeconds: 1929, equipmentPurchases: 36, skillPurchases: 12, criticalHits: 291, defeats: 50, longestStallSeconds: 670, finalGold: 1602 },
-  { name: 'C10-S', firstUpgradeSeconds: 10, firstBossSeconds: 31, firstBossClearSeconds: 92, prestigeGateSeconds: 2029, equipmentPurchases: 36, skillPurchases: 12, criticalHits: 280, defeats: 50, longestStallSeconds: 841, finalGold: 1291 },
-  { name: 'C15-G', firstUpgradeSeconds: 15, firstBossSeconds: 36, firstBossClearSeconds: 91, prestigeGateSeconds: 1848, equipmentPurchases: 36, skillPurchases: 11, criticalHits: 271, defeats: 54, longestStallSeconds: 860, finalGold: 1641 },
-  { name: 'O5-A', firstUpgradeSeconds: 10, firstBossSeconds: 31, firstBossClearSeconds: 101, prestigeGateSeconds: 1850, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 278, defeats: 56, longestStallSeconds: 842, finalGold: 603 },
-  { name: 'O10-S', firstUpgradeSeconds: 10, firstBossSeconds: 35, firstBossClearSeconds: 80, prestigeGateSeconds: 1968, equipmentPurchases: 36, skillPurchases: 12, criticalHits: 336, defeats: 51, longestStallSeconds: 821, finalGold: 1289 },
-  { name: 'O15-G', firstUpgradeSeconds: 15, firstBossSeconds: 32, firstBossClearSeconds: 85, prestigeGateSeconds: 2132, equipmentPurchases: 38, skillPurchases: 12, criticalHits: 340, defeats: 57, longestStallSeconds: 807, finalGold: 753 },
-  { name: 'B5-A', firstUpgradeSeconds: 5, firstBossSeconds: 31, firstBossClearSeconds: 130, prestigeGateSeconds: 2223, equipmentPurchases: 38, skillPurchases: 12, criticalHits: 326, defeats: 57, longestStallSeconds: 803, finalGold: 615 },
-  { name: 'B10-S', firstUpgradeSeconds: 10, firstBossSeconds: 36, firstBossClearSeconds: 152, prestigeGateSeconds: 2195, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 298, defeats: 52, longestStallSeconds: 844, finalGold: 568 },
-  { name: 'B15-G', firstUpgradeSeconds: 15, firstBossSeconds: 36, firstBossClearSeconds: 74, prestigeGateSeconds: 1895, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 251, defeats: 55, longestStallSeconds: 900, finalGold: 987 },
-  { name: 'C20-M', firstUpgradeSeconds: 20, firstBossSeconds: 41, firstBossClearSeconds: 96, prestigeGateSeconds: 2001, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 308, defeats: 58, longestStallSeconds: 1019, finalGold: 936 },
+  { name: 'C5-A', firstUpgradeSeconds: 5, firstBossSeconds: 31, firstBossClearSeconds: 86, prestigeGateSeconds: 2015, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 301, defeats: 51, longestStallSeconds: 673, finalGold: 181, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+  { name: 'C10-S', firstUpgradeSeconds: 10, firstBossSeconds: 31, firstBossClearSeconds: 92, prestigeGateSeconds: 2090, equipmentPurchases: 36, skillPurchases: 12, criticalHits: 296, defeats: 51, longestStallSeconds: 931, finalGold: 1288, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+  { name: 'C15-G', firstUpgradeSeconds: 15, firstBossSeconds: 36, firstBossClearSeconds: 91, prestigeGateSeconds: 1848, equipmentPurchases: 36, skillPurchases: 11, criticalHits: 271, defeats: 54, longestStallSeconds: 860, finalGold: 1744, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+  { name: 'O5-A', firstUpgradeSeconds: 10, firstBossSeconds: 31, firstBossClearSeconds: 101, prestigeGateSeconds: 1850, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 278, defeats: 56, longestStallSeconds: 842, finalGold: 651, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+  { name: 'O10-S', firstUpgradeSeconds: 10, firstBossSeconds: 35, firstBossClearSeconds: 80, prestigeGateSeconds: 1990, equipmentPurchases: 36, skillPurchases: 12, criticalHits: 342, defeats: 51, longestStallSeconds: 824, finalGold: 1326, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+  { name: 'O15-G', firstUpgradeSeconds: 15, firstBossSeconds: 32, firstBossClearSeconds: 85, prestigeGateSeconds: 2103, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 332, defeats: 58, longestStallSeconds: 954, finalGold: 2304, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+  { name: 'B5-A', firstUpgradeSeconds: 5, firstBossSeconds: 31, firstBossClearSeconds: 130, prestigeGateSeconds: 2112, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 310, defeats: 54, longestStallSeconds: 745, finalGold: 970, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+  { name: 'B10-S', firstUpgradeSeconds: 10, firstBossSeconds: 36, firstBossClearSeconds: 152, prestigeGateSeconds: 2214, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 301, defeats: 52, longestStallSeconds: 857, finalGold: 974, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+  { name: 'B15-G', firstUpgradeSeconds: 15, firstBossSeconds: 36, firstBossClearSeconds: 74, prestigeGateSeconds: 1958, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 262, defeats: 56, longestStallSeconds: 895, finalGold: 1461, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+  { name: 'C20-M', firstUpgradeSeconds: 20, firstBossSeconds: 41, firstBossClearSeconds: 96, prestigeGateSeconds: 2001, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 308, defeats: 58, longestStallSeconds: 1019, finalGold: 1019, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
 ]
 
 function summarizePlaytest(result: PlaytestResult): Omit<PlaytestResult, 'finalState'> {
@@ -143,6 +164,9 @@ function summarizePlaytest(result: PlaytestResult): Omit<PlaytestResult, 'finalS
     defeats: result.defeats,
     longestStallSeconds: result.longestStallSeconds,
     finalGold: result.finalGold,
+    milestoneRewardCount: result.milestoneRewardCount,
+    milestoneConfiguredGold: result.milestoneConfiguredGold,
+    milestoneAppliedGold: result.milestoneAppliedGold,
   }
 }
 
@@ -155,8 +179,31 @@ function hashState(state: GameState): string {
   return (hash >>> 0).toString(16).padStart(8, '0')
 }
 
+function collectMilestoneRewards(events: readonly CombatEvent[]): MilestoneRewardTotals {
+  return events.reduce<MilestoneRewardTotals>((total, event) => {
+    if (event.type !== 'bossVictory' || event.milestoneReward === null) return total
+    return {
+      count: total.count + 1,
+      configuredGold: total.configuredGold + event.milestoneReward.configuredGold,
+      appliedGold: total.appliedGold + event.milestoneReward.appliedGold,
+    }
+  }, { count: 0, configuredGold: 0, appliedGold: 0 })
+}
+
+function addMilestoneRewards(
+  total: MilestoneRewardTotals,
+  next: MilestoneRewardTotals,
+): MilestoneRewardTotals {
+  return {
+    count: total.count + next.count,
+    configuredGold: total.configuredGold + next.configuredGold,
+    appliedGold: total.appliedGold + next.appliedGold,
+  }
+}
+
 function assertNumericInvariants(state: GameState, profileName: string, second: number) {
   const values = [
+    state.claimedBossMilestoneMask,
     state.player.level,
     state.player.gold,
     state.player.xp,
@@ -242,10 +289,19 @@ function runPlaytest(profile: PlaytestProfile): PlaytestResult {
   let lastHighestStage = state.battle.highestStage
   let lastProgressSeconds = 0
   let longestStallSeconds = 0
+  let milestoneRewards: MilestoneRewardTotals = {
+    count: 0,
+    configuredGold: 0,
+    appliedGold: 0,
+  }
 
   for (let second = 1; second <= 60 * 60; second += 1) {
     const advanced = advanceGame(state, 1_000)
     state = advanced.state
+    milestoneRewards = addMilestoneRewards(
+      milestoneRewards,
+      collectMilestoneRewards(advanced.events),
+    )
     criticalHits += advanced.report.criticalHits
     assertNumericInvariants(state, profile.name, second)
     if (state.battle.highestStage > lastHighestStage) {
@@ -282,6 +338,9 @@ function runPlaytest(profile: PlaytestProfile): PlaytestResult {
         defeats: state.battle.defeats,
         longestStallSeconds: Math.max(longestStallSeconds, second - lastProgressSeconds),
         finalGold: state.player.gold,
+        milestoneRewardCount: milestoneRewards.count,
+        milestoneConfiguredGold: milestoneRewards.configuredGold,
+        milestoneAppliedGold: milestoneRewards.appliedGold,
         finalState: state,
       }
     }
@@ -296,10 +355,19 @@ function runCompanionPlaytest(profile: PlaytestProfile): CompanionPlaytestResult
   let trainingPurchases = 0
   let companionAttacks = 0
   let companionDamage = 0
+  let milestoneRewards: MilestoneRewardTotals = {
+    count: 0,
+    configuredGold: 0,
+    appliedGold: 0,
+  }
 
   for (let second = 1; second <= 60 * 60; second += 1) {
     const advanced = advanceGame(state, 1_000)
     state = advanced.state
+    milestoneRewards = addMilestoneRewards(
+      milestoneRewards,
+      collectMilestoneRewards(advanced.events),
+    )
     companionAttacks += advanced.report.companionAttacks
     companionDamage += advanced.report.companionDamage
     assertNumericInvariants(state, `${profile.name}-companion`, second)
@@ -332,6 +400,9 @@ function runCompanionPlaytest(profile: PlaytestProfile): CompanionPlaytestResult
         companionAttacks,
         companionDamage,
         finalRank: state.player.companion.rank,
+        milestoneRewardCount: milestoneRewards.count,
+        milestoneConfiguredGold: milestoneRewards.configuredGold,
+        milestoneAppliedGold: milestoneRewards.appliedGold,
         finalState: state,
       }
     }
@@ -351,6 +422,9 @@ function summarizeCompanionPlaytest(
     companionAttacks: result.companionAttacks,
     companionDamage: result.companionDamage,
     finalRank: result.finalRank,
+    milestoneRewardCount: result.milestoneRewardCount,
+    milestoneConfiguredGold: result.milestoneConfiguredGold,
+    milestoneAppliedGold: result.milestoneAppliedGold,
   }
 }
 
@@ -362,9 +436,19 @@ function continueReattainmentExpedition(
   stopAtSeconds = 60 * 60,
 ): ExpeditionProgress {
   let state = input
+  let milestoneRewards: MilestoneRewardTotals = {
+    count: 0,
+    configuredGold: 0,
+    appliedGold: 0,
+  }
 
   for (let second = elapsedSeconds + 1; second <= stopAtSeconds; second += 1) {
-    state = advanceGame(state, 1_000).state
+    const advanced = advanceGame(state, 1_000)
+    state = advanced.state
+    milestoneRewards = addMilestoneRewards(
+      milestoneRewards,
+      collectMilestoneRewards(advanced.events),
+    )
     assertNumericInvariants(state, `${profile.name}-${cohort}-reattainment`, second)
 
     if (
@@ -397,6 +481,9 @@ function continueReattainmentExpedition(
         finalState: state,
         reachedTarget: true,
         inputHashAfterRun: hashState(input),
+        milestoneRewardCount: milestoneRewards.count,
+        milestoneConfiguredGold: milestoneRewards.configuredGold,
+        milestoneAppliedGold: milestoneRewards.appliedGold,
       }
     }
   }
@@ -406,6 +493,9 @@ function continueReattainmentExpedition(
     finalState: state,
     reachedTarget: false,
     inputHashAfterRun: hashState(input),
+    milestoneRewardCount: milestoneRewards.count,
+    milestoneConfiguredGold: milestoneRewards.configuredGold,
+    milestoneAppliedGold: milestoneRewards.appliedGold,
   }
 }
 
@@ -440,6 +530,12 @@ function runPairedReattainment(
     postPrestigeHash,
     postPrestigeInputHashAfterRun: second.inputHashAfterRun,
     secondFinalHash: hashState(second.finalState),
+    firstMilestoneRewardCount: first.milestoneRewardCount,
+    firstMilestoneConfiguredGold: first.milestoneConfiguredGold,
+    firstMilestoneAppliedGold: first.milestoneAppliedGold,
+    secondMilestoneRewardCount: second.milestoneRewardCount,
+    secondMilestoneConfiguredGold: second.milestoneConfiguredGold,
+    secondMilestoneAppliedGold: second.milestoneAppliedGold,
   }
 }
 
@@ -467,8 +563,8 @@ describe('first prestige balance playtest', () => {
     expect(PLAYTEST_PROFILES).toHaveLength(10)
     expect(results.map(summarizePlaytest)).toEqual(EXPECTED_PLAYTEST_SUMMARIES)
     expect(sortedTimes[0]).toBe(1848)
-    expect(sortedTimes.at(-1)).toBe(2223)
-    expect(medianSeconds).toBe(1984.5)
+    expect(sortedTimes.at(-1)).toBe(2214)
+    expect(medianSeconds).toBe(2008)
     expect(medianSeconds).toBeGreaterThanOrEqual(30 * 60)
     expect(medianSeconds).toBeLessThanOrEqual(45 * 60)
     expect(results.every(({ firstUpgradeSeconds }) => firstUpgradeSeconds > 0 && firstUpgradeSeconds <= 120)).toBe(true)
@@ -484,16 +580,16 @@ describe('first prestige balance playtest', () => {
     const first = PLAYTEST_PROFILES.map(runPlaytest)
     expect(PLAYTEST_PROFILES.map(runPlaytest)).toEqual(first)
     expect(first.map(({ finalState }) => hashState(finalState))).toEqual([
-      'ac143c4e',
-      '3a70f43c',
-      'f9f8c502',
-      '207f6592',
-      '7bd29bd1',
-      '63634fcd',
-      '9905f9a2',
-      'bda55a85',
-      '5791cf9c',
-      '5e3eb888',
+      'b16b8b39',
+      'f578dfac',
+      'f3214540',
+      '5c19b677',
+      '4885315a',
+      '93866cdc',
+      '0f77fd7c',
+      '327c7376',
+      '9755764b',
+      '88500a4f',
     ])
   })
 
@@ -507,32 +603,32 @@ describe('first prestige balance playtest', () => {
 
     expect(replay).toEqual(results)
     expect(results.map(summarizeCompanionPlaytest)).toEqual([
-      { name: 'C5-A', recruitSeconds: 86, prestigeGateSeconds: 1885, trainingPurchases: 4, companionAttacks: 612, companionDamage: 17560, finalRank: 5 },
-      { name: 'C10-S', recruitSeconds: 92, prestigeGateSeconds: 2004, trainingPurchases: 4, companionAttacks: 647, companionDamage: 18225, finalRank: 5 },
-      { name: 'C15-G', recruitSeconds: 91, prestigeGateSeconds: 1717, trainingPurchases: 4, companionAttacks: 555, companionDamage: 15951, finalRank: 5 },
-      { name: 'O5-A', recruitSeconds: 101, prestigeGateSeconds: 1746, trainingPurchases: 4, companionAttacks: 565, companionDamage: 16697, finalRank: 5 },
-      { name: 'O10-S', recruitSeconds: 80, prestigeGateSeconds: 1882, trainingPurchases: 4, companionAttacks: 613, companionDamage: 17197, finalRank: 5 },
-      { name: 'O15-G', recruitSeconds: 85, prestigeGateSeconds: 1753, trainingPurchases: 4, companionAttacks: 565, companionDamage: 16016, finalRank: 5 },
-      { name: 'B5-A', recruitSeconds: 130, prestigeGateSeconds: 1848, trainingPurchases: 4, companionAttacks: 583, companionDamage: 16149, finalRank: 5 },
-      { name: 'B10-S', recruitSeconds: 152, prestigeGateSeconds: 2107, trainingPurchases: 4, companionAttacks: 656, companionDamage: 18257, finalRank: 5 },
-      { name: 'B15-G', recruitSeconds: 74, prestigeGateSeconds: 1883, trainingPurchases: 4, companionAttacks: 615, companionDamage: 17851, finalRank: 5 },
-      { name: 'C20-M', recruitSeconds: 96, prestigeGateSeconds: 1804, trainingPurchases: 4, companionAttacks: 586, companionDamage: 17103, finalRank: 5 },
+      { name: 'C5-A', recruitSeconds: 86, prestigeGateSeconds: 1911, trainingPurchases: 4, companionAttacks: 618, companionDamage: 17525, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+      { name: 'C10-S', recruitSeconds: 92, prestigeGateSeconds: 2004, trainingPurchases: 4, companionAttacks: 645, companionDamage: 18226, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+      { name: 'C15-G', recruitSeconds: 91, prestigeGateSeconds: 1756, trainingPurchases: 4, companionAttacks: 568, companionDamage: 16405, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+      { name: 'O5-A', recruitSeconds: 101, prestigeGateSeconds: 1788, trainingPurchases: 4, companionAttacks: 578, companionDamage: 17248, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+      { name: 'O10-S', recruitSeconds: 80, prestigeGateSeconds: 1899, trainingPurchases: 4, companionAttacks: 618, companionDamage: 17544, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+      { name: 'O15-G', recruitSeconds: 85, prestigeGateSeconds: 1938, trainingPurchases: 4, companionAttacks: 630, companionDamage: 18382, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+      { name: 'B5-A', recruitSeconds: 130, prestigeGateSeconds: 1854, trainingPurchases: 4, companionAttacks: 582, companionDamage: 15714, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+      { name: 'B10-S', recruitSeconds: 152, prestigeGateSeconds: 2040, trainingPurchases: 4, companionAttacks: 636, companionDamage: 17694, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+      { name: 'B15-G', recruitSeconds: 74, prestigeGateSeconds: 1873, trainingPurchases: 4, companionAttacks: 613, companionDamage: 17823, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
+      { name: 'C20-M', recruitSeconds: 96, prestigeGateSeconds: 1644, trainingPurchases: 4, companionAttacks: 528, companionDamage: 14843, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
     ])
     expect(results.map(({ finalState }) => hashState(finalState))).toEqual([
-      '8d7a06d0',
-      'fe05cd91',
-      'ae3c2f42',
-      '0213ed00',
-      '7426b47b',
-      'dff599bf',
-      '21170913',
-      '337b6701',
-      'ac04c4b9',
-      'a60867bb',
+      '23eab936',
+      '7583bb29',
+      '0c7872d2',
+      'bb32ffb1',
+      'f5db9e3e',
+      '083bdc7d',
+      '28dd0d2d',
+      '811ee1fa',
+      '314985b8',
+      '1f0ee484',
     ])
     expect(medianSeconds).toBeGreaterThanOrEqual(30 * 60)
     expect(medianSeconds).toBeLessThanOrEqual(45 * 60)
-    expect(medianSeconds).toBe(1865)
+    expect(medianSeconds).toBe(1886)
     expect(results.every(({ recruitSeconds }) => recruitSeconds >= 60 && recruitSeconds <= 180)).toBe(true)
     expect(results.every(({ trainingPurchases }) => trainingPurchases > 0)).toBe(true)
     expect(results.every(({ finalRank }) => finalRank >= 2 && finalRank <= 5)).toBe(true)
@@ -579,38 +675,38 @@ describe('post-prestige stage 30 reattainment', () => {
 
   it('keeps all paired ratios in the 50-70% target with exact canonical timings', () => {
     expect(soloResults.map(summarizePairedReattainment)).toEqual([
-      { name: 'C5-A', firstSeconds: 1929, secondSeconds: 1225, ratioPercent: 63.5 },
-      { name: 'C10-S', firstSeconds: 2029, secondSeconds: 1282, ratioPercent: 63.18 },
+      { name: 'C5-A', firstSeconds: 2015, secondSeconds: 1179, ratioPercent: 58.51 },
+      { name: 'C10-S', firstSeconds: 2090, secondSeconds: 1225, ratioPercent: 58.61 },
       { name: 'C15-G', firstSeconds: 1848, secondSeconds: 1281, ratioPercent: 69.32 },
       { name: 'O5-A', firstSeconds: 1850, secondSeconds: 1215, ratioPercent: 65.68 },
-      { name: 'O10-S', firstSeconds: 1968, secondSeconds: 1174, ratioPercent: 59.65 },
-      { name: 'O15-G', firstSeconds: 2132, secondSeconds: 1351, ratioPercent: 63.37 },
-      { name: 'B5-A', firstSeconds: 2223, secondSeconds: 1302, ratioPercent: 58.57 },
-      { name: 'B10-S', firstSeconds: 2195, secondSeconds: 1363, ratioPercent: 62.1 },
-      { name: 'B15-G', firstSeconds: 1895, secondSeconds: 1292, ratioPercent: 68.18 },
+      { name: 'O10-S', firstSeconds: 1990, secondSeconds: 1376, ratioPercent: 69.15 },
+      { name: 'O15-G', firstSeconds: 2103, secondSeconds: 1345, ratioPercent: 63.96 },
+      { name: 'B5-A', firstSeconds: 2112, secondSeconds: 1214, ratioPercent: 57.48 },
+      { name: 'B10-S', firstSeconds: 2214, secondSeconds: 1401, ratioPercent: 63.28 },
+      { name: 'B15-G', firstSeconds: 1958, secondSeconds: 1267, ratioPercent: 64.71 },
       { name: 'C20-M', firstSeconds: 2001, secondSeconds: 1247, ratioPercent: 62.32 },
     ])
     expect(companionResults.map(summarizePairedReattainment)).toEqual([
-      { name: 'C5-A', firstSeconds: 1885, secondSeconds: 1193, ratioPercent: 63.29 },
+      { name: 'C5-A', firstSeconds: 1911, secondSeconds: 1195, ratioPercent: 62.53 },
       { name: 'C10-S', firstSeconds: 2004, secondSeconds: 1218, ratioPercent: 60.78 },
-      { name: 'C15-G', firstSeconds: 1717, secondSeconds: 1113, ratioPercent: 64.82 },
-      { name: 'O5-A', firstSeconds: 1746, secondSeconds: 1150, ratioPercent: 65.86 },
-      { name: 'O10-S', firstSeconds: 1882, secondSeconds: 1146, ratioPercent: 60.89 },
-      { name: 'O15-G', firstSeconds: 1753, secondSeconds: 1226, ratioPercent: 69.94 },
-      { name: 'B5-A', firstSeconds: 1848, secondSeconds: 1195, ratioPercent: 64.66 },
-      { name: 'B10-S', firstSeconds: 2107, secondSeconds: 1326, ratioPercent: 62.93 },
-      { name: 'B15-G', firstSeconds: 1883, secondSeconds: 1177, ratioPercent: 62.51 },
-      { name: 'C20-M', firstSeconds: 1804, secondSeconds: 1148, ratioPercent: 63.64 },
+      { name: 'C15-G', firstSeconds: 1756, secondSeconds: 1083, ratioPercent: 61.67 },
+      { name: 'O5-A', firstSeconds: 1788, secondSeconds: 1079, ratioPercent: 60.35 },
+      { name: 'O10-S', firstSeconds: 1899, secondSeconds: 1217, ratioPercent: 64.09 },
+      { name: 'O15-G', firstSeconds: 1938, secondSeconds: 1225, ratioPercent: 63.21 },
+      { name: 'B5-A', firstSeconds: 1854, secondSeconds: 1199, ratioPercent: 64.67 },
+      { name: 'B10-S', firstSeconds: 2040, secondSeconds: 1237, ratioPercent: 60.64 },
+      { name: 'B15-G', firstSeconds: 1873, secondSeconds: 1225, ratioPercent: 65.4 },
+      { name: 'C20-M', firstSeconds: 1644, secondSeconds: 1086, ratioPercent: 66.06 },
     ])
 
     const soloRatios = soloResults.map(({ ratioPercent }) => ratioPercent)
     const companionRatios = companionResults.map(({ ratioPercent }) => ratioPercent)
     expect(soloRatios.every((ratio) => ratio >= 50 && ratio <= 70)).toBe(true)
     expect(companionRatios.every((ratio) => ratio >= 50 && ratio <= 70)).toBe(true)
-    expect(median(soloRatios)).toBeCloseTo(63.2757821162, 10)
-    expect(median(companionRatios)).toBeCloseTo(63.4627441524, 10)
-    expect(median(soloRatios)).toBeCloseTo(63.3, 1)
-    expect(median(companionRatios)).toBeCloseTo(63.5, 1)
+    expect(median(soloRatios)).toBeCloseTo(63.617692881636, 10)
+    expect(median(companionRatios)).toBeCloseTo(62.871099856947, 10)
+    expect(median(soloRatios)).toBeCloseTo(63.6, 1)
+    expect(median(companionRatios)).toBeCloseTo(62.9, 1)
   })
 
   it('preserves the prestige reward, reset contract, companion, RNG, and inputs', () => {
@@ -618,10 +714,19 @@ describe('post-prestige stage 30 reattainment', () => {
       EXPECTED_PLAYTEST_SUMMARIES.map(({ prestigeGateSeconds }) => prestigeGateSeconds),
     )
     expect(companionResults.map(({ firstSeconds }) => firstSeconds)).toEqual([
-      1885, 2004, 1717, 1746, 1882, 1753, 1848, 2107, 1883, 1804,
+      1911, 2004, 1756, 1788, 1899, 1938, 1854, 2040, 1873, 1644,
     ])
 
     for (const result of [...soloResults, ...companionResults]) {
+      expect(result.firstMilestoneRewardCount).toBe(2)
+      expect(result.firstMilestoneConfiguredGold).toBe(45)
+      expect(result.firstMilestoneAppliedGold).toBe(45)
+      expect(result.secondMilestoneRewardCount).toBe(0)
+      expect(result.secondMilestoneConfiguredGold).toBe(0)
+      expect(result.secondMilestoneAppliedGold).toBe(0)
+      expect(result.firstFinalState.claimedBossMilestoneMask).toBe(3)
+      expect(result.postPrestigeState.claimedBossMilestoneMask).toBe(3)
+      expect(result.secondFinalState.claimedBossMilestoneMask).toBe(3)
       expect(result.reward).toBe(5)
       expect(result.firstInputHashAfterPrestige).toBe(result.firstFinalHash)
       expect(result.postPrestigeInputHashAfterRun).toBe(result.postPrestigeHash)
@@ -667,28 +772,28 @@ describe('post-prestige stage 30 reattainment', () => {
 
   it('replays every paired final state and RNG sequence exactly', () => {
     expect(soloResults.map(({ secondFinalHash }) => secondFinalHash)).toEqual([
-      'e6ae4b37',
-      'a6da7897',
-      '119f6f4d',
-      '3863e95a',
-      '78ddc6de',
-      '3d003349',
-      'f3ead603',
-      'fb920e24',
-      'fcb7eba4',
-      '8027550d',
+      '0232f5e3',
+      '5181039e',
+      'c63afc7c',
+      '4b5f34c3',
+      '8e146f3c',
+      '69fedd70',
+      'aa3131e9',
+      '2a88c8f7',
+      '9d0b25b3',
+      '9db490bb',
     ])
     expect(companionResults.map(({ secondFinalHash }) => secondFinalHash)).toEqual([
-      'b58ead38',
-      '3b6c76b2',
-      'd35f6123',
-      '6b1b7417',
-      '45725451',
-      'd4551017',
-      'f570f7ea',
-      'c28f4b8d',
-      '5edfcb28',
-      'ac0a8681',
+      '14f43721',
+      '60bd354b',
+      'c45a5874',
+      'fbc8c2d8',
+      'c4344df0',
+      '2c08b7e5',
+      '9fb9016c',
+      'b9e4fadb',
+      '96a06452',
+      '73ab63d8',
     ])
     expect(PLAYTEST_PROFILES.map((profile) =>
       runPairedReattainment(profile, 'solo'))).toEqual(soloResults)

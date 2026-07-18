@@ -9,6 +9,7 @@ import {
   UPGRADE_DEFINITIONS,
   getEnemyDefinition,
 } from './content'
+import { MAX_BOSS_MILESTONE_MASK } from './bossMilestones'
 import { runDebugSimulation, DEBUG_SPEEDS } from './debugSimulator'
 import { advanceGame, createInitialState } from './engine'
 import debugSoakFixture from './fixtures/debug-soak-v1.json'
@@ -55,6 +56,7 @@ function expectStateInvariants(state: GameState) {
   const numericValues = [
     state.schemaVersion,
     state.lastSavedAt,
+    state.claimedBossMilestoneMask,
     state.rng.seed,
     state.rng.state,
     state.rng.draws,
@@ -85,6 +87,7 @@ function expectStateInvariants(state: GameState) {
   expect(state.rng.seed).toBeLessThanOrEqual(0xffffffff)
   expect(state.rng.state).toBeGreaterThan(0)
   expect(state.rng.state).toBeLessThanOrEqual(0xffffffff)
+  expect(state.claimedBossMilestoneMask).toBeLessThanOrEqual(MAX_BOSS_MILESTONE_MASK)
   expect(state.player.level).toBeGreaterThanOrEqual(1)
   expect(state.player.level).toBeLessThanOrEqual(999)
   expect(state.player.currentHp).toBeGreaterThanOrEqual(1)
@@ -195,6 +198,13 @@ describe('debug simulator soak', () => {
       MAX_OFFLINE_MS,
       MAX_OFFLINE_MS * 2,
       MAX_OFFLINE_MS * 3,
+    ])
+    expect(results[0]?.snapshots.map(({ state }) =>
+      state.claimedBossMilestoneMask)).toEqual([1, 3, 3])
+    expect(results[0]?.snapshots.map(({ report }) => report.goldEarned)).toEqual([
+      77_249,
+      184_246,
+      348_439,
     ])
     expect(results[0]?.report.rounds).toBe(86_400)
     expect(results[0]?.state.rng.draws).toBe(86_400)

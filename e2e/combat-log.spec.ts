@@ -20,7 +20,7 @@ async function applyCombatLogFixture(page: Page) {
   await panel.getByRole('button', { name: 'fixture 적용' }).click()
   await expect(page.getByTestId('visual-fixture-root')).toHaveAttribute(
     'data-canonical-event-hash',
-    'fnv1a32-v1:8ec7c58f',
+    'fnv1a32-v1:e0a7de25',
   )
 }
 

@@ -20,42 +20,42 @@ import {
 const EXPECTED_FIXTURES = {
   'visual.combat.hero-default': {
     stage: 1,
-    hash: 'fnv1a32-v1:3edb9452',
+    hash: 'fnv1a32-v1:d806658f',
     seed: 1137774350,
   },
   'visual.combat.enemy-default': {
     stage: 5,
-    hash: 'fnv1a32-v1:eab1e0bd',
+    hash: 'fnv1a32-v1:4429d732',
     seed: 184967352,
   },
   'visual.combat.boss-default': {
     stage: 10,
-    hash: 'fnv1a32-v1:b725d877',
+    hash: 'fnv1a32-v1:da34bac0',
     seed: 2839317265,
   },
   'visual.combat.fallback': {
     stage: 1,
-    hash: 'fnv1a32-v1:026af434',
+    hash: 'fnv1a32-v1:f7eb4c9d',
     seed: 847540328,
   },
   'visual.map.stage-frontier': {
     stage: 105,
-    hash: 'fnv1a32-v1:f9a209ad',
+    hash: 'fnv1a32-v1:dde4ed52',
     seed: 2652276946,
   },
   'visual.cards.mixed-states': {
     stage: 3,
-    hash: 'fnv1a32-v1:ad431c22',
+    hash: 'fnv1a32-v1:06bae429',
     seed: 2691896847,
   },
   'visual.cards.fallback': {
     stage: 3,
-    hash: 'fnv1a32-v1:6e071ccc',
+    hash: 'fnv1a32-v1:8828e98f',
     seed: 1091907769,
   },
   'visual.combat.event-log': {
     stage: 10,
-    hash: 'fnv1a32-v1:b7aed32d',
+    hash: 'fnv1a32-v1:9fe0a39a',
     seed: 4251790753,
   },
 } as const
@@ -156,7 +156,7 @@ describe('IRPG-506 named visual fixtures', () => {
     expect(eventDefinition).toMatchObject({
       captureTarget: '.combat-log-panel',
       setupAction: 'open-combat-log',
-      canonicalEventHash: 'fnv1a32-v1:8ec7c58f',
+      canonicalEventHash: 'fnv1a32-v1:e0a7de25',
     })
     expect(eventBatch).toMatchObject({ nextCursor: '46', totalEvents: 24 })
     expect(eventBatch.events).toHaveLength(24)
@@ -168,6 +168,9 @@ describe('IRPG-506 named visual fixtures', () => {
       'bossVictory',
       'defeat',
     ]))
+    expect(eventBatch.events
+      .filter((event) => event.type === 'bossVictory')
+      .every(({ milestoneReward }) => milestoneReward === null)).toBe(true)
     expect(hashVisualCombatEventBatch(eventBatch)).toBe(eventDefinition.canonicalEventHash)
     expect(hashVisualCombatEventBatch(createVisualFixtureCombatEventBatch(
       'visual.combat.hero-default',
@@ -248,10 +251,10 @@ describe('IRPG-506 visual fixture UI adapter', () => {
 
     const root = screen.getByTestId('visual-fixture-root')
     expect(root).toHaveAttribute('data-canonical-state-hash', stateBefore)
-    expect(root).toHaveAttribute('data-canonical-event-hash', 'fnv1a32-v1:8ec7c58f')
+    expect(root).toHaveAttribute('data-canonical-event-hash', 'fnv1a32-v1:e0a7de25')
     expect(root).toHaveAttribute(
       'data-expected-canonical-event-hash',
-      'fnv1a32-v1:8ec7c58f',
+      'fnv1a32-v1:e0a7de25',
     )
     expect(screen.queryByTestId('combat-log-list')).not.toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: '전투 로그 펼치기' }))

@@ -28,7 +28,7 @@ function makeEvent(index: number, type: CombatEvent['type']): CombatEvent {
   if (type === 'companionAssist') {
     return { ...base, type, ordinal: 25, companionId: 'emberFox', damage: index }
   }
-  if (type === 'kill' || type === 'bossVictory') {
+  if (type === 'kill') {
     return {
       ...base,
       type,
@@ -37,6 +37,18 @@ function makeEvent(index: number, type: CombatEvent['type']): CombatEvent {
       nextStage: index + 1,
       gold: index * 2,
       xp: index * 3,
+    }
+  }
+  if (type === 'bossVictory') {
+    return {
+      ...base,
+      type,
+      ordinal: 30,
+      defeatedStage: index,
+      nextStage: index + 1,
+      gold: index * 2,
+      xp: index * 3,
+      milestoneReward: null,
     }
   }
   return {

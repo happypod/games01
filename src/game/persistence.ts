@@ -9,6 +9,10 @@ import {
 } from './content'
 import { advanceGame, createInitialState } from './engine'
 import { getHeroStats } from './formulas'
+import {
+  deriveLegacyBossMilestoneMask,
+  isBossMilestoneMask,
+} from './bossMilestones'
 import { MAX_UINT32, createRngState, seedFromText } from './rng'
 import {
   COMPANION_IDS,
@@ -96,6 +100,15 @@ interface LegacyGameStateV2 {
   stats: LifetimeStats
 }
 
+interface LegacyGameStateV3 {
+  schemaVersion: 3
+  lastSavedAt: number
+  rng: RngState
+  player: PlayerState
+  battle: BattleState
+  stats: LifetimeStats
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
@@ -165,10 +178,7 @@ function isLegacyGameStateV2(value: unknown): value is LegacyGameStateV2 {
   )
 }
 
-export function isGameState(value: unknown): value is GameState {
-  if (!isRecord(value) || value.schemaVersion !== SAVE_VERSION || !hasValidSharedState(value)) {
-    return false
-  }
+function hasValidCompanionState(value: Record<string, unknown>): boolean {
   const player = value.player
   const battle = value.battle
   if (!isRecord(player) || !isRecord(battle)) return false
@@ -177,9 +187,26 @@ export function isGameState(value: unknown): value is GameState {
   const validCompanion =
     (companion.id === null && companion.rank === 0) ||
     (COMPANION_IDS.some((id) => id === companion.id) && companion.rank >= 1)
+  return validCompanion && isSafeNonNegativeInteger(battle.companionCooldownMs)
+}
+
+function isLegacyGameStateV3(value: unknown): value is LegacyGameStateV3 {
   return (
-    validCompanion &&
-    isSafeNonNegativeInteger(battle.companionCooldownMs) &&
+    isRecord(value) &&
+    value.schemaVersion === 3 &&
+    hasValidSharedState(value) &&
+    hasValidCompanionState(value) &&
+    hasValidRng(value.rng)
+  )
+}
+
+export function isGameState(value: unknown): value is GameState {
+  if (!isRecord(value) || value.schemaVersion !== SAVE_VERSION || !hasValidSharedState(value)) {
+    return false
+  }
+  return (
+    isBossMilestoneMask(value.claimedBossMilestoneMask) &&
+    hasValidCompanionState(value) &&
     hasValidRng(value.rng)
   )
 }
@@ -255,6 +282,10 @@ function migrateLegacyGameState(
   const migrated: GameState = {
     schemaVersion: SAVE_VERSION,
     lastSavedAt: legacy.lastSavedAt,
+    claimedBossMilestoneMask: deriveLegacyBossMilestoneMask(
+      legacy.battle.highestStage,
+      legacy.stats.prestiges,
+    ),
     rng: { ...rng },
     player: {
       ...legacy.player,
@@ -269,8 +300,31 @@ function migrateLegacyGameState(
   return normalizeGameState(migrated)
 }
 
+function migrateLegacyGameStateV3(state: LegacyGameStateV3): GameState {
+  const legacy = structuredClone(state)
+  const migrated: GameState = {
+    schemaVersion: SAVE_VERSION,
+    lastSavedAt: legacy.lastSavedAt,
+    claimedBossMilestoneMask: deriveLegacyBossMilestoneMask(
+      legacy.battle.highestStage,
+      legacy.stats.prestiges,
+    ),
+    rng: { ...legacy.rng },
+    player: {
+      ...legacy.player,
+      upgrades: { ...legacy.player.upgrades },
+      skills: { ...legacy.player.skills },
+      companion: { ...legacy.player.companion },
+    },
+    battle: { ...legacy.battle },
+    stats: { ...legacy.stats },
+  }
+  return normalizeGameState(migrated)
+}
+
 export function decodeGameState(value: unknown): GameState | null {
   if (isGameState(value)) return normalizeGameState(value)
+  if (isLegacyGameStateV3(value)) return migrateLegacyGameStateV3(value)
   if (isLegacyGameStateV2(value)) return migrateLegacyGameState(value, value.rng)
   return isLegacyGameStateV1(value)
     ? migrateLegacyGameState(value, createRngState(deriveLegacySeed(value)))
