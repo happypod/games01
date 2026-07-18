@@ -8,7 +8,7 @@
 
 - Priority: P1
 - Status: Draft
-- Skill tags: PLAYTEST, UX-A11Y
+- Skill tags: PLAYTEST, UX-FEEDBACK
 
 ## Dependencies
 

@@ -23,12 +23,15 @@
 | IRPG-103 | 패배·파밍·스테이지 선택 | P0 | Done | 102 | ENG-STATE | 패배 시 최고 기록 유지, 열린 스테이지만 선택된다. |
 | IRPG-104 | 저장 가능한 시드 RNG·치명타 | P1 | Done | 101 | ENG-SIM, ENG-SAVE, QA-DOMAIN | 같은 시드는 같은 이벤트·최종 상태를 만든다. |
 | IRPG-105 | 범용 스킬 효과 런타임 | P1 | Draft | 104 | GD-SKILL, ENG-SIM | 회복·버프·보호막의 우선순위와 중첩 정책이 재현된다. |
+| IRPG-106 | 결정론적 전투 이벤트 스트림 | P1 | Ready | 103,104,505 | ENG-STATE, ENG-SIM, QA-DOMAIN | 치명타·스킬·처치·보스 승리·패배 이벤트 순서가 재현된다. |
+| IRPG-107 | 결정론적 원정 선택 이벤트 | P2 | Draft | 106,206,303 | PROD-LOOP, ENG-STATE, ENG-SAVE | 로컬 선택 이벤트가 저장·재접속 뒤 한 번만 적용된다. |
 | IRPG-201 | 경험치·레벨·장비 성장 | P0 | Done | 102 | GD-BAL, ENG-STATE | 비용 차감과 강화가 원자적이고 레벨업 연속 처리가 된다. |
 | IRPG-202 | 스킬 해금·강화 | P0 | Done | 201 | GD-SKILL | 잠금·포인트 비용·최대 랭크가 강제된다. |
 | IRPG-203 | 환생·영구 성장 | P0 | Done | 201 | GD-BAL | 초기화와 유지 필드가 정확하고 보상이 한 번 지급된다. |
 | IRPG-204 | 첫 환생 밸런스 튜닝 | P1 | Done | 203,502,104 | GD-BAL, PLAYTEST, QA-DOMAIN | 10회 플레이의 중앙값이 30~45분이다. |
-| IRPG-205 | 외부 사용자 첫 환생 플레이테스트 | P1 | Draft | 204,403,504 | PLAYTEST, UX-A11Y | 외부 사용자 10회에서 진행 차단 0건과 30~45분 목표를 검증한다. |
+| IRPG-205 | 외부 사용자 첫 환생 플레이테스트 | P1 | Draft | 204,403,504 | PLAYTEST, UX-FEEDBACK | 외부 사용자 10회에서 진행 차단 0건과 30~45분 목표를 검증한다. |
 | IRPG-206 | 환생 후 최고점 재도달 튜닝 | P1 | Draft | 203,204,104 | GD-BAL, PLAYTEST, QA-DOMAIN | 재도달 시간 중앙값이 첫 원정의 50~70%다. |
+| IRPG-207 | 보스 최초 승리 보상 계약 | P1 | Draft | 106,206,303 | GD-BAL, ENG-STATE, ENG-SAVE | 승인된 보스 milestone 보상을 저장·reload 뒤에도 정확히 한 번 지급한다. |
 | IRPG-301 | v1 로컬 저장·decoder | P0 | Done | 002 | ENG-SAVE | 정상 왕복과 손상 저장 fallback이 동작한다. |
 | IRPG-302 | 자동 저장·8시간 오프라인 | P0 | Done | 101,301 | ENG-SAVE | 0초·역행·8시간 상한·중복 재개가 안전하다. |
 | IRPG-303 | A/B 슬롯·revision·migration | P1 | Done | 301 | ENG-SAVE | 두 슬롯 중 최신 유효본을 읽고 v1 fixture를 변환한다. |
@@ -39,11 +42,21 @@
 | IRPG-403 | 접근성·모바일 감사 | P1 | Done | 401,304 | UX-FEEDBACK, QA-E2E | 360px·키보드·의미 구조·모션 감소 핵심 흐름이 통과한다. |
 | IRPG-404 | 초기 안내·전투 피드백 강화 | P1 | Draft | 401 | UX-FEEDBACK | 3초 안에 자동 전투와 첫 강화 목표를 이해한다. |
 | IRPG-405 | Windows 원클릭 실행기 | P1 | Done | 003 | REL-CI, UX-FEEDBACK | 더블클릭 한 번으로 의존성을 준비하고 게임과 브라우저를 실행한다. |
+| IRPG-406 | 시각 자산 계약·manifest | P1 | Ready | 401,403,505 | ART-DIR, ART-2D, ENG-DATA | 모든 자산 ID·규격·권리·fallback과 누락 검사가 고정된다. |
+| IRPG-407 | 영웅·적·보스 일러스트 세트 | P2 | Draft | 102,403,406 | ART-2D, FE-GAME, UX-FEEDBACK | 모든 전투 대상이 일러스트와 텍스트 fallback으로 표시된다. |
+| IRPG-408 | 3지역 스테이지 맵 | P2 | Draft | 103,403,406,506 | ART-2D, FE-GAME, ENG-DATA, UX-FEEDBACK | 지역 3개와 현재·완료·잠김 스테이지가 접근 가능하게 표시된다. |
+| IRPG-409 | 장비·스킬 일러스트 카드 | P2 | Draft | 201,202,403,406,506 | ART-2D, FE-GAME, UX-FEEDBACK | 고정 장비·스킬의 효과·비용·잠금·최대 상태가 카드에 표시된다. |
+| IRPG-410 | 보스 승리 보상·패배 결과 화면 | P1 | Draft | 106,207,403,406,407,506 | ART-2D, FE-GAME, UX-FEEDBACK | 엔진 보상을 재지급하지 않고 승패 결과를 이벤트당 한 번 표시한다. |
+| IRPG-411 | 전투 이벤트 로그 UI | P2 | Draft | 106,403,506 | FE-GAME, ENG-STATE, UX-FEEDBACK | 제한된 최근 전투 이벤트를 자동 전투를 막지 않고 표시한다. |
+| IRPG-412 | 원정 선택 이벤트 카드 UI | P2 | Draft | 107,403,406,409,506 | ART-2D, FE-GAME, ENG-STATE, UX-FEEDBACK | pending 선택 카드를 접근 가능하게 표시하고 명령을 한 번 호출한다. |
 | IRPG-501 | 엔진·저장·UI 자동 테스트 | P0 | Done | 302,402 | QA-DOMAIN | 전투·명령·저장·오프라인·첫 화면 회귀가 통과한다. |
 | IRPG-502 | 45분 밸런스 스모크 | P0 | Done | 203 | GD-BAL, QA-DOMAIN | 자동 재투자 전략이 45분 내 30스테이지에 도달한다. |
 | IRPG-503 | CI 릴리스 게이트 | P0 | Done | 003,501 | REL-CI | push와 PR에서 설치·검증·빌드가 통과하고 원격 증거가 남는다. |
 | IRPG-504 | Playwright 전체 흐름 | P1 | Done | 402,503 | QA-E2E | 신규→강화→재접속→오프라인 결과를 실제 브라우저로 완료한다. |
 | IRPG-505 | 배속 디버그·24시간 soak | P1 | Done | 104,204 | QA-DOMAIN, PLAYTEST | 1x/10x/100x와 상태 snapshot으로 장시간 이상을 탐지한다. |
+| IRPG-506 | 시각 브라우저 회귀 게이트 | P1 | Draft | 403,504,406,407,507 | QA-E2E, REL-CI, ART-DIR | 기본 전투 시각 상태의 screenshot harness를 만들고 후속 UI가 baseline을 확장한다. |
+| IRPG-507 | 브라우저 개발자 디버그 패널 | P2 | Draft | 403,505 | FE-GAME, QA-DOMAIN | 개발 모드에서 배속·stage·자원·오프라인 시간을 안전하게 조절한다. |
+| IRPG-508 | 7일 장기 stress 회귀 | P2 | Draft | 505 | ENG-SIM, QA-DOMAIN | 7일 가속에서 숫자·정체·snapshot 크기 회귀를 고정 fixture로 탐지한다. |
 | IRPG-601 | 계정·클라우드 저장 ADR | P2 | Blocked | 온라인 요구 확정 | ENG-SAVE, PROD-LOOP | 서버 권위와 충돌 정책이 제품 요구와 함께 승인된다. |
 
 `Blocked`는 기술 문제가 아니라 제품 요구가 아직 없는 의도적 보류다. 신규 기능은 선행 티켓과 G4 게이트를 우회하지 않는다.

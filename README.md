@@ -38,7 +38,7 @@ npm run dev
 npm run verify
 ```
 
-개별 명령은 `lint`, `typecheck`, `test`, `test:coverage`, `test:e2e`, `test:e2e:headed`, `test:e2e:ui`, `build`, `preview`입니다. 브라우저를 제외한 빠른 게이트는 `npm run verify:code`로 실행합니다.
+개별 명령은 `lint`, `typecheck`, `test`, `test:soak`, `test:coverage`, `test:e2e`, `test:e2e:headed`, `test:e2e:ui`, `build`, `preview`입니다. 브라우저를 제외한 빠른 게이트는 `npm run verify:code`로 실행합니다.
 
 ## 문서 지도
 
@@ -47,6 +47,7 @@ npm run verify
 | [제품 명세](docs/PRODUCT.md) | 핵심 루프, 범위, 경제, 수용 시나리오 |
 | [아키텍처](docs/ARCHITECTURE.md) | 상태 모델, 의존 방향, 게임 루프, 저장 전략 |
 | [로드맵](docs/ROADMAP.md) | 단계별 목표와 릴리스 게이트 |
+| [다음 콘텐츠·시각 로드맵](docs/NEXT_CONTENT_ROADMAP.md) | 캐릭터·맵·카드·이벤트·승패 화면 구현 순서 |
 | [스킬 정리](docs/SKILLS.md) | 제작 역량 태그와 게임 내 스킬 설계 |
 | [티켓 백로그](docs/BACKLOG.md) | 우선순위, 상태, 의존성, 수용 기준 |
 | [테스트 계획](docs/TEST_PLAN.md) | 자동·수동 검증 범위와 추적성 |
