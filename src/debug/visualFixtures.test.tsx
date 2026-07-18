@@ -36,6 +36,11 @@ const EXPECTED_FIXTURES = {
     hash: 'fnv1a32-v1:026af434',
     seed: 847540328,
   },
+  'visual.map.stage-frontier': {
+    stage: 105,
+    hash: 'fnv1a32-v1:f9a209ad',
+    seed: 2652276946,
+  },
 } as const
 
 function reverseObjectKeys(value: unknown): unknown {
@@ -50,7 +55,7 @@ function reverseObjectKeys(value: unknown): unknown {
 }
 
 describe('IRPG-506 named visual fixtures', () => {
-  it('pins four fixture states and their canonical metadata', () => {
+  it('pins the fixture states and their canonical metadata', () => {
     expect(VISUAL_FIXTURE_IDS).toEqual(Object.keys(EXPECTED_FIXTURES))
     expect(VISUAL_FIXTURE_NOW).toBe(1_767_225_600_000)
     expect(VISUAL_FIXTURE_VARIANTS).toEqual([
@@ -91,7 +96,7 @@ describe('IRPG-506 named visual fixtures', () => {
 
       expect(definition).toMatchObject({
         id,
-        ownerTicket: 'IRPG-506',
+        ownerTicket: id === 'visual.map.stage-frontier' ? 'IRPG-408' : 'IRPG-506',
         stage: expected.stage,
         seedKey: `irpg-506:${id}:v1`,
         canonicalHash: expected.hash,
@@ -121,7 +126,7 @@ describe('IRPG-506 named visual fixtures', () => {
       VISUAL_FIXTURE_IDS
         .filter((id) => id !== 'visual.combat.fallback')
         .map((id) => VISUAL_FIXTURE_REGISTRY[id].failureRoute),
-    ).toEqual(['none', 'none', 'none'])
+    ).toEqual(['none', 'none', 'none', 'none'])
   })
 
   it('sorts every object level before hashing and returns fresh states', () => {

@@ -12,6 +12,11 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: '성장 장비' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '스킬 각인' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '동료 원정대' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '3지역 원정 지도' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '원정 지도 열기' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
     expect(screen.getByText('자동 원정 중')).toBeInTheDocument()
     expect(screen.getAllByText('동료 미영입').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: '불씨 여우 루미 영입, 무료' })).toBeDisabled()

@@ -466,6 +466,17 @@ test('production cold load stays within the asset budget and preserves lazy name
     const currentEnemyImageOutputs = new Set(
       [...currentEnemyOutputs].filter((file) => IMAGE_EXTENSIONS.has(extname(file).toLowerCase())),
     )
+    const regionImageOutputsById = new Map<string, Set<string>>()
+    const allRegionImageOutputs = new Set<string>()
+    for (const entry of assetManifest.assets.filter(({ id }) => id.startsWith('region.'))) {
+      const imageOutputs = new Set(
+        [...(outputsByAssetId.get(entry.id) ?? [])].filter((file) =>
+          IMAGE_EXTENSIONS.has(extname(file).toLowerCase()),
+        ),
+      )
+      regionImageOutputsById.set(entry.id, imageOutputs)
+      addOutputFiles(allRegionImageOutputs, imageOutputs)
+    }
 
     const lazyOutputs = new Set<string>()
     const nonCurrentCombatOutputs = new Set<string>()
@@ -491,6 +502,7 @@ test('production cold load stays within the asset budget and preserves lazy name
       countedResourceCount: budgetResources.length,
       heroOutputs: [...heroImageOutputs].sort(),
       currentEnemyOutputs: [...currentEnemyImageOutputs].sort(),
+      initialRegionImageRequests: intersection(allRegionImageOutputs, requestedDistFiles),
       lazyOutputRequests: intersection(lazyOutputs, requestedDistFiles),
       nonCurrentCombatRequests: intersection(nonCurrentCombatOutputs, requestedDistFiles),
       resources: budgetResources.sort((left, right) => left.url.localeCompare(right.url)),
@@ -517,6 +529,49 @@ test('production cold load stays within the asset budget and preserves lazy name
       evidence.nonCurrentCombatRequests,
       'A non-current enemy or boss asset was requested',
     ).toEqual([])
+
+    const activeRegionId = 'region.ashen-border'
+    const activeRegionImageOutputs = regionImageOutputsById.get(activeRegionId) ?? new Set<string>()
+    expect(evidence.initialRegionImageRequests, 'A region image loaded before map disclosure').toEqual([])
+    expect(activeRegionImageOutputs.size, 'Vite manifest has no unique active-region image').toBe(1)
+
+    await page.getByRole('button', { name: '원정 지도 열기' }).click()
+    const activeRegionArt = page.locator('.stage-map-scene__art')
+    await expect(activeRegionArt).toHaveAttribute('data-asset-id', activeRegionId)
+    await expect(activeRegionArt).toHaveAttribute('data-state', 'loaded')
+    while (pendingResponses.size > 0) await Promise.all([...pendingResponses])
+
+    const imageRequestsAfterDisclosure = new Set(
+      captured
+        .filter(({ resourceType, status }) =>
+          resourceType === 'image' && status >= 200 && status < 300,
+        )
+        .map(({ url }) => resolveRequestedDistFile(url).relative),
+    )
+    const regionImageRequestsAfterDisclosure = intersection(
+      allRegionImageOutputs,
+      imageRequestsAfterDisclosure,
+    )
+    const expectedActiveRegionRequests = intersection(
+      activeRegionImageOutputs,
+      imageRequestsAfterDisclosure,
+    )
+    const regionLazyLoadEvidence = {
+      activeRegionId,
+      activeRegionImageOutputs: [...activeRegionImageOutputs].sort(),
+      regionImageRequestsAfterDisclosure,
+      expectedActiveRegionRequests,
+    }
+    await testInfo.attach('irpg-408-region-lazy-load.json', {
+      body: Buffer.from(JSON.stringify(regionLazyLoadEvidence, null, 2)),
+      contentType: 'application/json',
+    })
+
+    expect(expectedActiveRegionRequests, 'Opening the map did not request its active region').toHaveLength(1)
+    expect(
+      regionImageRequestsAfterDisclosure,
+      'Opening the map requested an inactive region image',
+    ).toEqual(expectedActiveRegionRequests)
   } finally {
     await context.close()
   }

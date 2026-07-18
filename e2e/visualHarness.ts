@@ -83,6 +83,19 @@ export async function openVisualFixture(
     fixture.canonicalHash,
   )
 
+  if (fixture.setupAction === 'open-stage-map') {
+    await page.getByRole('button', { name: '원정 지도 열기' }).click()
+    await expect(page.getByRole('tab', { name: /월락 고개/ })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    await expect(page.getByTestId('stage-map-node-105')).toHaveAttribute('tabindex', '0')
+    await expect(page.getByTestId('stage-map-node-105')).toHaveAttribute(
+      'aria-current',
+      'step',
+    )
+  }
+
   const target = page.locator(fixture.captureTarget)
   await expect(target).toBeVisible()
   if (fixture.failureRoute === 'hero-and-enemy-corrupt') {
@@ -104,6 +117,7 @@ export async function openVisualFixture(
       canonicalHash: fixture.canonicalHash,
       captureTarget: fixture.captureTarget,
       failureRoute: fixture.failureRoute,
+      setupAction: fixture.setupAction,
       variant,
     }, null, 2),
     contentType: 'application/json',

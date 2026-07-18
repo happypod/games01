@@ -45,7 +45,7 @@
 | IRPG-405 | Windows 원클릭 실행기 | P1 | Done | 003 | REL-CI, UX-FEEDBACK | 더블클릭 한 번으로 의존성을 준비하고 게임과 브라우저를 실행한다. |
 | IRPG-406 | 시각 자산 계약·manifest | P1 | Done | 401,403,505 | ART-DIR, ART-2D, ENG-DATA | 모든 자산 ID·규격·권리·fallback과 누락 검사가 고정된다. |
 | IRPG-407 | 플레이 화면 영웅 캐릭터 표시 | P1 | Done | 403,406 | ART-2D, FE-GAME, UX-FEEDBACK | 아렌 일러스트가 고정 프레임과 실패 fallback으로 표시된다. |
-| IRPG-408 | 3지역 스테이지 맵 | P2 | Ready | 103,403,406,506 | ART-2D, FE-GAME, ENG-DATA, UX-FEEDBACK | 지역 3개와 현재·완료·잠김 스테이지가 접근 가능하게 표시된다. |
+| IRPG-408 | 3지역 스테이지 맵 | P2 | Test | 103,403,406,506 | ART-2D, FE-GAME, ENG-DATA, UX-FEEDBACK | 지역 3개와 현재·완료·잠김 스테이지가 접근 가능하게 표시된다. |
 | IRPG-409 | 장비·스킬 일러스트 카드 | P2 | Draft | 201,202,403,406,506 | ART-2D, FE-GAME, UX-FEEDBACK | 고정 장비·스킬의 효과·비용·잠금·최대 상태가 카드에 표시된다. |
 | IRPG-410 | 보스 승리 보상·패배 결과 화면 | P1 | Draft | 106,207,403,406,413,506 | ART-2D, FE-GAME, UX-FEEDBACK | 엔진 보상을 재지급하지 않고 승패 결과를 이벤트당 한 번 표시한다. |
 | IRPG-411 | 전투 이벤트 로그 UI | P2 | Draft | 106,403,506 | FE-GAME, ENG-STATE, UX-FEEDBACK | 제한된 최근 전투 이벤트를 자동 전투를 막지 않고 표시한다. |

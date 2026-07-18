@@ -46,6 +46,7 @@ export interface VisualAssetEntry {
   sourceUrl?: string
   generator?: string
   promptRecord?: string
+  sha256?: string
 }
 
 export interface VisualAssetManifest {

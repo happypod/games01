@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Ready
+- Status: Test
 - Skill tags: ART-2D, FE-GAME, ENG-DATA, UX-FEEDBACK
 - Owner / Reviewer: Codex implementation / independent frontend, accessibility, and art direction reviewers
 
@@ -68,8 +68,18 @@
 
 ## Verification
 
-- 1/10/100/101/200/201/300 경계, stage 300 frontier, 키보드 읽기 순서, 잠김 명령 차단, state 변경 시 focus 불변, 초기 region 요청 0을 Review한다.
+- `stageMap` domain review에서 1/10/100/101/200/201/300 경계, stage 300 frontier, 0~99 지역 offset과 인접 지역 clamp를 확인했다.
+- 독립 frontend/accessibility review의 끊어진 `aria-controls`, 200% 확대 누락, 지역 hash 회귀 누락을 수정했다. 접힌 disclosure와 비활성 tab은 존재하지 않는 대상을 참조하지 않으며, 720px viewport의 200% 확대에서 세 지역 tab·PageDown focus·잠김 설명·가로 overflow를 검증한다.
+- 저장 영향은 없다. 지도는 `stage`·`highestStage` 파생 view이고 UI-local disclosure·tab·roving 상태를 저장·portable backup·GameState hash에 추가하지 않았다.
+- 독립 art review에서 P0/P1 없음으로 최종 승인했다. 세 자산은 중앙 64%의 주 landmark·강한 대비 침범이 없고 16:9 frame에서 의미 있는 crop 없이 기존 charcoal dark-fantasy 방향과 구분 가능한 silhouette를 유지한다.
+- 지역 manifest는 `ready`, 고유 `src`, 실제 파일과 일치하는 고유 SHA-256, 1600×900 WebP, 350 KiB 이하를 validator가 강제한다. mutation fixture 자체도 모든 prompt record를 포함한 유효 상태인지 먼저 검증한다.
 
 ## Test evidence
 
-- 예정: region 경계·파생 상태 단위 테스트, roving component test, 360px·200%·키보드·fallback·cold-load Playwright, IRPG-506 canonical 4개 baseline
+- `npm run lint`, `npm run typecheck`, `npm run build`: 통과.
+- `npm run test`: Vitest 23파일·153테스트 통과. 지도 domain·component·visual registry 집중 실행은 3파일·26테스트 통과.
+- `npm run test:assets`: 정상 격리 fixture, 실제 SHA 비교, 지역 `ready`·고유 `src`·고유 SHA를 포함해 25/25 통과. `npm run assets:validate`는 27개 ID 통과.
+- `npx playwright test e2e/stage-map.spec.ts`: 360px·200%·잠김 click/Enter/Space·tab/roving/Page 키·corrupt WebP fallback·자동 전투 focus 불변 6/6 통과.
+- `CI=1 npm run test:e2e`: GitHub Actions와 같은 Chromium 1 worker 설정에서 기존 저장·전투·동료·접근성 회귀를 포함한 23/23 통과. 다중 탭 writer 2회 인계도 독립 반복 3/3을 추가 확인했다.
+- `npm run test:e2e:assets`: production bundle에서 disclosure 전 region 요청 0, 연 뒤 활성 region 1개만 요청하는 cold-load를 포함해 3/3 통과.
+- 로컬 비정식 `test:e2e:visual:update`: 최종 자산과 16:9 frame으로 5 fixture × 4 variant = 20/20 생성·육안 승인. Ubuntu canonical 20개 체크인과 최종 push/PR 품질 게이트는 진행 중이다.

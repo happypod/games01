@@ -6,6 +6,7 @@ import { OfflineReport } from './OfflineReport'
 import { PrestigePanel } from './PrestigePanel'
 import { SaveTransferPanel } from './SaveTransferPanel'
 import { SkillPanel } from './SkillPanel'
+import { StageMapPanel } from './StageMapPanel'
 import { UpgradePanel } from './UpgradePanel'
 import { formatNumber } from '../game/format'
 import type { GameController } from '../hooks/useGame'
@@ -132,6 +133,18 @@ export function GameScreen({
             <div className="notice-strip" role="status" aria-live="polite">{game.notice}</div>
           </div>
         </div>
+
+        <StageMapPanel
+          currentStage={game.state.battle.stage}
+          highestStage={game.state.battle.highestStage}
+          onChooseStage={game.chooseStage}
+          disabled={controlsDisabled}
+          {...(!game.ready
+            ? { disabledReason: '게임 상태를 준비하는 중이라 스테이지를 이동할 수 없습니다.' }
+            : game.readOnly
+              ? { disabledReason: '다른 탭이 진행을 저장 중인 읽기 전용 모드에서는 스테이지를 이동할 수 없습니다.' }
+              : {})}
+        />
 
         <div className="growth-grid">
           <UpgradePanel state={game.state} onBuy={game.buyUpgrade} disabled={controlsDisabled} />

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -53,6 +54,10 @@ export const ERROR_CODES = Object.freeze({
   UNSAFE_SVG: 'UNSAFE_SVG',
   DIMENSION_MISMATCH: 'DIMENSION_MISMATCH',
   BYTES_MISMATCH: 'BYTES_MISMATCH',
+  HASH_REQUIRED: 'HASH_REQUIRED',
+  HASH_MISMATCH: 'HASH_MISMATCH',
+  DUPLICATE_SRC: 'DUPLICATE_SRC',
+  DUPLICATE_SHA256: 'DUPLICATE_SHA256',
   BUDGET_EXCEEDED: 'BUDGET_EXCEEDED',
   RIGHTS_METADATA: 'RIGHTS_METADATA',
   METADATA_PATH_ESCAPE: 'METADATA_PATH_ESCAPE',
@@ -98,8 +103,15 @@ const OPTIONAL_FIELDS = [
   'sourceUrl',
   'generator',
   'promptRecord',
+  'sha256',
 ]
 const ALLOWED_FIELDS = new Set([...REQUIRED_FIELDS, ...OPTIONAL_FIELDS])
+
+const CONTENT_HASH_REQUIRED_IDS = new Set([
+  'region.ashen-border',
+  'region.moonfall-pass',
+  'region.forgotten-caldera',
+])
 
 const SPEC_BY_KIND = Object.freeze({
   hero: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
@@ -550,6 +562,13 @@ async function validateAssetFile(entry, context) {
   if (!isPositiveInteger(entry.bytes) || entry.bytes !== targetStat.size) {
     addError(errors, ERROR_CODES.BYTES_MISMATCH, 'declared bytes do not match the file', id, 'bytes')
   }
+  if (entry.sha256 !== undefined) {
+    if (typeof entry.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(entry.sha256)) {
+      addError(errors, ERROR_CODES.HASH_MISMATCH, 'sha256 must be 64 lowercase hexadecimal characters', id, 'sha256')
+    } else if (createHash('sha256').update(buffer).digest('hex') !== entry.sha256) {
+      addError(errors, ERROR_CODES.HASH_MISMATCH, 'declared sha256 does not match the file', id, 'sha256')
+    }
+  }
   if (spec !== undefined && targetStat.size > spec.maxBytes) {
     addError(errors, ERROR_CODES.BUDGET_EXCEEDED, `asset exceeds ${spec.maxBytes} bytes`, id, 'bytes')
   }
@@ -653,6 +672,14 @@ export async function validateManifest(options = {}) {
     if (!STATUSES.has(entry.status)) {
       addError(errors, ERROR_CODES.INVALID_STATUS, 'status is not ready or placeholder', entry.id, 'status')
     }
+    if (CONTENT_HASH_REQUIRED_IDS.has(entry.id)) {
+      if (entry.status !== 'ready') {
+        addError(errors, ERROR_CODES.INVALID_STATUS, 'final region art must be ready', entry.id, 'status')
+      }
+      if (!isNonEmptyString(entry.sha256)) {
+        addError(errors, ERROR_CODES.HASH_REQUIRED, 'final region art requires sha256', entry.id, 'sha256')
+      }
+    }
 
     const spec = getSpec(entry)
     if (spec === undefined) {
@@ -667,6 +694,28 @@ export async function validateManifest(options = {}) {
 
     await validateRights(entry, context)
     await validateAssetFile(entry, context)
+  }
+
+  const contentSources = new Map()
+  const contentHashes = new Map()
+  for (const entry of manifest.assets) {
+    if (!isObject(entry) || !CONTENT_HASH_REQUIRED_IDS.has(entry.id)) continue
+    if (isNonEmptyString(entry.src)) {
+      const owner = contentSources.get(entry.src)
+      if (owner !== undefined) {
+        addError(errors, ERROR_CODES.DUPLICATE_SRC, `final region art shares src with ${owner}`, entry.id, 'src')
+      } else {
+        contentSources.set(entry.src, entry.id)
+      }
+    }
+    if (typeof entry.sha256 === 'string' && /^[a-f0-9]{64}$/.test(entry.sha256)) {
+      const owner = contentHashes.get(entry.sha256)
+      if (owner !== undefined) {
+        addError(errors, ERROR_CODES.DUPLICATE_SHA256, `final region art shares sha256 with ${owner}`, entry.id, 'sha256')
+      } else {
+        contentHashes.set(entry.sha256, entry.id)
+      }
+    }
   }
 
   const required = new Set(REQUIRED_ASSET_IDS)

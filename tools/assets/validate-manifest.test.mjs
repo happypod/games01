@@ -8,7 +8,7 @@ import { ERROR_CODES, REQUIRED_ASSET_IDS, validateManifest } from './validate-ma
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const SOURCE_GAME_DIR = path.join(REPO_ROOT, 'src/assets/game')
-const SOURCE_PROMPT = path.join(REPO_ROOT, 'docs/assets/prompts/placeholder-assets.md')
+const SOURCE_PROMPTS_DIR = path.join(REPO_ROOT, 'docs/assets/prompts')
 
 function findEntry(manifest, id = 'hero.ashen-knight.default') {
   const entry = manifest.assets.find((candidate) => candidate.id === id)
@@ -24,12 +24,12 @@ async function runFixture(mutate) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'irpg-406-assets-'))
   try {
     const gameDir = path.join(root, 'src/assets/game')
-    const promptPath = path.join(root, 'docs/assets/prompts/placeholder-assets.md')
+    const promptsDir = path.join(root, 'docs/assets/prompts')
     await mkdir(path.dirname(gameDir), { recursive: true })
-    await mkdir(path.dirname(promptPath), { recursive: true })
+    await mkdir(path.dirname(promptsDir), { recursive: true })
     await Promise.all([
       cp(SOURCE_GAME_DIR, gameDir, { recursive: true }),
-      cp(SOURCE_PROMPT, promptPath),
+      cp(SOURCE_PROMPTS_DIR, promptsDir, { recursive: true }),
     ])
 
     const manifestPath = path.join(gameDir, 'manifest.json')
@@ -45,6 +45,12 @@ async function runFixture(mutate) {
 test('checked-in manifest contains the exact inventory and validates', async () => {
   const result = await validateManifest({ repoRoot: REPO_ROOT })
   assert.equal(REQUIRED_ASSET_IDS.length, 27)
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.valid, true)
+})
+
+test('isolated mutation fixture starts from a fully valid manifest', async () => {
+  const result = await runFixture(async () => {})
   assert.deepEqual(result.errors, [])
   assert.equal(result.valid, true)
 })
@@ -86,12 +92,12 @@ test('rejects realpath traversal through a directory link', async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'irpg-406-realpath-'))
   try {
     const gameDir = path.join(root, 'src/assets/game')
-    const promptPath = path.join(root, 'docs/assets/prompts/placeholder-assets.md')
+    const promptsDir = path.join(root, 'docs/assets/prompts')
     await mkdir(path.dirname(gameDir), { recursive: true })
-    await mkdir(path.dirname(promptPath), { recursive: true })
+    await mkdir(path.dirname(promptsDir), { recursive: true })
     await Promise.all([
       cp(SOURCE_GAME_DIR, gameDir, { recursive: true }),
-      cp(SOURCE_PROMPT, promptPath),
+      cp(SOURCE_PROMPTS_DIR, promptsDir, { recursive: true }),
     ])
 
     const outsideDir = path.join(root, 'outside')
@@ -133,6 +139,44 @@ test('compares declared bytes to the real file', async () => {
     findEntry(manifest).bytes += 1
   })
   assert.equal(hasError(result, ERROR_CODES.BYTES_MISMATCH, 'hero.ashen-knight.default'), true)
+})
+
+test('requires final region art to be ready with a content hash', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    const entry = findEntry(manifest, 'region.ashen-border')
+    entry.status = 'placeholder'
+    delete entry.sha256
+  })
+  assert.equal(hasError(result, ERROR_CODES.INVALID_STATUS, 'region.ashen-border'), true)
+  assert.equal(hasError(result, ERROR_CODES.HASH_REQUIRED, 'region.ashen-border'), true)
+})
+
+test('compares declared region hashes to the real files', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'region.moonfall-pass').sha256 = '0'.repeat(64)
+  })
+  assert.equal(hasError(result, ERROR_CODES.HASH_MISMATCH, 'region.moonfall-pass'), true)
+})
+
+test('rejects shared source paths and hashes across final region art', async () => {
+  const sharedSource = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'region.moonfall-pass').src = findEntry(
+      manifest,
+      'region.ashen-border',
+    ).src
+  })
+  assert.equal(hasError(sharedSource, ERROR_CODES.DUPLICATE_SRC, 'region.moonfall-pass'), true)
+
+  const sharedHash = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'region.moonfall-pass').sha256 = findEntry(
+      manifest,
+      'region.ashen-border',
+    ).sha256
+  })
+  assert.equal(
+    hasError(sharedHash, ERROR_CODES.DUPLICATE_SHA256, 'region.moonfall-pass'),
+    true,
+  )
 })
 
 test('reads dimensions from the actual WebP header', async () => {

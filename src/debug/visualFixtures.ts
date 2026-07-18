@@ -10,6 +10,7 @@ export const VISUAL_FIXTURE_IDS = [
   'visual.combat.enemy-default',
   'visual.combat.boss-default',
   'visual.combat.fallback',
+  'visual.map.stage-frontier',
 ] as const
 
 export type VisualFixtureId = (typeof VISUAL_FIXTURE_IDS)[number]
@@ -37,12 +38,13 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506'
-  readonly stage: 1 | 5 | 10
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408'
+  readonly stage: 1 | 5 | 10 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
-  readonly captureTarget: '.dashboard' | '.battle'
+  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel'
   readonly failureRoute: 'none' | 'hero-and-enemy-corrupt'
+  readonly setupAction: 'none' | 'open-stage-map'
   readonly variants: readonly VisualVariantId[]
 }
 
@@ -89,6 +91,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     canonicalHash: 'fnv1a32-v1:3edb9452',
     captureTarget: '.dashboard',
     failureRoute: 'none',
+    setupAction: 'none',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.combat.enemy-default': {
@@ -100,6 +103,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     canonicalHash: 'fnv1a32-v1:eab1e0bd',
     captureTarget: '.battle',
     failureRoute: 'none',
+    setupAction: 'none',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.combat.boss-default': {
@@ -111,6 +115,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     canonicalHash: 'fnv1a32-v1:b725d877',
     captureTarget: '.battle',
     failureRoute: 'none',
+    setupAction: 'none',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.combat.fallback': {
@@ -122,6 +127,19 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     canonicalHash: 'fnv1a32-v1:026af434',
     captureTarget: '.dashboard',
     failureRoute: 'hero-and-enemy-corrupt',
+    setupAction: 'none',
+    variants: VISUAL_VARIANT_IDS,
+  },
+  'visual.map.stage-frontier': {
+    id: 'visual.map.stage-frontier',
+    label: '3지역 지도 · 스테이지 105 최전선',
+    ownerTicket: 'IRPG-408',
+    stage: 105,
+    seedKey: 'irpg-506:visual.map.stage-frontier:v1',
+    canonicalHash: 'fnv1a32-v1:f9a209ad',
+    captureTarget: '.stage-map-panel',
+    failureRoute: 'none',
+    setupAction: 'open-stage-map',
     variants: VISUAL_VARIANT_IDS,
   },
 }
