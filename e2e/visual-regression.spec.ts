@@ -5,6 +5,7 @@ import {
   VISUAL_FIXTURE_VARIANTS,
 } from '../src/debug/visualFixtures'
 import {
+  fitVisualCaptureTarget,
   observeBrowserErrors,
   openVisualFixture,
   verifyResponsiveVisualSurface,
@@ -20,6 +21,7 @@ for (const fixtureId of VISUAL_FIXTURE_IDS) {
       const target = await openVisualFixture(context, page, fixture, variant, testInfo)
 
       await verifyResponsiveVisualSurface(page, target, variant)
+      await fitVisualCaptureTarget(page, target)
       await expect(target).toHaveScreenshot(
         `${fixture.id.replaceAll('.', '-')}-${variant.id}.png`,
       )

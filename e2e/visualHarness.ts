@@ -62,6 +62,20 @@ async function waitForVisualResources(page: Page, target: Locator) {
   )).toBe(true)
 }
 
+async function alignVisualCaptureTarget(page: Page, target: Locator) {
+  await target.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    window.scrollTo({
+      top: window.scrollY + rect.top,
+      left: window.scrollX + rect.left,
+      behavior: 'instant',
+    })
+  })
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  }))
+}
+
 export async function openVisualFixture(
   context: BrowserContext,
   page: Page,
@@ -209,17 +223,7 @@ export async function openVisualFixture(
 
   // Tall locator screenshots otherwise inherit the last lazy-load scroll and can
   // capture a following sibling instead of the start of the requested surface.
-  await target.evaluate((element) => {
-    const rect = element.getBoundingClientRect()
-    window.scrollTo({
-      top: window.scrollY + rect.top,
-      left: window.scrollX + rect.left,
-      behavior: 'instant',
-    })
-  })
-  await page.evaluate(() => new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-  }))
+  await alignVisualCaptureTarget(page, target)
 
   await testInfo.attach('visual-fixture-metadata.json', {
     body: JSON.stringify({
@@ -294,4 +298,27 @@ export async function verifyResponsiveVisualSurface(
     )
     expect(movingElements).toEqual([])
   }
+}
+
+export async function fitVisualCaptureTarget(page: Page, target: Locator) {
+  const initial = await target.evaluate((element) => ({
+    height: element.getBoundingClientRect().height,
+    viewportHeight: window.innerHeight,
+  }))
+  if (initial.height > initial.viewportHeight) {
+    const viewport = page.viewportSize()
+    if (viewport === null) throw new Error('Visual capture requires a fixed viewport.')
+    await page.setViewportSize({
+      width: viewport.width,
+      height: Math.ceil(initial.height) + 2,
+    })
+  }
+
+  await alignVisualCaptureTarget(page, target)
+  const fitted = await target.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight }
+  })
+  expect(fitted.top).toBeGreaterThanOrEqual(-1)
+  expect(fitted.bottom).toBeLessThanOrEqual(fitted.viewportHeight + 1)
 }
