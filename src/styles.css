@@ -1211,6 +1211,8 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .tactical-companion__asset { width: 60px; }
 }
 
+[data-visual-fixture-id='visual.dashboard.one-view'] .debug-panel,
+[data-visual-fixture-id='visual.dashboard.one-view'] .dashboard-alerts,
 [data-visual-fixture-id='visual.dashboard.tactical-canvas'] .debug-panel,
 [data-visual-fixture-id='visual.dashboard.tactical-canvas'] .dashboard-alerts,
 [data-visual-fixture-id='visual.events.tactical-overlay'] .debug-panel,
