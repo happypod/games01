@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Test
+- Status: Done
 - Skill tags: ART-2D, FE-GAME, ENG-STATE, UX-FEEDBACK
 - Owner / Reviewer: unassigned / frontend, save, and accessibility reviewers
 
@@ -81,4 +81,5 @@
 - 완료: 컴포넌트·hook 회귀에서 pending 0~3, exact saved preview, 1,000 이상 비축약, presentation metadata fallback, pointer 중복 차단, 성공·거절·reader snapshot focus, 성공 revision `+1`, 재선택·reader·save-failed no-write를 검증했다.
 - 완료: commit `403f342`의 [Ubuntu visual run 29683912454](https://github.com/happypod/games01/actions/runs/29683912454)에서 named fixture 12개 × 4 variants = canonical 48/48과 같은 runner 3회 반복 144/144가 통과했다. artifact `irpg-506-ubuntu-baselines` ID `8441503083`, ZIP SHA-256 `609b282cbe19692a150d1bc94a238033f0fee0b52c3e4c1a787d6cbd58ca9719`, 13,417,695B, 만료일 2026-08-02를 확인했다.
 - 완료: artifact PNG 48개를 정상 decode하고 저장소 40개와 대조해 24개 byte-identical, 잘못 잘린 mobile battle과 panel 삽입 뒤 cards·combat log 16개 승인 갱신, 신규 event 8개 추가를 확인했다. event의 mobile·desktop × default·reduced 8개는 heading·pending 3개·고유 art 또는 `fallback.card`·두 선택지·panel 하단을 포함하고 sibling·overflow·decode 오류가 없다.
-- 대기: 승인한 48개 기준선을 체크인한 뒤 동일 SHA의 push·PR quality gate에서 생성이 아닌 canonical 비교를 통과한다.
+- 완료: baseline commit `5df51fe`의 [push quality run 29684456934](https://github.com/happypod/games01/actions/runs/29684456934)와 [PR quality run 29684458280](https://github.com/happypod/games01/actions/runs/29684458280)이 모두 성공했다. 두 run 모두 Vitest 35파일·285/285, 일반 Playwright 37/37, production 자산 Playwright 4/4와 체크인 canonical 48/48 비교를 통과했다.
+- 완료: 같은 SHA의 [visual run 29684456936](https://github.com/happypod/games01/actions/runs/29684456936)이 생성 48/48·반복 144/144를 다시 통과했다. metadata 포함 artifact ID는 `8441669470`, ZIP SHA-256은 `33c389f8678d457271268503caaf304eba4b57be7909119747bded76ed12aadc`, 크기는 13,502,498B다.

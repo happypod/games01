@@ -53,7 +53,7 @@ IRPG-206 기준선은 비동료·동료 각 10개 첫 원정→환생→stage 30
 
 IRPG-410 Done 기준선은 Vitest 32파일·243테스트, 자산 validator 30테스트, 신규 일반 Playwright 6테스트, production 자산 Playwright 4테스트와 named fixture 10개·canonical screenshot 40개다. bossVictory/defeat 전용 BigInt dedupe·queue 3·overflow·generation reset·pinned snapshot·reward non-mutation, focus trap/복원, reload/offline 비재생, 360px·200%·reduced-motion, corrupt result fallback, status 0→detail 1개 lazy-load를 포함하며 Ubuntu 40/40 비교와 같은 runner 3회 반복 120/120을 통과했다.
 
-IRPG-412 Test 기준선은 Vitest 35파일·285테스트, 자산 validator 32테스트, 일반 Playwright 37테스트, production 자산 Playwright 4테스트와 named fixture 12개·canonical screenshot 48개다. 저장된 원정 효과 preview·1,000 이상 비축약, 성공 revision +1·재선택/reader/save-failed no-write, rapid 중복 차단, 성공·거절·외부 snapshot focus, 카드별 요청 0→1→2→3, corrupt event `fallback.card`, 360px·200%·reduced-motion을 포함한다. 로컬 전체 게이트와 Ubuntu 48/48·3회 반복 144/144, 신규 event baseline 8개 수동 검토를 통과했고 체크인된 48개를 비교하는 push·PR quality gate만 남아 있다.
+IRPG-412 Done 기준선은 Vitest 35파일·285테스트, 자산 validator 32테스트, 일반 Playwright 37테스트, production 자산 Playwright 4테스트와 named fixture 12개·canonical screenshot 48개다. 저장된 원정 효과 preview·1,000 이상 비축약, 성공 revision +1·재선택/reader/save-failed no-write, rapid 중복 차단, 성공·거절·외부 snapshot focus, 카드별 요청 0→1→2→3, corrupt event `fallback.card`, 360px·200%·reduced-motion을 포함한다. Ubuntu 48/48·3회 반복 144/144, 신규 event baseline 8개 수동 검토와 체크인된 48개의 push·PR quality gate를 모두 통과했다.
 
 ## 3. 요구사항 추적
 
@@ -171,6 +171,6 @@ npm run test:e2e:visual
 - IRPG-507 Playwright에서 stage 300·1x/100x·자원·offline·잘못된 경계를 적용하고 5초 대기·pagehide·reload·reset 뒤 legacy/A/B raw byte 불변을 확인했다. 일반 흐름 13/13과 production debug 부재·자산 흐름 3/3이 통과했다.
 - IRPG-411 Playwright에서 최근 20개·6종·filter·focus·reload/offline 비재생·200% 확대를 3/3 검증했다. 최종 로컬 `npm run verify`는 Vitest 169/169, 일반 Playwright 29/29, production 자산 3/3을 통과했고 Ubuntu quality push·PR와 canonical 32개·3회 반복도 성공했다.
 - IRPG-410 Playwright에서 nonmodal 승패 상태·정확한 보상/복귀 snapshot·queue pin·reload/offline 비재생·fallback·200% 확대를 6/6 검증했다. 최종 로컬 `npm run verify`는 Vitest 243/243, 일반 Playwright 35/35, production 자산 4/4을 통과했고 GitHub push/PR quality run `29659072476`·`29659074246`, Ubuntu canonical 40/40·3회 반복 120/120 run `29659072473`도 성공했다.
-- IRPG-412 Playwright에서 실제 자동 전투·강화 UI의 첫 이벤트 rapid 중복 입력→보상·revision·카드 제거 1회→reload 유지와 카드별 lazy request·fallback·keyboard focus·200% 확대를 2/2 검증했다. 로컬 `npm run verify`는 Vitest 285/285, 일반 Playwright 37/37, production 자산 4/4을 통과했고 Ubuntu [visual run 29683912454](https://github.com/happypod/games01/actions/runs/29683912454)는 canonical 48/48·3회 반복 144/144와 artifact `8441503083` 업로드를 완료했다. 체크인된 48개를 비교하는 push·PR quality gate는 Test 단계에 남아 있다.
+- IRPG-412 Playwright에서 실제 자동 전투·강화 UI의 첫 이벤트 rapid 중복 입력→보상·revision·카드 제거 1회→reload 유지와 카드별 lazy request·fallback·keyboard focus·200% 확대를 2/2 검증했다. baseline commit `5df51fe`의 GitHub [push quality 29684456934](https://github.com/happypod/games01/actions/runs/29684456934)·[PR quality 29684458280](https://github.com/happypod/games01/actions/runs/29684458280)는 Vitest 285/285, 일반 Playwright 37/37, production 자산 4/4, 체크인 canonical 48/48을 통과했다. [visual run 29684456936](https://github.com/happypod/games01/actions/runs/29684456936)은 생성 48/48·3회 반복 144/144와 metadata artifact `8441669470` 업로드를 완료했다.
 
 이 스크린샷은 자동 생성된 검증 증거이며 미술 방향의 최종 승인을 뜻하지 않는다.
