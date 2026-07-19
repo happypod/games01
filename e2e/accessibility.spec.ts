@@ -38,7 +38,7 @@ test.describe('360px keyboard and screenreader semantics', () => {
     const browserErrors: string[] = []
     collectBrowserErrors(page, browserErrors)
     await context.clock.setFixedTime(STARTED_AT)
-    await page.goto('/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
 
     const dimensions = await page.evaluate(() => ({
@@ -153,7 +153,7 @@ test.describe('zoom and reduced motion', () => {
     const browserErrors: string[] = []
     collectBrowserErrors(page, browserErrors)
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    await page.goto('/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: '꺼지지 않는 원정' })).toBeVisible()
     await page.evaluate(() => {
       document.documentElement.style.zoom = '2'

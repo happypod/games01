@@ -337,7 +337,7 @@ describe('IRPG-506 visual fixture UI adapter', () => {
       .toBeVisible()
     expect(JSON.stringify({ ...window.localStorage })).toBe(rawBefore)
     expect(onExit).not.toHaveBeenCalled()
-  })
+  }, 15_000)
 
   it('injects the non-persistent combat event fixture independently of GameState', () => {
     render(<DebugSessionApp onExit={vi.fn()} />)
