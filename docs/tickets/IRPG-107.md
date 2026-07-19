@@ -73,7 +73,7 @@ Draft를 Ready로 옮기기 전에 발동 milestone, 첫 이벤트 정의 3개, 
 - 환생 확인 문구는 `환생하면 대기 중인 원정 이벤트 {N}개가 보상 없이 사라집니다.`이며 성공하면 새 run의 mask·pending·overflow를 0으로 초기화한다. `stats.prestiges === Number.MAX_SAFE_INTEGER`에서는 동일 run ID 재사용과 보상 복제를 막기 위해 환생을 거부한다.
 - 저장은 schema 5로 올린다. schema 1~4 migration은 현재 `stats.prestiges`를 run으로 복사하고 `highestStage` 이하 milestone을 모두 소비한 mask, 빈 pending, overflow 0으로 만든다. 소급 이벤트는 지급하지 않는다. malformed schema 5는 전체 저장을 거부해 다른 A/B slot으로 fallback하며 future schema downgrade overwrite는 계속 차단한다.
 - 정확히 한 번 지급의 범위는 선택된 로컬 A/B 저장 계보다. 과거 portable backup 복원은 pending과 이미 지급된 자원을 함께 rollback할 수 있으며 서버 권위 중복 방지는 범위 밖이다.
-- Ready balance fixture는 선택 보류 경로의 기존 exact timing, 첫 두 이벤트 4개 선택 조합, 10개 seed × 솔로/동료 paired session을 고정한다. 모든 첫 환생은 30~45분, 재도달은 50~70%, 60분 내 20/20 도달, 전투 RNG 무변경과 반복 hash 일치를 통과해야 한다. 70%를 넘으면 회복률을 5%p 단위로 먼저 낮추고 이후 골드 계수를 낮춘다.
+- Ready balance fixture는 선택 보류 경로의 기존 exact timing, 첫 두 이벤트 4개 선택 조합, 10개 seed × 솔로/동료 paired session을 고정한다. 솔로·동료 각 cohort의 첫 환생 중앙값은 30~45분, 개별 session은 60분 안에 20/20 도달, 모든 재도달 profile은 50~70%를 통과해야 한다. 전투 RNG 무변경과 반복 hash 일치도 함께 고정한다. 재도달 profile 하나라도 70%를 넘으면 회복률을 5%p 단위로 먼저 낮추고 이후 골드 계수를 낮춘다.
 
 legacy migration은 현재 환생 회차를 `runPrestige`로 설정하고 `highestStage` 이하의 milestone bit를 보상 없이 소비된 상태로 초기화한다. 따라서 업데이트 전에 통과한 milestone을 소급 지급하거나 낮은 stage를 재선택해 다시 여는 일이 없다.
 
