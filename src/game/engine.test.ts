@@ -22,6 +22,7 @@ import {
   MAX_BOSS_MILESTONE_MASK,
   claimBossMilestone,
 } from './bossMilestones'
+import { MAX_EXPEDITION_MILESTONE_MASK } from './expedition'
 import {
   getCompanionDamage,
   getCompanionTrainingCost,
@@ -36,6 +37,11 @@ function createUpperBoundaryState(): GameState {
   const state = createInitialState(0, 0x1a2b3c4d)
   return {
     ...state,
+    expeditionEvents: {
+      ...state.expeditionEvents,
+      runPrestige: Number.MAX_SAFE_INTEGER,
+      milestoneMask: MAX_EXPEDITION_MILESTONE_MASK,
+    },
     rng: { ...state.rng, draws: Number.MAX_SAFE_INTEGER },
     player: {
       level: 999,
@@ -87,7 +93,7 @@ describe('game engine', () => {
   it('creates a valid first battle', () => {
     const state = createInitialState(1234)
 
-    expect(state.schemaVersion).toBe(4)
+    expect(state.schemaVersion).toBe(5)
     expect(state.claimedBossMilestoneMask).toBe(0)
     expect(state.lastSavedAt).toBe(1234)
     expect(state.rng).toMatchObject({ algorithm: 'xorshift32-v1', draws: 0 })
@@ -665,10 +671,8 @@ describe('game engine', () => {
     expect(isGameState(result.state)).toBe(true)
 
     const prestiged = performPrestige(initial)
-    expect(prestiged.success).toBe(true)
-    expect(prestiged.state.player.essence).toBe(Number.MAX_SAFE_INTEGER)
-    expect(prestiged.state.stats.prestiges).toBe(Number.MAX_SAFE_INTEGER)
-    expect(isGameState(prestiged.state)).toBe(true)
+    expect(prestiged.success).toBe(false)
+    expect(prestiged.state).toBe(initial)
 
     const levelReady = createInitialState(0, 0x11223344)
     levelReady.player.xp = getXpToNextLevel(levelReady.player.level) - 1
@@ -682,6 +686,10 @@ describe('game engine', () => {
     const fragile = createInitialState(0, 0x55667788)
     const defeatBoundary: GameState = {
       ...fragile,
+      expeditionEvents: {
+        ...fragile.expeditionEvents,
+        milestoneMask: MAX_EXPEDITION_MILESTONE_MASK,
+      },
       player: { ...fragile.player, currentHp: 1 },
       battle: {
         ...fragile.battle,

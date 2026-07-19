@@ -2,6 +2,9 @@ import type {
   CompanionId,
   EnemyAssetId,
   EnemyDefinition,
+  ExpeditionChoiceId,
+  ExpeditionDefinitionId,
+  ExpeditionDefinitionIdV1,
   ProgressionCardAssetId,
   SkillId,
   UpgradeId,
@@ -17,6 +20,35 @@ export const ENEMY_HP_GROWTH = 1.15
 export const FIRST_PRESTIGE_HP_GROWTH = 1.188
 export const PRESTIGE_PACING_TAPER_STAGE = 60
 export const COMPANION_ATTACK_INTERVAL_MS = 3_000
+export const EXPEDITION_DEFINITION_VERSION_V1 = 1 as const
+export const EXPEDITION_DEFINITION_VERSION = EXPEDITION_DEFINITION_VERSION_V1
+export const EXPEDITION_MILESTONE_INTERVAL = 10
+export const EXPEDITION_MILESTONE_COUNT = 30
+export const MAX_PENDING_EXPEDITION_EVENTS = 3
+
+export interface ExpeditionChoiceDefinition {
+  readonly id: ExpeditionChoiceId
+  readonly label: string
+}
+
+export interface ExpeditionEventDefinition {
+  readonly id: ExpeditionDefinitionId
+  readonly assetId: ExpeditionDefinitionId
+  readonly version: typeof EXPEDITION_DEFINITION_VERSION_V1
+  readonly name: string
+  readonly description: string
+  readonly goldCoefficient: number
+  readonly recoveryPercent: number
+  readonly choices: readonly [ExpeditionChoiceDefinition, ExpeditionChoiceDefinition]
+}
+
+function freezeExpeditionEventDefinition(
+  definition: ExpeditionEventDefinition,
+): ExpeditionEventDefinition {
+  for (const choice of definition.choices) Object.freeze(choice)
+  Object.freeze(definition.choices)
+  return Object.freeze(definition)
+}
 
 export interface UpgradeDefinition {
   id: UpgradeId
@@ -119,6 +151,53 @@ export const COMPANION_DEFINITIONS: Record<CompanionId, CompanionDefinition> = {
     damageRatioPerRank: 0.05,
   },
 }
+
+export const EXPEDITION_EVENT_DEFINITIONS_V1: Readonly<Record<
+  ExpeditionDefinitionIdV1,
+  ExpeditionEventDefinition
+>> = Object.freeze({
+  'event.ember-shrine': freezeExpeditionEventDefinition({
+    id: 'event.ember-shrine',
+    assetId: 'event.ember-shrine',
+    version: EXPEDITION_DEFINITION_VERSION_V1,
+    name: '불씨 성소',
+    description: '꺼지지 않는 불씨 앞에서 공물과 축복 중 하나를 고릅니다.',
+    goldCoefficient: 3,
+    recoveryPercent: 5,
+    choices: [
+      { id: 'gold', label: '공물을 챙긴다' },
+      { id: 'recovery', label: '불씨의 축복을 받는다' },
+    ],
+  }),
+  'event.wandering-smith': freezeExpeditionEventDefinition({
+    id: 'event.wandering-smith',
+    assetId: 'event.wandering-smith',
+    version: EXPEDITION_DEFINITION_VERSION_V1,
+    name: '떠돌이 대장장이',
+    description: '떠돌이 장인이 고철 매입과 응급 수리를 제안합니다.',
+    goldCoefficient: 5,
+    recoveryPercent: 5,
+    choices: [
+      { id: 'gold', label: '고철을 넘긴다' },
+      { id: 'recovery', label: '갑주를 수리한다' },
+    ],
+  }),
+  'event.ash-camp': freezeExpeditionEventDefinition({
+    id: 'event.ash-camp',
+    assetId: 'event.ash-camp',
+    version: EXPEDITION_DEFINITION_VERSION_V1,
+    name: '잿빛 야영지',
+    description: '버려진 보급품을 챙기거나 모닥불 곁에서 숨을 고릅니다.',
+    goldCoefficient: 2,
+    recoveryPercent: 5,
+    choices: [
+      { id: 'gold', label: '보급품을 챙긴다' },
+      { id: 'recovery', label: '모닥불 곁에서 쉰다' },
+    ],
+  }),
+})
+
+export const EXPEDITION_EVENT_DEFINITIONS = EXPEDITION_EVENT_DEFINITIONS_V1
 
 const ENEMY_NAMES = [
   '잿빛 슬라임',

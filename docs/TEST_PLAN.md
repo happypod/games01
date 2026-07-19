@@ -27,6 +27,8 @@
 | 시각 회귀 | 구현 | Ubuntu 24.04·고정 Chromium/font/time/seed에서 10 named fixture × 4 viewport/motion variant, state/event hash, overflow·motion, screenshot diff artifact |
 | 장시간 soak | 구현 | 1x·10x·100x의 8·16·24시간 전체 상태·누적 report, safe integer·HP·stage·RNG·정체·고정 fixture |
 
+IRPG-107 Verify 기준선은 Vitest 34파일·274테스트다. schema5 run-pinned marker, markerless schema5 literal-v1 transition, frozen v1 shuffle golden hash, 10~300 milestone, pending 3·overflow 27 상한, 선택 transaction·중복 no-write, MAX_SAFE, schema1~4 migration, 빈 queue·pending-only future A/B·legacy·portable fence, portable rollback, split/offline·24시간 soak를 포함한다. 4개 선택 조합 × 10 seed × 솔로/동료 80 paired session은 80/80 통과했고 첫 환생 cohort 중앙값 1,863.5~2,013.5초, 재도달 ratio 54.3562~69.9886%, aggregate hash `b2a62828`을 기록했다. 회복률 5%·5%·5%의 각 +5%p 인접 후보는 79/80로 실패해 승인 격자 경계를 확인했다.
+
 IRPG-303 완료 기준선은 Vitest 파일 5개, 테스트 28개다. 전체 coverage는 statements 93.42%, branches 87.95%, functions 97.91%, lines 95.60%다. IRPG-504는 별도의 Playwright 전체 흐름 1개를 추가한다.
 
 IRPG-108 기준선은 Vitest 12파일·85테스트와 Playwright 8테스트다. 전체 coverage는 statements 94.12%, branches 89.81%, functions 100%, lines 95.39%이며, active companion 1x·10x·100x soak와 schema2→3 저장 회귀를 포함한다.
@@ -65,6 +67,7 @@ IRPG-410 Done 기준선은 Vitest 32파일·243테스트, 자산 validator 30테
 | 스테이지·패배 | 선택 범위·장시간 엔진, IRPG-410 패배 art·복귀/최고점 snapshot E2E | 장기 플레이 체감 확인 |
 | 환생 유지·초기화 | 영구·임시 필드 비교 | 확인 대화상자와 예상 보상 |
 | 환생 후 재도달 | 비동료·동료 20개 paired ratio 50~70%, exact timing·상태 hash·RNG, A/B 600초 중간 저장 재개 | IRPG-205 외부 사용자 체감 검증 |
+| 결정론적 원정 이벤트 | v1 shuffle golden hash, 30-bit prefix, pending 3·overflow, 320개 선택 RNG 불변, 중복 no-write, 환생 폐기·MAX 거부 | IRPG-412 카드 UI의 실제 keyboard·reload 흐름 |
 | 저장 복구 | A/B fallback·부분 쓰기·미래 포맷·v1 migration | 실제 저장 차단 환경 |
 | 저장 백업 | checksum·크기·schema·stale revision·read-back rollback, Playwright 다운로드·취소·복원 | 다른 기기 파일 이동 |
 | 오프라인 중복 방지 | 같은 시각 재부팅, Playwright 닫기·재접속·재새로고침 | 탭 숨김과 OS 절전 복귀 |
@@ -103,6 +106,7 @@ IRPG-410 Done 기준선은 Vitest 32파일·243테스트, 자산 validator 30테
 - localStorage 읽기·쓰기 예외
 - A/B 슬롯 한쪽 손상, revision 동률·충돌, migration 실패
 - 미래 envelope·state schema, schema1·2·3 A/B·portable migration, 잘못된 동료 ID·rank, 잘못된 RNG algorithm/state/draws, revision overflow, 과대 쿨다운 정규화, 저장소 read/write/remove 예외
+- schema4→5 무소급 migration, stage/highest 불일치, 비연속 milestone mask, pending 0~3, overflow 0~27, future definitionVersion, resolved effect 변조, portable 과거 계보 rollback
 
 ## 5. 수동 브라우저 체크리스트
 

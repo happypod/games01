@@ -2,9 +2,15 @@ import { describe, expect, it } from 'vitest'
 import legacySaveV1 from './fixtures/legacy-save-v1.json'
 import legacySaveV2 from './fixtures/legacy-save-v2.json'
 import legacySaveV3 from './fixtures/legacy-save-v3.json'
+import legacySaveV4 from './fixtures/legacy-save-v4.json'
 import { MAX_BOSS_MILESTONE_MASK } from './bossMilestones'
 import { getEnemyDefinition } from './content'
 import { advanceGame, createInitialState } from './engine'
+import {
+  createExpeditionPendingEvent,
+  createInitialExpeditionEventState,
+  resolveReachedExpeditionMilestones,
+} from './expedition'
 import {
   LEGACY_SAVE_KEY,
   LEGACY_SAVE_FORMAT_VERSION,
@@ -74,9 +80,31 @@ function withGold(timestamp: number, gold: number) {
 }
 
 function asLegacySchema3(state = createInitialState(1_000, 0x207207)) {
-  const { claimedBossMilestoneMask: _claimedBossMilestoneMask, ...legacy } = structuredClone(state)
+  const {
+    claimedBossMilestoneMask: _claimedBossMilestoneMask,
+    expeditionEvents: _expeditionEvents,
+    ...legacy
+  } = structuredClone(state)
   void _claimedBossMilestoneMask
+  void _expeditionEvents
   return { ...legacy, schemaVersion: 3 as const }
+}
+
+function asLegacySchema4(state = createInitialState(1_000, 0x107107)) {
+  const { expeditionEvents: _expeditionEvents, ...legacy } = structuredClone(state)
+  void _expeditionEvents
+  return { ...legacy, schemaVersion: 4 as const }
+}
+
+function migratedExpeditionEvents(highestStage: number, runPrestige: number) {
+  const milestoneCount = Math.min(30, Math.floor(Math.min(300, highestStage) / 10))
+  return {
+    definitionVersion: 1,
+    runPrestige,
+    milestoneMask: 2 ** milestoneCount - 1,
+    pending: [],
+    overflowCount: 0,
+  }
 }
 
 function createStageTenBossReadyState(now: number) {
@@ -86,6 +114,7 @@ function createStageTenBossReadyState(now: number) {
   state.battle.stage = 10
   state.battle.highestStage = 10
   state.battle.enemyHp = 1
+  state.expeditionEvents = { ...state.expeditionEvents, milestoneMask: 1 }
   return state
 }
 
@@ -203,6 +232,7 @@ describe('A/B game persistence', () => {
       schemaVersion: migrated.schemaVersion,
       lastSavedAt: migrated.lastSavedAt,
       claimedBossMilestoneMask: migrated.claimedBossMilestoneMask,
+      expeditionEvents: structuredClone(migrated.expeditionEvents),
       rng: { ...migrated.rng },
       player: {
         companion: { ...migrated.player.companion },
@@ -313,7 +343,7 @@ describe('A/B game persistence', () => {
     expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)?.revision).toBe(10)
   })
 
-  it('migrates the checked-in v1 fixture to a verified schema4 envelope with a stable RNG', () => {
+  it('migrates the checked-in v1 fixture to a verified schema5 envelope with a stable RNG', () => {
     const storage = new MemoryStorage()
     storage.setItem(LEGACY_SAVE_KEY, JSON.stringify(legacySaveV1))
 
@@ -324,6 +354,7 @@ describe('A/B game persistence', () => {
     expect(migratedFields).toEqual({
       lastSavedAt: legacySaveV1.lastSavedAt,
       claimedBossMilestoneMask: 0,
+      expeditionEvents: migratedExpeditionEvents(legacySaveV1.battle.highestStage, 0),
       player: {
         ...legacySaveV1.player,
         companion: { id: null, rank: 0 },
@@ -376,7 +407,7 @@ describe('A/B game persistence', () => {
     expect(parseSave(JSON.stringify(reordered))?.rng.seed).toBe(canonical?.rng.seed)
   })
 
-  it('reads a v2/schema1 envelope without writing and checkpoints schema4 only as writer', () => {
+  it('reads a v2/schema1 envelope without writing and checkpoints schema5 only as writer', () => {
     const storage = new MemoryStorage()
     const legacyEnvelope = JSON.stringify({
       formatVersion: LEGACY_SAVE_FORMAT_VERSION,
@@ -409,6 +440,10 @@ describe('A/B game persistence', () => {
       ...legacySaveV2,
       schemaVersion: SAVE_VERSION,
       claimedBossMilestoneMask: 0,
+      expeditionEvents: migratedExpeditionEvents(
+        legacySaveV2.battle.highestStage,
+        legacySaveV2.stats.prestiges,
+      ),
       rng: legacySaveV2.rng,
       player: {
         ...legacySaveV2.player,
@@ -421,7 +456,7 @@ describe('A/B game persistence', () => {
     })
   })
 
-  it('reads a format3/schema2 A/B winner and checkpoints schema4 only as writer', () => {
+  it('reads a format3/schema2 A/B winner and checkpoints schema5 only as writer', () => {
     const storage = new MemoryStorage()
     const legacyEnvelope = JSON.stringify({
       formatVersion: SAVE_FORMAT_VERSION,
@@ -497,6 +532,10 @@ describe('A/B game persistence', () => {
       schemaVersion: SAVE_VERSION,
       lastSavedAt: legacySaveV3.lastSavedAt,
       claimedBossMilestoneMask: 2 ** 29 - 1,
+      expeditionEvents: migratedExpeditionEvents(
+        legacySaveV3.battle.highestStage,
+        legacySaveV3.stats.prestiges,
+      ),
       rng: legacySaveV3.rng,
       player: {
         gold: legacySaveV3.player.gold,
@@ -554,6 +593,71 @@ describe('A/B game persistence', () => {
         rng: current.rng,
         player: { companion: { id: 'emberFox', rank: 3 } },
         battle: { companionCooldownMs: 1_500 },
+      },
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(legacyEnvelope)
+  })
+
+  it('migrates the checked-in schema4 fixture without retroactive events', () => {
+    expect(parseSave(JSON.stringify(legacySaveV4))).toMatchObject({
+      schemaVersion: SAVE_VERSION,
+      lastSavedAt: legacySaveV4.lastSavedAt,
+      claimedBossMilestoneMask: legacySaveV4.claimedBossMilestoneMask,
+      expeditionEvents: {
+        runPrestige: legacySaveV4.stats.prestiges,
+        milestoneMask: 2 ** 29 - 1,
+        pending: [],
+        overflowCount: 0,
+      },
+      rng: legacySaveV4.rng,
+      player: {
+        gold: legacySaveV4.player.gold,
+        companion: legacySaveV4.player.companion,
+      },
+      battle: {
+        highestStage: legacySaveV4.battle.highestStage,
+        companionCooldownMs: legacySaveV4.battle.companionCooldownMs,
+      },
+      stats: legacySaveV4.stats,
+    })
+  })
+
+  it('reads a schema4 A/B winner in memory and checkpoints schema5 only as writer', () => {
+    const storage = new MemoryStorage()
+    const current = createInitialState(1_000, 0x0107_0005)
+    current.claimedBossMilestoneMask = 1
+    current.battle.highestStage = 30
+    const legacyState = asLegacySchema4(current)
+    const legacyEnvelope = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 31,
+      savedAt: legacyState.lastSavedAt,
+      state: legacyState,
+    })
+    storage.setItem(SAVE_SLOT_A_KEY, legacyEnvelope)
+
+    expect(bootstrapGame(storage, legacyState.lastSavedAt, 'reader')).toMatchObject({
+      revision: 31,
+      saveBlocked: false,
+      state: {
+        schemaVersion: SAVE_VERSION,
+        claimedBossMilestoneMask: 1,
+        expeditionEvents: migratedExpeditionEvents(30, 0),
+      },
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(legacyEnvelope)
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBeNull()
+
+    expect(bootstrapGame(storage, legacyState.lastSavedAt, 'writer')).toMatchObject({
+      revision: 32,
+      saveHealthy: true,
+    })
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)).toMatchObject({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 32,
+      state: {
+        schemaVersion: SAVE_VERSION,
+        expeditionEvents: migratedExpeditionEvents(30, 0),
       },
     })
     expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(legacyEnvelope)
@@ -653,6 +757,31 @@ describe('A/B game persistence', () => {
     expect(second.state.stats.goldEarned - replayCheckpoint.stats.goldEarned).toBe(
       repeatedBossGold,
     )
+  })
+
+  it('checkpoints a stage 10 expedition offer identically during offline bootstrap', () => {
+    const storage = new MemoryStorage()
+    const initial = createInitialState(1_000, 0x0107_0010)
+    initial.player.upgrades.weapon = 100
+    initial.player.skills.powerStrike = 0
+    initial.battle.stage = 9
+    initial.battle.highestStage = 9
+    initial.battle.enemyHp = 1
+    const expected = advanceGame(initial, 1_000).state
+
+    expect(saveGameAtRevision(storage, initial, null)).toMatchObject({ revision: 1 })
+    const offline = bootstrapGame(storage, 2_000, 'writer')
+
+    expect(offline).toMatchObject({ revision: 2, saveHealthy: true })
+    expect(offline.state.rng).toEqual(expected.rng)
+    expect(offline.state.expeditionEvents).toEqual(expected.expeditionEvents)
+    expect(offline.state.expeditionEvents).toMatchObject({
+      milestoneMask: 1,
+      pending: [{ milestoneIndex: 0, definitionVersion: 1 }],
+      overflowCount: 0,
+    })
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)?.state.expeditionEvents)
+      .toEqual(expected.expeditionEvents)
   })
 
   it('replays a pre-claim fallback to the same post-claim gold and mask after rev2 corruption', () => {
@@ -778,6 +907,168 @@ describe('A/B game persistence', () => {
     expect(legacyStorage.getItem(SAVE_SLOT_A_KEY)).toBeNull()
   })
 
+  it('treats a higher expedition definition version as future and never overwrites it', () => {
+    const storage = new MemoryStorage()
+    const stable = createInitialState(100, 0x0107_5000)
+    expect(saveGameAtRevision(storage, stable, null)).toMatchObject({ revision: 1 })
+
+    const future = createInitialState(200, stable.rng.seed)
+    future.expeditionEvents = {
+      definitionVersion: 2,
+      runPrestige: 0,
+      milestoneMask: 0,
+      pending: [],
+      overflowCount: 0,
+    }
+    const futureRaw = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 2,
+      savedAt: future.lastSavedAt,
+      state: future,
+    })
+    storage.setItem(SAVE_SLOT_B_KEY, futureRaw)
+
+    const bootstrap = bootstrapGame(storage, 500, 'writer')
+    expect(bootstrap.saveBlocked).toBe(true)
+    expect(saveGameAtRevision(storage, createInitialState(500), 1)).toMatchObject({
+      status: 'blocked',
+    })
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBe(futureRaw)
+
+    const legacyStorage = new MemoryStorage()
+    const futureLegacyRaw = JSON.stringify(future)
+    legacyStorage.setItem(LEGACY_SAVE_KEY, futureLegacyRaw)
+    expect(bootstrapGame(legacyStorage, 500, 'writer').saveBlocked).toBe(true)
+    expect(saveGame(legacyStorage, createInitialState(500))).toBe(false)
+    expect(legacyStorage.getItem(LEGACY_SAVE_KEY)).toBe(futureLegacyRaw)
+    expect(legacyStorage.getItem(SAVE_SLOT_A_KEY)).toBeNull()
+
+    const pendingOnlyStorage = new MemoryStorage()
+    const pendingOnlyFuture = createInitialState(200, stable.rng.seed)
+    pendingOnlyFuture.battle.highestStage = 10
+    const pending = createExpeditionPendingEvent(pendingOnlyFuture.rng.seed, 0, 0, 100)
+    pendingOnlyFuture.expeditionEvents = {
+      ...pendingOnlyFuture.expeditionEvents,
+      milestoneMask: 1,
+      pending: [{ ...pending, definitionVersion: 2 }],
+    }
+    const pendingOnlyRaw = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 1,
+      savedAt: pendingOnlyFuture.lastSavedAt,
+      state: pendingOnlyFuture,
+    })
+    pendingOnlyStorage.setItem(SAVE_SLOT_A_KEY, pendingOnlyRaw)
+    expect(bootstrapGame(pendingOnlyStorage, 500, 'writer').saveBlocked).toBe(true)
+    expect(saveGameAtRevision(pendingOnlyStorage, createInitialState(500), null)).toMatchObject({
+      status: 'blocked',
+    })
+    expect(pendingOnlyStorage.getItem(SAVE_SLOT_A_KEY)).toBe(pendingOnlyRaw)
+  })
+
+  it('migrates transitional schema5 expedition ledgers without a marker as literal v1', () => {
+    const state = createInitialState(100, 0x0107_0005)
+    state.battle.highestStage = 10
+    state.expeditionEvents = {
+      ...state.expeditionEvents,
+      milestoneMask: 1,
+      pending: [createExpeditionPendingEvent(state.rng.seed, 0, 0, 100)],
+    }
+    const transitional = structuredClone(state) as unknown as {
+      expeditionEvents: Record<string, unknown>
+    }
+    delete transitional.expeditionEvents.definitionVersion
+
+    expect(parseSave(JSON.stringify(transitional))).toMatchObject({
+      expeditionEvents: {
+        definitionVersion: 1,
+        pending: [{ definitionVersion: 1 }],
+      },
+    })
+
+    const empty = structuredClone(createInitialState(100)) as unknown as {
+      expeditionEvents: Record<string, unknown>
+    }
+    delete empty.expeditionEvents.definitionVersion
+    expect(parseSave(JSON.stringify(empty))).toMatchObject({
+      expeditionEvents: { definitionVersion: 1, pending: [] },
+    })
+
+    const storage = new MemoryStorage()
+    const transitionalRaw = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 7,
+      savedAt: state.lastSavedAt,
+      state: transitional,
+    })
+    storage.setItem(SAVE_SLOT_A_KEY, transitionalRaw)
+    const reader = bootstrapGame(storage, state.lastSavedAt, 'reader')
+    expect(reader).toMatchObject({
+      revision: 7,
+      state: { expeditionEvents: { definitionVersion: 1 } },
+    })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBe(transitionalRaw)
+
+    const writer = bootstrapGame(storage, state.lastSavedAt, 'writer')
+    expect(writer.saveHealthy).toBe(true)
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)).toMatchObject({
+      revision: 8,
+      state: { expeditionEvents: { definitionVersion: 1 } },
+    })
+  })
+
+  it('treats zero and non-numeric expedition markers as malformed rather than future', () => {
+    for (const definitionVersion of [0, '1']) {
+      const storage = new MemoryStorage()
+      expect(saveGameAtRevision(storage, withGold(100, 77), null)).toMatchObject({ revision: 1 })
+      const malformed = withGold(200, 999)
+      malformed.expeditionEvents = {
+        ...malformed.expeditionEvents,
+        definitionVersion: definitionVersion as number,
+      }
+      const malformedRaw = JSON.stringify({
+        formatVersion: SAVE_FORMAT_VERSION,
+        revision: 2,
+        savedAt: malformed.lastSavedAt,
+        state: malformed,
+      })
+      storage.setItem(SAVE_SLOT_B_KEY, malformedRaw)
+
+      expect(bootstrapGame(storage, 200, 'reader')).toMatchObject({
+        revision: 1,
+        recoveredFromInvalidSave: true,
+        saveBlocked: false,
+        state: { player: { gold: 77 } },
+      })
+      expect(storage.getItem(SAVE_SLOT_B_KEY)).toBe(malformedRaw)
+    }
+  })
+
+  it('falls back when the newest schema5 slot has stage above highestStage', () => {
+    const storage = new MemoryStorage()
+    const stable = withGold(100, 77)
+    expect(saveGameAtRevision(storage, stable, null)).toMatchObject({ revision: 1 })
+
+    const malformed = withGold(200, 999)
+    malformed.battle.stage = 10
+    malformed.battle.highestStage = 9
+    const malformedRaw = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 2,
+      savedAt: malformed.lastSavedAt,
+      state: malformed,
+    })
+    storage.setItem(SAVE_SLOT_B_KEY, malformedRaw)
+
+    const recovered = bootstrapGame(storage, 200, 'reader')
+    expect(recovered).toMatchObject({
+      revision: 1,
+      recoveredFromInvalidSave: true,
+      state: { player: { gold: 77 } },
+    })
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBe(malformedRaw)
+  })
+
   it('preserves a valid A/B winner when a future raw legacy save also exists', () => {
     const storage = new MemoryStorage()
     expect(saveGameAtRevision(storage, withGold(100, 77), null)).toMatchObject({ revision: 1 })
@@ -872,6 +1163,170 @@ describe('A/B game persistence', () => {
         claimedBossMilestoneMask: MAX_BOSS_MILESTONE_MASK,
       })),
     ).toMatchObject({ claimedBossMilestoneMask: MAX_BOSS_MILESTONE_MASK })
+  })
+
+  it('strictly validates schema5 expedition pending state without coercion', () => {
+    const state = createInitialState(100, 0x0107_0005)
+    state.battle.highestStage = 10
+    const first = createExpeditionPendingEvent(state.rng.seed, 0, 0, 100)
+    const second = createExpeditionPendingEvent(state.rng.seed, 0, 1, 100)
+    const third = createExpeditionPendingEvent(state.rng.seed, 0, 2, 100)
+    const fourth = createExpeditionPendingEvent(state.rng.seed, 0, 3, 100)
+    state.expeditionEvents = {
+      definitionVersion: 1,
+      runPrestige: 0,
+      milestoneMask: 1,
+      pending: [first],
+      overflowCount: 0,
+    }
+    expect(parseSave(JSON.stringify(state))).toEqual(state)
+
+    const goldChoice = first.resolvedChoices[0]!
+    const recoveryChoice = first.resolvedChoices[1]!
+    const invalidExpeditionStates: unknown[] = [
+      { ...state.expeditionEvents, definitionVersion: 0 },
+      { ...state.expeditionEvents, definitionVersion: '1' },
+      { ...state.expeditionEvents, runPrestige: 1 },
+      { ...state.expeditionEvents, milestoneMask: -1 },
+      { ...state.expeditionEvents, milestoneMask: 2 ** 30 },
+      { ...state.expeditionEvents, milestoneMask: 0 },
+      { ...state.expeditionEvents, pending: [first, second, third, fourth], milestoneMask: 15 },
+      { ...state.expeditionEvents, overflowCount: 31 },
+      { ...state.expeditionEvents, overflowCount: 2 },
+      { ...state.expeditionEvents, pending: [first, first] },
+      { ...state.expeditionEvents, pending: [second, first], milestoneMask: 3 },
+      { ...state.expeditionEvents, pending: [{ ...first, eventId: `${first.eventId}-spoofed` }] },
+      { ...state.expeditionEvents, pending: [{ ...first, definitionId: 'event.unknown' }] },
+      { ...state.expeditionEvents, pending: [{ ...first, definitionVersion: 2 }] },
+      { ...state.expeditionEvents, pending: [{ ...first, milestoneStage: 20 }] },
+      { ...state.expeditionEvents, pending: [{ ...first, maxHpAtOffer: 0 }] },
+      {
+        ...state.expeditionEvents,
+        pending: [{ ...first, resolvedChoices: [recoveryChoice, goldChoice] }],
+      },
+      {
+        ...state.expeditionEvents,
+        pending: [{
+          ...first,
+          resolvedChoices: [
+            { ...goldChoice, effect: { ...goldChoice.effect, amount: goldChoice.effect.amount + 1 } },
+            recoveryChoice,
+          ],
+        }],
+      },
+      {
+        ...state.expeditionEvents,
+        pending: [{
+          ...first,
+          resolvedChoices: [
+            { ...goldChoice, effect: { type: 'grantXp', amount: 1 } },
+            recoveryChoice,
+          ],
+        }],
+      },
+      {
+        ...state.expeditionEvents,
+        pending: [{
+          ...first,
+          resolvedChoices: [
+            goldChoice,
+            { ...recoveryChoice, effect: { ...recoveryChoice.effect, amount: Number.NaN } },
+          ],
+        }],
+      },
+    ]
+
+    for (const expeditionEvents of invalidExpeditionStates) {
+      expect(parseSave(JSON.stringify({ ...state, expeditionEvents }))).toBeNull()
+    }
+
+    const missing = { ...state } as Record<string, unknown>
+    delete missing.expeditionEvents
+    expect(parseSave(JSON.stringify(missing))).toBeNull()
+    expect(
+      parseSave(JSON.stringify({
+        ...state,
+        battle: { ...state.battle, highestStage: 300 },
+        expeditionEvents: {
+          definitionVersion: 1,
+          runPrestige: 0,
+          milestoneMask: MAX_BOSS_MILESTONE_MASK,
+          pending: [],
+          overflowCount: 27,
+        },
+      })),
+    ).toMatchObject({
+      expeditionEvents: {
+        milestoneMask: MAX_BOSS_MILESTONE_MASK,
+        pending: [],
+        overflowCount: 27,
+      },
+    })
+
+    const impossibleOverflow = createInitialState(100, 1)
+    impossibleOverflow.battle.highestStage = 40
+    impossibleOverflow.expeditionEvents = {
+      ...resolveReachedExpeditionMilestones(
+        createInitialExpeditionEventState(),
+        impossibleOverflow.rng.seed,
+        0,
+        40,
+        100,
+      ),
+      overflowCount: 0,
+    }
+    expect(parseSave(JSON.stringify(impossibleOverflow))).toBeNull()
+  })
+
+  it('falls back from malformed schema5 expedition data to the older valid A/B slot', () => {
+    const storage = new MemoryStorage()
+    const stable = withGold(100, 115)
+    const invalid = withGold(200, 999)
+    const pending = createExpeditionPendingEvent(invalid.rng.seed, 0, 0, 100)
+    invalid.expeditionEvents = {
+      definitionVersion: 1,
+      runPrestige: 0,
+      milestoneMask: 1,
+      pending: [{
+        ...pending,
+        resolvedChoices: [
+          {
+            ...pending.resolvedChoices[0]!,
+            effect: { type: 'grantGold', amount: 999 },
+          },
+          pending.resolvedChoices[1]!,
+        ],
+      }],
+      overflowCount: 0,
+    }
+    storage.setItem(
+      SAVE_SLOT_A_KEY,
+      JSON.stringify({
+        formatVersion: SAVE_FORMAT_VERSION,
+        revision: 1,
+        savedAt: stable.lastSavedAt,
+        state: stable,
+      }),
+    )
+    storage.setItem(
+      SAVE_SLOT_B_KEY,
+      JSON.stringify({
+        formatVersion: SAVE_FORMAT_VERSION,
+        revision: 2,
+        savedAt: invalid.lastSavedAt,
+        state: invalid,
+      }),
+    )
+
+    expect(bootstrapGame(storage, stable.lastSavedAt, 'reader')).toMatchObject({
+      recoveredFromInvalidSave: true,
+      revision: 1,
+      state: {
+        player: { gold: 115 },
+        expeditionEvents: { milestoneMask: 0, pending: [] },
+      },
+    })
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)).toBeNull()
   })
 
   it('falls back from an invalid schema4 mask without fabricating a zero-mask winner', () => {

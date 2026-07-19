@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { getEnemyDefinition } from '../src/game/content'
 import { advanceGame, createInitialState, recruitCompanion } from '../src/game/engine'
+import { deriveLegacyExpeditionMilestoneMask } from '../src/game/expedition'
 import { SAVE_FORMAT_VERSION, SAVE_SLOT_A_KEY } from '../src/game/persistence'
 
 const STARTED_AT = new Date('2026-07-18T06:00:00.000Z')
@@ -27,6 +28,10 @@ test('첫 보스 뒤 동료를 영입·훈련하고 협공과 저장을 확인�
   seeded.battle.stage = 11
   seeded.battle.highestStage = 11
   seeded.battle.enemyHp = getEnemyDefinition(11).maxHp
+  seeded.expeditionEvents = {
+    ...seeded.expeditionEvents,
+    milestoneMask: deriveLegacyExpeditionMilestoneMask(seeded.battle.highestStage),
+  }
   const serialized = JSON.stringify({
     formatVersion: SAVE_FORMAT_VERSION,
     revision: 1,

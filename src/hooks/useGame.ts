@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   advanceGame,
+  chooseExpeditionEvent as chooseExpeditionEventCommand,
   createInitialState,
   mergeCombatEventBatches,
   performPrestige,
@@ -24,6 +25,7 @@ import type {
   CombatEventCursor,
   CompanionId,
   CommandResult,
+  ExpeditionChoiceId,
   GameState,
   SkillId,
   UpgradeId,
@@ -61,6 +63,7 @@ export interface GameController {
   recruitCompanion: (id: CompanionId) => void
   trainCompanion: () => void
   chooseStage: (stage: number) => void
+  chooseExpeditionEvent: (eventId: string, choiceId: ExpeditionChoiceId) => void
   prestige: () => void
   reset: () => void
   restoreSave: (preview: SaveImportPreview) => { success: boolean; message: string }
@@ -364,6 +367,11 @@ export function useGame(): GameController {
     (stage: number) => runCommand((current) => selectStage(current, stage)),
     [runCommand],
   )
+  const chooseExpeditionEvent = useCallback(
+    (eventId: string, choiceId: ExpeditionChoiceId) =>
+      runCommand((current) => chooseExpeditionEventCommand(current, eventId, choiceId)),
+    [runCommand],
+  )
   const prestige = useCallback(
     () => runCommand((current) => performPrestige(current)),
     [runCommand],
@@ -456,6 +464,7 @@ export function useGame(): GameController {
     recruitCompanion,
     trainCompanion,
     chooseStage,
+    chooseExpeditionEvent,
     prestige,
     reset,
     restoreSave,

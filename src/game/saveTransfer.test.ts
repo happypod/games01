@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import portableSaveV1 from './fixtures/portable-save-v1.json'
 import legacySaveV2 from './fixtures/legacy-save-v2.json'
+import legacySaveV4 from './fixtures/legacy-save-v4.json'
 import { MAX_BOSS_MILESTONE_MASK } from './bossMilestones'
 import { getEnemyDefinition } from './content'
-import { advanceGame, createInitialState } from './engine'
+import { advanceGame, chooseExpeditionEvent, createInitialState } from './engine'
+import { createExpeditionPendingEvent } from './expedition'
 import { SAVE_SLOT_A_KEY, SAVE_SLOT_B_KEY, parseSaveEnvelope, saveGameAtRevision } from './persistence'
 import {
   MAX_PORTABLE_SAVE_BYTES,
@@ -46,12 +48,18 @@ function exportedState() {
   state.player.upgrades.weapon = 4
   state.battle.stage = 9
   state.battle.highestStage = 12
+  state.expeditionEvents = { ...state.expeditionEvents, milestoneMask: 1 }
   return state
 }
 
 function asLegacySchema3(state = exportedState()) {
-  const { claimedBossMilestoneMask: _claimedBossMilestoneMask, ...legacy } = structuredClone(state)
+  const {
+    claimedBossMilestoneMask: _claimedBossMilestoneMask,
+    expeditionEvents: _expeditionEvents,
+    ...legacy
+  } = structuredClone(state)
   void _claimedBossMilestoneMask
+  void _expeditionEvents
   return { ...legacy, schemaVersion: 3 as const }
 }
 
@@ -62,6 +70,7 @@ function createStageTenBossReadyState(now: number) {
   state.battle.stage = 10
   state.battle.highestStage = 10
   state.battle.enemyHp = 1
+  state.expeditionEvents = { ...state.expeditionEvents, milestoneMask: 1 }
   return state
 }
 
@@ -112,6 +121,85 @@ describe('portable save transfer', () => {
         battle: { companionCooldownMs: 2_000 },
       },
     })
+  })
+
+  it('round-trips and commits resolved pending expedition choices without rerolling them', () => {
+    const state = exportedState()
+    const pending = createExpeditionPendingEvent(state.rng.seed, 0, 0, 137)
+    state.expeditionEvents = {
+      definitionVersion: 1,
+      runPrestige: 0,
+      milestoneMask: 1,
+      pending: [pending],
+      overflowCount: 0,
+    }
+
+    const parsed = parsePortableSave(createPortableSave(state, 2_000)!)
+    expect(parsed).toMatchObject({
+      success: true,
+      preview: {
+        state: {
+          rng: state.rng,
+          expeditionEvents: {
+            runPrestige: 0,
+            milestoneMask: 1,
+            pending: [pending],
+            overflowCount: 0,
+          },
+        },
+      },
+    })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+
+    const storage = new MemoryStorage()
+    expect(commitPortableSave(storage, parsed.preview, null, 3_000)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+      state: { expeditionEvents: { pending: [pending] } },
+    })
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_A_KEY)!)).toMatchObject({
+      state: { rng: state.rng, expeditionEvents: { pending: [pending] } },
+    })
+  })
+
+  it('rolls back pending and gold together from an older portable backup, then pays once', () => {
+    const beforeChoice = exportedState()
+    beforeChoice.player.gold = 10
+    const pending = createExpeditionPendingEvent(beforeChoice.rng.seed, 0, 0, 137)
+    beforeChoice.expeditionEvents = {
+      definitionVersion: 1,
+      runPrestige: 0,
+      milestoneMask: 1,
+      pending: [pending],
+      overflowCount: 0,
+    }
+    const backup = parsePortableSave(createPortableSave(beforeChoice, 2_000)!)
+    expect(backup.success).toBe(true)
+    if (!backup.success) return
+
+    const firstChoice = chooseExpeditionEvent(beforeChoice, pending.eventId, 'gold')
+    expect(firstChoice.success).toBe(true)
+    const storage = new MemoryStorage()
+    expect(saveGameAtRevision(storage, firstChoice.state, null)).toMatchObject({ revision: 1 })
+
+    const restored = commitPortableSave(storage, backup.preview, 1, 3_000)
+    expect(restored).toMatchObject({
+      status: 'saved',
+      revision: 2,
+      state: {
+        player: { gold: 10 },
+        expeditionEvents: { pending: [pending] },
+      },
+    })
+    if (restored.status !== 'saved') return
+
+    const replay = chooseExpeditionEvent(restored.state, pending.eventId, 'gold')
+    expect(replay.success).toBe(true)
+    expect(replay.state.player.gold).toBe(10 + pending.resolvedChoices[0]!.effect.amount)
+    const duplicate = chooseExpeditionEvent(replay.state, pending.eventId, 'gold')
+    expect(duplicate.success).toBe(false)
+    expect(duplicate.state).toBe(replay.state)
   })
 
   it('keeps a post-claim ledger through portable import and emits no reward on replay', () => {
@@ -167,6 +255,12 @@ describe('portable save transfer', () => {
         state: {
           schemaVersion: SAVE_VERSION,
           claimedBossMilestoneMask: 0,
+          expeditionEvents: {
+            runPrestige: portableSaveV1.state.stats.prestiges,
+            milestoneMask: 0,
+            pending: [],
+            overflowCount: 0,
+          },
           rng: { algorithm: 'xorshift32-v1', seed: 873835004, draws: 0 },
           player: { gold: 87, companion: { id: null, rank: 0 } },
           battle: { companionCooldownMs: 0 },
@@ -206,6 +300,12 @@ describe('portable save transfer', () => {
         state: {
           schemaVersion: SAVE_VERSION,
           claimedBossMilestoneMask: 0,
+          expeditionEvents: {
+            runPrestige: legacySaveV2.stats.prestiges,
+            milestoneMask: 0,
+            pending: [],
+            overflowCount: 0,
+          },
           rng: legacySaveV2.rng,
           player: { companion: { id: null, rank: 0 } },
           battle: { companionCooldownMs: 0 },
@@ -255,6 +355,12 @@ describe('portable save transfer', () => {
         state: {
           schemaVersion: SAVE_VERSION,
           claimedBossMilestoneMask: 2 ** 29 - 1,
+          expeditionEvents: {
+            runPrestige: state.stats.prestiges,
+            milestoneMask: 2 ** 29 - 1,
+            pending: [],
+            overflowCount: 0,
+          },
           player: { gold: 444, companion: { id: 'emberFox', rank: 4 } },
           battle: { companionCooldownMs: 2_000 },
         },
@@ -278,6 +384,52 @@ describe('portable save transfer', () => {
     expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_A_KEY)!)).toMatchObject({
       revision: 1,
       state: { claimedBossMilestoneMask: 2 ** 29 - 1, player: { gold: 444 } },
+    })
+  })
+
+  it('migrates and commits a schema4 portable backup without retroactive events', () => {
+    const exportedAt = legacySaveV4.lastSavedAt + 1_000
+    const portableV4 = {
+      kind: 'emberwatch-portable-save',
+      exportVersion: PORTABLE_SAVE_VERSION,
+      exportedAt,
+      state: legacySaveV4,
+      checksum: checksumText(JSON.stringify(legacySaveV4)),
+    }
+
+    const parsed = parsePortableSave(JSON.stringify(portableV4))
+    expect(parsed).toMatchObject({
+      success: true,
+      preview: {
+        state: {
+          schemaVersion: SAVE_VERSION,
+          claimedBossMilestoneMask: legacySaveV4.claimedBossMilestoneMask,
+          expeditionEvents: {
+            runPrestige: legacySaveV4.stats.prestiges,
+            milestoneMask: 2 ** 29 - 1,
+            pending: [],
+            overflowCount: 0,
+          },
+          rng: legacySaveV4.rng,
+          player: { gold: legacySaveV4.player.gold },
+        },
+      },
+    })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) return
+
+    const storage = new MemoryStorage()
+    expect(commitPortableSave(storage, parsed.preview, null, exportedAt + 1_000)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+      state: {
+        expeditionEvents: {
+          runPrestige: legacySaveV4.stats.prestiges,
+          milestoneMask: 2 ** 29 - 1,
+          pending: [],
+        },
+        player: { gold: legacySaveV4.player.gold },
+      },
     })
   })
 
@@ -325,6 +477,39 @@ describe('portable save transfer', () => {
     futureState.checksum = checksumText(JSON.stringify(futureState.state))
     expect(parsePortableSave(JSON.stringify(futureState))).toMatchObject({ success: false })
 
+    const missingExpedition = JSON.parse(raw) as Record<string, unknown>
+    const missingExpeditionState = missingExpedition.state as Record<string, unknown>
+    delete missingExpeditionState.expeditionEvents
+    missingExpedition.checksum = checksumText(JSON.stringify(missingExpeditionState))
+    expect(parsePortableSave(JSON.stringify(missingExpedition))).toMatchObject({
+      success: false,
+      message: expect.stringContaining('진행 데이터'),
+    })
+
+    const activeState = exportedState()
+    const pending = createExpeditionPendingEvent(activeState.rng.seed, 0, 0, 100)
+    activeState.expeditionEvents = {
+      definitionVersion: 1,
+      runPrestige: 0,
+      milestoneMask: 1,
+      pending: [pending],
+      overflowCount: 0,
+    }
+    const malformedExpedition = JSON.parse(
+      createPortableSave(activeState, 2_000)!,
+    ) as Record<string, unknown>
+    const malformedExpeditionState = malformedExpedition.state as {
+      expeditionEvents: {
+        pending: Array<{ resolvedChoices: Array<{ effect: { amount: number } }> }>
+      }
+    }
+    malformedExpeditionState.expeditionEvents.pending[0]!.resolvedChoices[0]!.effect.amount += 1
+    malformedExpedition.checksum = checksumText(JSON.stringify(malformedExpeditionState))
+    expect(parsePortableSave(JSON.stringify(malformedExpedition))).toMatchObject({
+      success: false,
+      message: expect.stringContaining('진행 데이터'),
+    })
+
     for (const claimedBossMilestoneMask of [-1, 0.5, 2 ** 30, '1']) {
       const invalidMask = JSON.parse(raw) as Record<string, unknown>
       const invalidMaskState = invalidMask.state as Record<string, unknown>
@@ -342,6 +527,55 @@ describe('portable save transfer', () => {
     expect(parsePortableSave(JSON.stringify(validMaximum))).toMatchObject({
       success: true,
       preview: { state: { claimedBossMilestoneMask: MAX_BOSS_MILESTONE_MASK } },
+    })
+  })
+
+  it('rejects a future expedition ledger even when its pending queue is empty', () => {
+    const raw = JSON.parse(createPortableSave(exportedState(), 2_000)!) as {
+      exportedAt: number
+      state: ReturnType<typeof exportedState>
+      checksum: string
+    }
+    raw.state.expeditionEvents = {
+      ...raw.state.expeditionEvents,
+      definitionVersion: 2,
+      pending: [],
+    }
+    raw.checksum = checksumText(JSON.stringify(raw.state))
+
+    expect(parsePortableSave(JSON.stringify(raw))).toEqual({
+      success: false,
+      message: '더 새로운 게임 버전에서 만든 저장 파일입니다.',
+    })
+
+    const storage = new MemoryStorage()
+    expect(commitPortableSave(storage, {
+      exportedAt: raw.exportedAt,
+      checksum: raw.checksum,
+      state: raw.state,
+    }, null, 3_000)).toMatchObject({ status: 'blocked' })
+    expect(storage.getItem(SAVE_SLOT_A_KEY)).toBeNull()
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBeNull()
+  })
+
+  it('migrates a transitional markerless schema5 portable save as literal v1', () => {
+    const raw = JSON.parse(createPortableSave(exportedState(), 2_000)!) as {
+      state: ReturnType<typeof exportedState> & {
+        expeditionEvents: Record<string, unknown>
+      }
+      checksum: string
+    }
+    const markerlessState = raw.state as unknown as {
+      expeditionEvents: Record<string, unknown>
+    }
+    delete markerlessState.expeditionEvents.definitionVersion
+    raw.checksum = checksumText(JSON.stringify(raw.state))
+
+    expect(parsePortableSave(JSON.stringify(raw))).toMatchObject({
+      success: true,
+      preview: {
+        state: { expeditionEvents: { definitionVersion: 1 } },
+      },
     })
   })
 

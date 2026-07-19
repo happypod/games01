@@ -1,5 +1,45 @@
-export const SAVE_VERSION = 4 as const
+export const SAVE_VERSION = 5 as const
 export const RNG_ALGORITHM = 'xorshift32-v1' as const
+
+export const EXPEDITION_DEFINITION_IDS_V1 = Object.freeze([
+  'event.ember-shrine',
+  'event.wandering-smith',
+  'event.ash-camp',
+] as const)
+export type ExpeditionDefinitionIdV1 = (typeof EXPEDITION_DEFINITION_IDS_V1)[number]
+
+export const EXPEDITION_DEFINITION_IDS = [...EXPEDITION_DEFINITION_IDS_V1] as const
+export type ExpeditionDefinitionId = (typeof EXPEDITION_DEFINITION_IDS)[number]
+
+export const EXPEDITION_CHOICE_IDS = ['gold', 'recovery'] as const
+export type ExpeditionChoiceId = (typeof EXPEDITION_CHOICE_IDS)[number]
+
+export type ExpeditionResolvedEffect =
+  | { readonly type: 'grantGold'; readonly amount: number }
+  | { readonly type: 'restoreHp'; readonly amount: number }
+
+export interface ExpeditionResolvedChoice {
+  readonly choiceId: ExpeditionChoiceId
+  readonly effect: ExpeditionResolvedEffect
+}
+
+export interface ExpeditionPendingEvent {
+  readonly eventId: string
+  readonly definitionId: ExpeditionDefinitionId
+  readonly definitionVersion: number
+  readonly milestoneIndex: number
+  readonly milestoneStage: number
+  readonly maxHpAtOffer: number
+  readonly resolvedChoices: readonly ExpeditionResolvedChoice[]
+}
+
+export interface ExpeditionEventState {
+  readonly definitionVersion: number
+  readonly runPrestige: number
+  readonly milestoneMask: number
+  readonly pending: readonly ExpeditionPendingEvent[]
+  readonly overflowCount: number
+}
 
 export const UPGRADE_IDS = ['weapon', 'armor', 'charm'] as const
 export type UpgradeId = (typeof UPGRADE_IDS)[number]
@@ -76,6 +116,7 @@ export interface GameState {
   schemaVersion: typeof SAVE_VERSION
   lastSavedAt: number
   claimedBossMilestoneMask: number
+  expeditionEvents: ExpeditionEventState
   rng: RngState
   player: PlayerState
   battle: BattleState

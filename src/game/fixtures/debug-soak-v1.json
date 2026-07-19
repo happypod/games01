@@ -1,4 +1,4 @@
-{
+﻿{
   "contractVersion": 1,
   "seed": 439041101,
   "durationMs": 86400000,
@@ -7,9 +7,65 @@
     {
       "elapsedMs": 28800000,
       "state": {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "lastSavedAt": 0,
         "claimedBossMilestoneMask": 1,
+        "expeditionEvents": {
+          "definitionVersion": 1,
+          "runPrestige": 0,
+          "milestoneMask": 3,
+          "pending": [
+            {
+              "eventId": "expedition-v1:1a2b3c4d:0:0:event.ash-camp",
+              "definitionId": "event.ash-camp",
+              "definitionVersion": 1,
+              "milestoneIndex": 0,
+              "milestoneStage": 10,
+              "maxHpAtOffer": 128,
+              "resolvedChoices": [
+                {
+                  "choiceId": "gold",
+                  "effect": {
+                    "type": "grantGold",
+                    "amount": 2
+                  }
+                },
+                {
+                  "choiceId": "recovery",
+                  "effect": {
+                    "type": "restoreHp",
+                    "amount": 6
+                  }
+                }
+              ]
+            },
+            {
+              "eventId": "expedition-v1:1a2b3c4d:0:1:event.ember-shrine",
+              "definitionId": "event.ember-shrine",
+              "definitionVersion": 1,
+              "milestoneIndex": 1,
+              "milestoneStage": 20,
+              "maxHpAtOffer": 310,
+              "resolvedChoices": [
+                {
+                  "choiceId": "gold",
+                  "effect": {
+                    "type": "grantGold",
+                    "amount": 6
+                  }
+                },
+                {
+                  "choiceId": "recovery",
+                  "effect": {
+                    "type": "restoreHp",
+                    "amount": 16
+                  }
+                }
+              ]
+            }
+          ],
+          "overflowCount": 0
+        },
         "rng": {
           "algorithm": "xorshift32-v1",
           "seed": 439041101,
@@ -23,9 +79,20 @@
           "essence": 0,
           "currentHp": 604,
           "skillPoints": 36,
-          "upgrades": { "weapon": 0, "armor": 0, "charm": 0 },
-          "skills": { "powerStrike": 1, "ironWill": 0, "fortune": 0 },
-          "companion": { "id": null, "rank": 0 }
+          "upgrades": {
+            "weapon": 0,
+            "armor": 0,
+            "charm": 0
+          },
+          "skills": {
+            "powerStrike": 1,
+            "ironWill": 0,
+            "fortune": 0
+          },
+          "companion": {
+            "id": null,
+            "rank": 0
+          }
         },
         "battle": {
           "stage": 20,
@@ -37,7 +104,11 @@
           "kills": 1298,
           "defeats": 1279
         },
-        "stats": { "goldEarned": 77249, "enemiesDefeated": 1298, "prestiges": 0 }
+        "stats": {
+          "goldEarned": 77249,
+          "enemiesDefeated": 1298,
+          "prestiges": 0
+        }
       },
       "report": {
         "elapsedMs": 28800000,
@@ -56,9 +127,65 @@
     {
       "elapsedMs": 57600000,
       "state": {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "lastSavedAt": 0,
         "claimedBossMilestoneMask": 3,
+        "expeditionEvents": {
+          "definitionVersion": 1,
+          "runPrestige": 0,
+          "milestoneMask": 3,
+          "pending": [
+            {
+              "eventId": "expedition-v1:1a2b3c4d:0:0:event.ash-camp",
+              "definitionId": "event.ash-camp",
+              "definitionVersion": 1,
+              "milestoneIndex": 0,
+              "milestoneStage": 10,
+              "maxHpAtOffer": 128,
+              "resolvedChoices": [
+                {
+                  "choiceId": "gold",
+                  "effect": {
+                    "type": "grantGold",
+                    "amount": 2
+                  }
+                },
+                {
+                  "choiceId": "recovery",
+                  "effect": {
+                    "type": "restoreHp",
+                    "amount": 6
+                  }
+                }
+              ]
+            },
+            {
+              "eventId": "expedition-v1:1a2b3c4d:0:1:event.ember-shrine",
+              "definitionId": "event.ember-shrine",
+              "definitionVersion": 1,
+              "milestoneIndex": 1,
+              "milestoneStage": 20,
+              "maxHpAtOffer": 310,
+              "resolvedChoices": [
+                {
+                  "choiceId": "gold",
+                  "effect": {
+                    "type": "grantGold",
+                    "amount": 6
+                  }
+                },
+                {
+                  "choiceId": "recovery",
+                  "effect": {
+                    "type": "restoreHp",
+                    "amount": 16
+                  }
+                }
+              ]
+            }
+          ],
+          "overflowCount": 0
+        },
         "rng": {
           "algorithm": "xorshift32-v1",
           "seed": 439041101,
@@ -72,9 +199,20 @@
           "essence": 0,
           "currentHp": 314,
           "skillPoints": 51,
-          "upgrades": { "weapon": 0, "armor": 0, "charm": 0 },
-          "skills": { "powerStrike": 1, "ironWill": 0, "fortune": 0 },
-          "companion": { "id": null, "rank": 0 }
+          "upgrades": {
+            "weapon": 0,
+            "armor": 0,
+            "charm": 0
+          },
+          "skills": {
+            "powerStrike": 1,
+            "ironWill": 0,
+            "fortune": 0
+          },
+          "companion": {
+            "id": null,
+            "rank": 0
+          }
         },
         "battle": {
           "stage": 28,
@@ -86,7 +224,11 @@
           "kills": 2319,
           "defeats": 2292
         },
-        "stats": { "goldEarned": 184246, "enemiesDefeated": 2319, "prestiges": 0 }
+        "stats": {
+          "goldEarned": 184246,
+          "enemiesDefeated": 2319,
+          "prestiges": 0
+        }
       },
       "report": {
         "elapsedMs": 57600000,
@@ -105,9 +247,89 @@
     {
       "elapsedMs": 86400000,
       "state": {
-        "schemaVersion": 4,
+        "schemaVersion": 5,
         "lastSavedAt": 0,
         "claimedBossMilestoneMask": 3,
+        "expeditionEvents": {
+          "definitionVersion": 1,
+          "runPrestige": 0,
+          "milestoneMask": 7,
+          "pending": [
+            {
+              "eventId": "expedition-v1:1a2b3c4d:0:0:event.ash-camp",
+              "definitionId": "event.ash-camp",
+              "definitionVersion": 1,
+              "milestoneIndex": 0,
+              "milestoneStage": 10,
+              "maxHpAtOffer": 128,
+              "resolvedChoices": [
+                {
+                  "choiceId": "gold",
+                  "effect": {
+                    "type": "grantGold",
+                    "amount": 2
+                  }
+                },
+                {
+                  "choiceId": "recovery",
+                  "effect": {
+                    "type": "restoreHp",
+                    "amount": 6
+                  }
+                }
+              ]
+            },
+            {
+              "eventId": "expedition-v1:1a2b3c4d:0:1:event.ember-shrine",
+              "definitionId": "event.ember-shrine",
+              "definitionVersion": 1,
+              "milestoneIndex": 1,
+              "milestoneStage": 20,
+              "maxHpAtOffer": 310,
+              "resolvedChoices": [
+                {
+                  "choiceId": "gold",
+                  "effect": {
+                    "type": "grantGold",
+                    "amount": 6
+                  }
+                },
+                {
+                  "choiceId": "recovery",
+                  "effect": {
+                    "type": "restoreHp",
+                    "amount": 16
+                  }
+                }
+              ]
+            },
+            {
+              "eventId": "expedition-v1:1a2b3c4d:0:2:event.wandering-smith",
+              "definitionId": "event.wandering-smith",
+              "definitionVersion": 1,
+              "milestoneIndex": 2,
+              "milestoneStage": 30,
+              "maxHpAtOffer": 1010,
+              "resolvedChoices": [
+                {
+                  "choiceId": "gold",
+                  "effect": {
+                    "type": "grantGold",
+                    "amount": 15
+                  }
+                },
+                {
+                  "choiceId": "recovery",
+                  "effect": {
+                    "type": "restoreHp",
+                    "amount": 51
+                  }
+                }
+              ]
+            }
+          ],
+          "overflowCount": 0
+        },
         "rng": {
           "algorithm": "xorshift32-v1",
           "seed": 439041101,
@@ -121,9 +343,20 @@
           "essence": 0,
           "currentHp": 75,
           "skillPoints": 66,
-          "upgrades": { "weapon": 0, "armor": 0, "charm": 0 },
-          "skills": { "powerStrike": 1, "ironWill": 0, "fortune": 0 },
-          "companion": { "id": null, "rank": 0 }
+          "upgrades": {
+            "weapon": 0,
+            "armor": 0,
+            "charm": 0
+          },
+          "skills": {
+            "powerStrike": 1,
+            "ironWill": 0,
+            "fortune": 0
+          },
+          "companion": {
+            "id": null,
+            "rank": 0
+          }
         },
         "battle": {
           "stage": 30,
@@ -135,7 +368,11 @@
           "kills": 3307,
           "defeats": 3278
         },
-        "stats": { "goldEarned": 348439, "enemiesDefeated": 3307, "prestiges": 0 }
+        "stats": {
+          "goldEarned": 348439,
+          "enemiesDefeated": 3307,
+          "prestiges": 0
+        }
       },
       "report": {
         "elapsedMs": 86400000,

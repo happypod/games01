@@ -3,6 +3,8 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_OFFLINE_MS, MAX_STAGE, getEnemyDefinition } from '../game/content'
 import { createInitialState } from '../game/engine'
+import { MAX_EXPEDITION_MILESTONE_MASK } from '../game/expedition'
+import { isGameState } from '../game/persistence'
 import type { GameState } from '../game/types'
 import {
   DEBUG_SPEEDS,
@@ -20,6 +22,8 @@ import {
 function expectDeepClone(input: GameState, clone: GameState) {
   expect(clone).toEqual(input)
   expect(clone).not.toBe(input)
+  expect(clone.expeditionEvents).not.toBe(input.expeditionEvents)
+  expect(clone.expeditionEvents.pending).not.toBe(input.expeditionEvents.pending)
   expect(clone.rng).not.toBe(input.rng)
   expect(clone.player).not.toBe(input.player)
   expect(clone.player.upgrades).not.toBe(input.player.upgrades)
@@ -79,11 +83,16 @@ describe('IRPG-507 debug session adapter', () => {
     expect(lastStage.battle.stage).toBe(MAX_STAGE)
     expect(lastStage.battle.highestStage).toBe(MAX_STAGE)
     expect(lastStage.battle.enemyHp).toBe(getEnemyDefinition(MAX_STAGE).maxHp)
+    expect(lastStage.expeditionEvents.milestoneMask).toBe(
+      MAX_EXPEDITION_MILESTONE_MASK,
+    )
+    expect(isGameState(lastStage)).toBe(true)
 
     const returned = setDebugStage(lastStage, 1)
     expect(returned.battle.stage).toBe(1)
     expect(returned.battle.highestStage).toBe(MAX_STAGE)
     expect(returned.battle.enemyHp).toBe(getEnemyDefinition(1).maxHp)
+    expect(isGameState(returned)).toBe(true)
     expect(lastStage.battle.stage).toBe(MAX_STAGE)
   })
 

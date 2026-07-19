@@ -33,11 +33,11 @@ async function applyResultFixture(
 ) {
   const expected = fixtureId === 'visual.result.boss-victory'
     ? {
-        stateHash: 'fnv1a32-v1:423150a6',
+        stateHash: 'fnv1a32-v1:c1f94bec',
         eventHash: 'fnv1a32-v1:b6a6c062',
       }
     : {
-        stateHash: 'fnv1a32-v1:7ea862c2',
+        stateHash: 'fnv1a32-v1:2d65716c',
         eventHash: 'fnv1a32-v1:492c61f7',
       }
   const panel = page.getByTestId('debug-panel')

@@ -6,6 +6,7 @@ import {
 } from './content'
 import {
   advanceGame,
+  chooseExpeditionEvent,
   createInitialState,
   performPrestige,
   purchaseUpgrade,
@@ -25,7 +26,16 @@ import {
   saveGameAtRevision,
 } from './persistence'
 import { UPGRADE_IDS } from './types'
-import type { CombatEvent, GameState, SkillId, StorageLike, UpgradeId } from './types'
+import type {
+  CombatEvent,
+  ExpeditionChoiceId,
+  ExpeditionDefinitionId,
+  GameState,
+  RngState,
+  SkillId,
+  StorageLike,
+  UpgradeId,
+} from './types'
 
 type EquipmentStrategy = 'cheapest' | 'offense' | 'balanced'
 
@@ -71,6 +81,24 @@ interface CompanionPlaytestResult {
 
 type ReattainmentCohort = 'solo' | 'companion'
 
+type ExpeditionChoicePlan = readonly [ExpeditionChoiceId, ExpeditionChoiceId]
+
+interface ExpeditionChoiceTracker {
+  readonly plan: ExpeditionChoicePlan
+  readonly rngBeforeChoice: RngState[]
+  readonly rngAfterChoice: RngState[]
+  readonly applications: ExpeditionChoiceApplication[]
+  applied: number
+}
+
+interface ExpeditionChoiceApplication {
+  readonly definitionId: ExpeditionDefinitionId
+  readonly milestoneStage: number
+  readonly choiceId: ExpeditionChoiceId
+  readonly effectType: 'grantGold' | 'restoreHp'
+  readonly amount: number
+}
+
 interface ExpeditionProgress {
   elapsedSeconds: number
   finalState: GameState
@@ -101,6 +129,11 @@ interface PairedReattainmentResult {
   secondMilestoneRewardCount: number
   secondMilestoneConfiguredGold: number
   secondMilestoneAppliedGold: number
+  firstExpeditionChoices: number
+  secondExpeditionChoices: number
+  expeditionChoiceRngUnchanged: boolean
+  firstExpeditionApplications: readonly ExpeditionChoiceApplication[]
+  secondExpeditionApplications: readonly ExpeditionChoiceApplication[]
 }
 
 interface MilestoneRewardTotals {
@@ -138,6 +171,16 @@ const PLAYTEST_PROFILES: readonly PlaytestProfile[] = [
   { name: 'C20-M', seed: 0xcafebabe, decisionCadenceSeconds: 20, equipment: 'cheapest', skills: ['powerStrike', 'fortune', 'ironWill'] },
 ]
 
+const EXPEDITION_CHOICE_PLANS = [
+  { name: 'gold-gold', choices: ['gold', 'gold'] },
+  { name: 'gold-recovery', choices: ['gold', 'recovery'] },
+  { name: 'recovery-gold', choices: ['recovery', 'gold'] },
+  { name: 'recovery-recovery', choices: ['recovery', 'recovery'] },
+] as const satisfies readonly {
+  name: string
+  choices: ExpeditionChoicePlan
+}[]
+
 const EXPECTED_PLAYTEST_SUMMARIES: readonly Omit<PlaytestResult, 'finalState'>[] = [
   { name: 'C5-A', firstUpgradeSeconds: 5, firstBossSeconds: 31, firstBossClearSeconds: 86, prestigeGateSeconds: 2015, equipmentPurchases: 37, skillPurchases: 12, criticalHits: 301, defeats: 51, longestStallSeconds: 673, finalGold: 181, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
   { name: 'C10-S', firstUpgradeSeconds: 10, firstBossSeconds: 31, firstBossClearSeconds: 92, prestigeGateSeconds: 2090, equipmentPurchases: 36, skillPurchases: 12, criticalHits: 296, defeats: 51, longestStallSeconds: 931, finalGold: 1288, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
@@ -170,13 +213,78 @@ function summarizePlaytest(result: PlaytestResult): Omit<PlaytestResult, 'finalS
   }
 }
 
-function hashState(state: GameState): string {
+function hashValue(value: unknown): string {
   let hash = 0x811c9dc5
-  for (const character of JSON.stringify(state)) {
+  for (const character of JSON.stringify(value)) {
     hash ^= character.charCodeAt(0)
     hash = Math.imul(hash, 0x01000193)
   }
   return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+function hashState(state: GameState): string {
+  return hashValue(state)
+}
+
+function createExpeditionChoiceTracker(
+  plan: ExpeditionChoicePlan,
+): ExpeditionChoiceTracker {
+  return {
+    plan,
+    rngBeforeChoice: [],
+    rngAfterChoice: [],
+    applications: [],
+    applied: 0,
+  }
+}
+
+function applyPlannedExpeditionChoices(
+  input: GameState,
+  tracker: ExpeditionChoiceTracker | undefined,
+): GameState {
+  if (tracker === undefined) return input
+
+  let state = input
+  while (tracker.applied < tracker.plan.length) {
+    const pending = state.expeditionEvents.pending[0]
+    if (pending === undefined) break
+
+    const choiceId = tracker.plan[tracker.applied]!
+    const resolvedChoice = pending.resolvedChoices.find((choice) =>
+      choice.choiceId === choiceId)
+    if (resolvedChoice === undefined) {
+      throw new Error(`missing ${choiceId} choice for ${pending.eventId}`)
+    }
+    const beforeRng = { ...state.rng }
+    const chosen = chooseExpeditionEvent(state, pending.eventId, choiceId)
+    if (!chosen.success) {
+      throw new Error(`failed to choose ${choiceId} for ${pending.eventId}`)
+    }
+
+    const afterRng = { ...chosen.state.rng }
+    tracker.rngBeforeChoice.push(beforeRng)
+    tracker.rngAfterChoice.push(afterRng)
+    tracker.applications.push({
+      definitionId: pending.definitionId,
+      milestoneStage: pending.milestoneStage,
+      choiceId,
+      effectType: resolvedChoice.effect.type,
+      amount: resolvedChoice.effect.amount,
+    })
+    if (JSON.stringify(afterRng) !== JSON.stringify(beforeRng)) {
+      throw new Error(`expedition choice ${pending.eventId}:${choiceId} changed combat RNG`)
+    }
+    tracker.applied += 1
+    state = chosen.state
+  }
+  return state
+}
+
+function didTrackerPreserveCombatRng(tracker: ExpeditionChoiceTracker): boolean {
+  return tracker.rngBeforeChoice.length === tracker.plan.length &&
+    tracker.rngAfterChoice.length === tracker.plan.length &&
+    tracker.rngBeforeChoice.every((rng, index) =>
+      JSON.stringify(rng) === JSON.stringify(tracker.rngAfterChoice[index]))
 }
 
 function collectMilestoneRewards(events: readonly CombatEvent[]): MilestoneRewardTotals {
@@ -204,6 +312,17 @@ function addMilestoneRewards(
 function assertNumericInvariants(state: GameState, profileName: string, second: number) {
   const values = [
     state.claimedBossMilestoneMask,
+    state.expeditionEvents.definitionVersion,
+    state.expeditionEvents.runPrestige,
+    state.expeditionEvents.milestoneMask,
+    state.expeditionEvents.overflowCount,
+    ...state.expeditionEvents.pending.flatMap((event) => [
+      event.definitionVersion,
+      event.milestoneIndex,
+      event.milestoneStage,
+      event.maxHpAtOffer,
+      ...event.resolvedChoices.map(({ effect }) => effect.amount),
+    ]),
     state.player.level,
     state.player.gold,
     state.player.xp,
@@ -278,7 +397,10 @@ function spendAvailableResources(input: GameState, profile: PlaytestProfile) {
   return { state, equipmentPurchases, skillPurchases }
 }
 
-function runPlaytest(profile: PlaytestProfile): PlaytestResult {
+function runPlaytest(
+  profile: PlaytestProfile,
+  expeditionChoices?: ExpeditionChoiceTracker,
+): PlaytestResult {
   let state = createInitialState(0, profile.seed)
   let firstUpgradeSeconds = 0
   let firstBossSeconds = 0
@@ -298,6 +420,7 @@ function runPlaytest(profile: PlaytestProfile): PlaytestResult {
   for (let second = 1; second <= 60 * 60; second += 1) {
     const advanced = advanceGame(state, 1_000)
     state = advanced.state
+    state = applyPlannedExpeditionChoices(state, expeditionChoices)
     milestoneRewards = addMilestoneRewards(
       milestoneRewards,
       collectMilestoneRewards(advanced.events),
@@ -349,7 +472,10 @@ function runPlaytest(profile: PlaytestProfile): PlaytestResult {
   throw new Error(`${profile.name} did not reach the prestige gate within 60 minutes`)
 }
 
-function runCompanionPlaytest(profile: PlaytestProfile): CompanionPlaytestResult {
+function runCompanionPlaytest(
+  profile: PlaytestProfile,
+  expeditionChoices?: ExpeditionChoiceTracker,
+): CompanionPlaytestResult {
   let state = createInitialState(0, profile.seed)
   let recruitSeconds = 0
   let trainingPurchases = 0
@@ -364,6 +490,7 @@ function runCompanionPlaytest(profile: PlaytestProfile): CompanionPlaytestResult
   for (let second = 1; second <= 60 * 60; second += 1) {
     const advanced = advanceGame(state, 1_000)
     state = advanced.state
+    state = applyPlannedExpeditionChoices(state, expeditionChoices)
     milestoneRewards = addMilestoneRewards(
       milestoneRewards,
       collectMilestoneRewards(advanced.events),
@@ -434,6 +561,7 @@ function continueReattainmentExpedition(
   cohort: ReattainmentCohort,
   elapsedSeconds = 0,
   stopAtSeconds = 60 * 60,
+  expeditionChoices?: ExpeditionChoiceTracker,
 ): ExpeditionProgress {
   let state = input
   let milestoneRewards: MilestoneRewardTotals = {
@@ -445,6 +573,7 @@ function continueReattainmentExpedition(
   for (let second = elapsedSeconds + 1; second <= stopAtSeconds; second += 1) {
     const advanced = advanceGame(state, 1_000)
     state = advanced.state
+    state = applyPlannedExpeditionChoices(state, expeditionChoices)
     milestoneRewards = addMilestoneRewards(
       milestoneRewards,
       collectMilestoneRewards(advanced.events),
@@ -502,16 +631,30 @@ function continueReattainmentExpedition(
 function runPairedReattainment(
   profile: PlaytestProfile,
   cohort: ReattainmentCohort,
+  expeditionChoicePlan?: ExpeditionChoicePlan,
 ): PairedReattainmentResult {
+  const firstExpeditionChoices = expeditionChoicePlan === undefined
+    ? undefined
+    : createExpeditionChoiceTracker(expeditionChoicePlan)
   const first = cohort === 'companion'
-    ? runCompanionPlaytest(profile)
-    : runPlaytest(profile)
+    ? runCompanionPlaytest(profile, firstExpeditionChoices)
+    : runPlaytest(profile, firstExpeditionChoices)
   const firstFinalHash = hashState(first.finalState)
   const prestiged = performPrestige(first.finalState)
   if (!prestiged.success) throw new Error(`${profile.name} failed to prestige`)
 
   const postPrestigeHash = hashState(prestiged.state)
-  const second = continueReattainmentExpedition(prestiged.state, profile, cohort)
+  const secondExpeditionChoices = expeditionChoicePlan === undefined
+    ? undefined
+    : createExpeditionChoiceTracker(expeditionChoicePlan)
+  const second = continueReattainmentExpedition(
+    prestiged.state,
+    profile,
+    cohort,
+    0,
+    60 * 60,
+    secondExpeditionChoices,
+  )
   if (!second.reachedTarget) {
     throw new Error(`${profile.name} did not reattain stage 30 within 60 minutes`)
   }
@@ -536,6 +679,15 @@ function runPairedReattainment(
     secondMilestoneRewardCount: second.milestoneRewardCount,
     secondMilestoneConfiguredGold: second.milestoneConfiguredGold,
     secondMilestoneAppliedGold: second.milestoneAppliedGold,
+    firstExpeditionChoices: firstExpeditionChoices?.applied ?? 0,
+    secondExpeditionChoices: secondExpeditionChoices?.applied ?? 0,
+    expeditionChoiceRngUnchanged:
+      firstExpeditionChoices === undefined || secondExpeditionChoices === undefined
+        ? true
+        : didTrackerPreserveCombatRng(firstExpeditionChoices) &&
+          didTrackerPreserveCombatRng(secondExpeditionChoices),
+    firstExpeditionApplications: firstExpeditionChoices?.applications ?? [],
+    secondExpeditionApplications: secondExpeditionChoices?.applications ?? [],
   }
 }
 
@@ -554,9 +706,48 @@ function median(values: readonly number[]) {
   return (sorted[midpoint - 1]! + sorted[midpoint]!) / 2
 }
 
+interface ExpeditionChoiceMatrixRow {
+  readonly planName: string
+  readonly plan: ExpeditionChoicePlan
+  readonly cohort: ReattainmentCohort
+  readonly results: readonly PairedReattainmentResult[]
+}
+
+function runExpeditionChoiceMatrix(): ExpeditionChoiceMatrixRow[] {
+  return EXPEDITION_CHOICE_PLANS.flatMap(({ name, choices }) =>
+    (['solo', 'companion'] as const).map((cohort) => ({
+      planName: name,
+      plan: choices,
+      cohort,
+      results: PLAYTEST_PROFILES.map((profile) =>
+        runPairedReattainment(profile, cohort, choices)),
+    })),
+  )
+}
+
+function summarizeExpeditionChoiceMatrix(rows: readonly ExpeditionChoiceMatrixRow[]) {
+  return rows.map(({ planName, plan, cohort, results }) => ({
+    planName,
+    plan,
+    cohort,
+    firstSeconds: results.map(({ firstSeconds }) => firstSeconds),
+    secondSeconds: results.map(({ secondSeconds }) => secondSeconds),
+    ratios: results.map(({ ratioPercent }) => Number(ratioPercent.toFixed(4))),
+    firstFinalHashes: results.map(({ firstFinalHash }) => firstFinalHash),
+    postPrestigeHashes: results.map(({ postPrestigeHash }) => postPrestigeHash),
+    secondFinalHashes: results.map(({ secondFinalHash }) => secondFinalHash),
+    firstChoices: results.map(({ firstExpeditionChoices }) => firstExpeditionChoices),
+    secondChoices: results.map(({ secondExpeditionChoices }) => secondExpeditionChoices),
+    firstApplications: results.map(({ firstExpeditionApplications }) =>
+      firstExpeditionApplications),
+    secondApplications: results.map(({ secondExpeditionApplications }) =>
+      secondExpeditionApplications),
+  }))
+}
+
 describe('first prestige balance playtest', () => {
   it('keeps the median of ten deterministic play sessions between 30 and 45 minutes', () => {
-    const results = PLAYTEST_PROFILES.map(runPlaytest)
+    const results = PLAYTEST_PROFILES.map((profile) => runPlaytest(profile))
     const sortedTimes = results.map(({ prestigeGateSeconds }) => prestigeGateSeconds).sort((a, b) => a - b)
     const medianSeconds = (sortedTimes[4]! + sortedTimes[5]!) / 2
 
@@ -577,25 +768,25 @@ describe('first prestige balance playtest', () => {
   })
 
   it('replays every fixed playtest profile exactly', () => {
-    const first = PLAYTEST_PROFILES.map(runPlaytest)
-    expect(PLAYTEST_PROFILES.map(runPlaytest)).toEqual(first)
+    const first = PLAYTEST_PROFILES.map((profile) => runPlaytest(profile))
+    expect(PLAYTEST_PROFILES.map((profile) => runPlaytest(profile))).toEqual(first)
     expect(first.map(({ finalState }) => hashState(finalState))).toEqual([
-      'b16b8b39',
-      'f578dfac',
-      'f3214540',
-      '5c19b677',
-      '4885315a',
-      '93866cdc',
-      '0f77fd7c',
-      '327c7376',
-      '9755764b',
-      '88500a4f',
+      'b4fdc1b3',
+      'becf2633',
+      '3735e4ef',
+      '5365b462',
+      '2021ca5c',
+      '2f421224',
+      '0a304dcd',
+      '409ab141',
+      'eca45b79',
+      'a8dcb2d5',
     ])
   })
 
   it('keeps recruit-and-train companion profiles deterministic and inside the prestige target', () => {
-    const results = PLAYTEST_PROFILES.map(runCompanionPlaytest)
-    const replay = PLAYTEST_PROFILES.map(runCompanionPlaytest)
+    const results = PLAYTEST_PROFILES.map((profile) => runCompanionPlaytest(profile))
+    const replay = PLAYTEST_PROFILES.map((profile) => runCompanionPlaytest(profile))
     const sortedTimes = results
       .map(({ prestigeGateSeconds }) => prestigeGateSeconds)
       .sort((left, right) => left - right)
@@ -615,16 +806,16 @@ describe('first prestige balance playtest', () => {
       { name: 'C20-M', recruitSeconds: 96, prestigeGateSeconds: 1644, trainingPurchases: 4, companionAttacks: 528, companionDamage: 14843, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
     ])
     expect(results.map(({ finalState }) => hashState(finalState))).toEqual([
-      '23eab936',
-      '7583bb29',
-      '0c7872d2',
-      'bb32ffb1',
-      'f5db9e3e',
-      '083bdc7d',
-      '28dd0d2d',
-      '811ee1fa',
-      '314985b8',
-      '1f0ee484',
+      '2517c444',
+      '51f2d31e',
+      '62bec185',
+      '4c42d1d8',
+      '433cbbfa',
+      '7746a087',
+      'e21e5cd7',
+      'c3776f4d',
+      'af6159ba',
+      'bc807846',
     ])
     expect(medianSeconds).toBeGreaterThanOrEqual(30 * 60)
     expect(medianSeconds).toBeLessThanOrEqual(45 * 60)
@@ -772,28 +963,28 @@ describe('post-prestige stage 30 reattainment', () => {
 
   it('replays every paired final state and RNG sequence exactly', () => {
     expect(soloResults.map(({ secondFinalHash }) => secondFinalHash)).toEqual([
-      '0232f5e3',
-      '5181039e',
-      'c63afc7c',
-      '4b5f34c3',
-      '8e146f3c',
-      '69fedd70',
-      'aa3131e9',
-      '2a88c8f7',
-      '9d0b25b3',
-      '9db490bb',
+      '1406077d',
+      '6b06b6ee',
+      'b9a8b8fa',
+      'f7489b78',
+      '78c2b234',
+      'f3920429',
+      'dc3c88df',
+      'a1df4ba4',
+      '1857ce9f',
+      '22a495fb',
     ])
     expect(companionResults.map(({ secondFinalHash }) => secondFinalHash)).toEqual([
-      '14f43721',
-      '60bd354b',
-      'c45a5874',
-      'fbc8c2d8',
-      'c4344df0',
-      '2c08b7e5',
-      '9fb9016c',
-      'b9e4fadb',
-      '96a06452',
-      '73ab63d8',
+      'a9cc611b',
+      '56a71a5c',
+      '0d2cf11a',
+      '9c97958c',
+      'fa9867eb',
+      'bd08974f',
+      'a90782c6',
+      '477ad778',
+      '841f131b',
+      '69155533',
     ])
     expect(PLAYTEST_PROFILES.map((profile) =>
       runPairedReattainment(profile, 'solo'))).toEqual(soloResults)
@@ -859,4 +1050,118 @@ describe('post-prestige stage 30 reattainment', () => {
     expect([maximumStats.attack, maximumStats.maxHp].every((value) =>
       Number.isSafeInteger(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER)).toBe(true)
   })
+})
+
+describe('IRPG-107 expedition choice balance matrix', () => {
+  let matrix: ExpeditionChoiceMatrixRow[] = []
+
+  beforeAll(() => {
+    matrix = runExpeditionChoiceMatrix()
+  }, 60_000)
+
+  it('keeps four first-two choice plans inside the IRPG-204 and IRPG-206 KPIs', () => {
+    expect(matrix).toHaveLength(EXPEDITION_CHOICE_PLANS.length * 2)
+
+    const kpiSummary = matrix.map(({ planName, cohort, results }) => {
+      const firstTimes = results.map(({ firstSeconds }) => firstSeconds)
+      const ratios = results.map(({ ratioPercent }) => ratioPercent)
+      return {
+        planName,
+        cohort,
+        firstMedianSeconds: median(firstTimes),
+        minimumRatio: Number(Math.min(...ratios).toFixed(4)),
+        maximumRatio: Number(Math.max(...ratios).toFixed(4)),
+      }
+    })
+    expect(kpiSummary).toEqual([
+      { planName: 'gold-gold', cohort: 'solo', firstMedianSeconds: 2006.5, minimumRatio: 54.3562, maximumRatio: 66.6498 },
+      { planName: 'gold-gold', cohort: 'companion', firstMedianSeconds: 1884, minimumRatio: 55.5556, maximumRatio: 69.1657 },
+      { planName: 'gold-recovery', cohort: 'solo', firstMedianSeconds: 2013.5, minimumRatio: 56.8411, maximumRatio: 68.284 },
+      { planName: 'gold-recovery', cohort: 'companion', firstMedianSeconds: 1863.5, minimumRatio: 57.3692, maximumRatio: 67.3877 },
+      { planName: 'recovery-gold', cohort: 'solo', firstMedianSeconds: 2008, minimumRatio: 58.5112, maximumRatio: 69.3182 },
+      { planName: 'recovery-gold', cohort: 'companion', firstMedianSeconds: 1865.5, minimumRatio: 57.3692, maximumRatio: 69.9886 },
+      { planName: 'recovery-recovery', cohort: 'solo', firstMedianSeconds: 2008, minimumRatio: 58.5112, maximumRatio: 69.3182 },
+      { planName: 'recovery-recovery', cohort: 'companion', firstMedianSeconds: 1886, minimumRatio: 60.3468, maximumRatio: 66.0584 },
+    ])
+
+    const ratioOutliers = matrix.flatMap(({ planName, cohort, results }) =>
+      results
+        .filter(({ ratioPercent }) => ratioPercent < 50 || ratioPercent > 70)
+        .map(({
+          name,
+          firstSeconds,
+          secondSeconds,
+          ratioPercent,
+          firstExpeditionApplications,
+          secondExpeditionApplications,
+        }) => ({
+          planName,
+          cohort,
+          name,
+          firstSeconds,
+          secondSeconds,
+          ratioPercent: Number(ratioPercent.toFixed(4)),
+          firstExpeditionApplications,
+          secondExpeditionApplications,
+        })),
+    )
+    expect(ratioOutliers).toEqual([])
+
+    for (const row of matrix) {
+      expect(row.results).toHaveLength(PLAYTEST_PROFILES.length)
+      const firstTimes = row.results.map(({ firstSeconds }) => firstSeconds)
+      const ratios = row.results.map(({ ratioPercent }) => ratioPercent)
+
+      expect(median(firstTimes)).toBeGreaterThanOrEqual(30 * 60)
+      expect(median(firstTimes)).toBeLessThanOrEqual(45 * 60)
+      expect(firstTimes.every((seconds) => seconds > 0 && seconds <= 60 * 60)).toBe(true)
+      expect(row.results.every(({ secondSeconds }) =>
+        secondSeconds > 0 && secondSeconds <= 60 * 60)).toBe(true)
+      expect(ratios.every((ratio) => ratio >= 50 && ratio <= 70)).toBe(true)
+
+      for (const result of row.results) {
+        expect(result.firstExpeditionChoices).toBe(2)
+        expect(result.secondExpeditionChoices).toBe(2)
+        expect(result.expeditionChoiceRngUnchanged).toBe(true)
+        expect(result.firstFinalState.expeditionEvents).toMatchObject({
+          runPrestige: 0,
+          milestoneMask: 7,
+          overflowCount: 0,
+        })
+        expect(result.firstFinalState.expeditionEvents.pending).toHaveLength(1)
+        expect(result.postPrestigeState.expeditionEvents).toEqual({
+          definitionVersion: 1,
+          runPrestige: 1,
+          milestoneMask: 0,
+          pending: [],
+          overflowCount: 0,
+        })
+        expect(result.secondFinalState.expeditionEvents).toMatchObject({
+          runPrestige: 1,
+          milestoneMask: 7,
+          overflowCount: 0,
+        })
+        expect(result.secondFinalState.expeditionEvents.pending).toHaveLength(1)
+      }
+    }
+
+    for (const { name } of EXPEDITION_CHOICE_PLANS) {
+      const planResults = matrix
+        .filter(({ planName }) => planName === name)
+        .flatMap(({ results }) => results)
+      expect(planResults).toHaveLength(20)
+      expect(planResults.every(({ firstSeconds, secondSeconds }) =>
+        firstSeconds <= 60 * 60 && secondSeconds <= 60 * 60)).toBe(true)
+    }
+  })
+
+  it('replays all 80 paired sessions with one canonical aggregate hash', () => {
+    const canonicalSummary = summarizeExpeditionChoiceMatrix(matrix)
+    const canonicalHash = hashValue(canonicalSummary)
+    expect(canonicalHash).toBe('b2a62828')
+
+    const replaySummary = summarizeExpeditionChoiceMatrix(runExpeditionChoiceMatrix())
+    expect(hashValue(replaySummary)).toBe(canonicalHash)
+    expect(replaySummary).toEqual(canonicalSummary)
+  }, 60_000)
 })

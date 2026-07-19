@@ -23,7 +23,7 @@ IRPG-503·504·204·304·403·104·505·305는 Done이다. 현재 기준선은 C
 | 4C | IRPG-411 | Done | 비영속·제한된 전투 이벤트 로그 UI |
 | 5 | IRPG-207 | Done | `boss-milestone-v1` 골드 보상의 저장·중복 방지 계약 |
 | 6 | IRPG-410 | Done | nonmodal 승패 알림과 사용자 요청형 일러스트 상세 화면 |
-| 7 | IRPG-107 | Ready | 독립 RNG·versioned pending을 쓰는 원정 선택 이벤트 |
+| 7 | IRPG-107 | Verify | 독립 RNG·versioned pending을 쓰는 원정 선택 이벤트 |
 | 8 | IRPG-412 | Draft | pending 원정 선택 이벤트 일러스트 카드 UI |
 | 9 | IRPG-508 | Draft | 별도 7일 deterministic stress 회귀 |
 

@@ -1,7 +1,12 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createInitialState } from '../game/engine'
-import { SAVE_SLOT_KEYS, parseSaveEnvelope } from '../game/persistence'
+import { advanceGame, createInitialState } from '../game/engine'
+import {
+  SAVE_SLOT_KEYS,
+  bootstrapGame,
+  parseSaveEnvelope,
+  saveGameAtRevision,
+} from '../game/persistence'
 import { createPortableSave, parsePortableSave } from '../game/saveTransfer'
 import { useGame } from './useGame'
 
@@ -142,6 +147,59 @@ describe('useGame persistence safety', () => {
     expect(slotsAfter.map((raw) =>
       raw === null ? null : parseSaveEnvelope(raw)?.revision ?? null,
     )).toEqual(revisionsBefore)
+    unmount()
+  })
+
+  it('persists one expedition choice and rejects a repeated command without another write', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const initial = createInitialState(Date.now(), 0x1234_5678)
+    initial.player.upgrades.weapon = 100
+    initial.battle.stage = 9
+    initial.battle.highestStage = 9
+    initial.battle.enemyHp = 1
+    const offered = advanceGame(initial, 1_000).state
+    const pending = offered.expeditionEvents.pending[0]
+    if (pending === undefined) throw new Error('stage 10 expedition event was not offered')
+    const goldChoice = pending.resolvedChoices.find(({ choiceId }) => choiceId === 'gold')
+    if (goldChoice?.effect.type !== 'grantGold') throw new Error('missing resolved gold choice')
+    const goldBeforeChoice = offered.player.gold
+    expect(saveGameAtRevision(window.localStorage, offered, null)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(result.current.readOnly).toBe(false)
+
+    act(() => result.current.chooseExpeditionEvent(pending.eventId, 'gold'))
+    expect(result.current.state.player.gold).toBe(
+      goldBeforeChoice + goldChoice.effect.amount,
+    )
+    expect(result.current.state.expeditionEvents.pending).toEqual([])
+    const slotsAfterChoice = SAVE_SLOT_KEYS.map((key) => window.localStorage.getItem(key))
+    const stateAfterChoice = structuredClone(result.current.state)
+
+    act(() => result.current.chooseExpeditionEvent(pending.eventId, 'gold'))
+    expect(result.current.state).toEqual(stateAfterChoice)
+    expect(SAVE_SLOT_KEYS.map((key) => window.localStorage.getItem(key))).toEqual(
+      slotsAfterChoice,
+    )
+
+    const reloaded = bootstrapGame(window.localStorage, Date.now(), 'reader')
+    expect(reloaded.state.player.gold).toBe(goldBeforeChoice + goldChoice.effect.amount)
+    expect(reloaded.state.expeditionEvents.pending).toEqual([])
     unmount()
   })
 })

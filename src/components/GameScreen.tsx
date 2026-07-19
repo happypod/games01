@@ -47,7 +47,11 @@ export function GameScreen({
     if (window.confirm(message)) game.reset()
   }
   const requestPrestige = () => {
-    if (window.confirm('골드, 레벨, 장비, 스테이지를 초기화하고 환생할까요?')) {
+    const pendingCount = game.state.expeditionEvents.pending.length
+    const pendingWarning = pendingCount > 0
+      ? `\n환생하면 대기 중인 원정 이벤트 ${pendingCount}개가 보상 없이 사라집니다.`
+      : ''
+    if (window.confirm(`골드, 레벨, 장비, 스테이지를 초기화하고 환생할까요?${pendingWarning}`)) {
       game.prestige()
     }
   }

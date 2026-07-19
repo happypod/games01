@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GameScreen } from '../components/GameScreen'
 import {
   advanceGame,
+  chooseExpeditionEvent,
   mergeCombatEventBatches,
   performPrestige,
   purchaseUpgrade,
@@ -175,6 +176,8 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     recruitCompanion: (id) => runCommand((current) => recruitCompanion(current, id)),
     trainCompanion: () => runCommand(trainCompanion),
     chooseStage: (stage) => runCommand((current) => selectStage(current, stage)),
+    chooseExpeditionEvent: (eventId, choiceId) =>
+      runCommand((current) => chooseExpeditionEvent(current, eventId, choiceId)),
     prestige: () => runCommand(performPrestige),
     reset,
     restoreSave: () => ({

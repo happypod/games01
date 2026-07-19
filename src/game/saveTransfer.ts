@@ -1,5 +1,6 @@
 import {
   decodeGameState,
+  isFutureGameStateValue,
   isGameState,
   saveGameAtRevision,
   type SaveCommitResult,
@@ -101,6 +102,9 @@ export function parsePortableSave(raw: string): SaveImportParseResult {
   if (checksumText(serializedState) !== parsed.checksum) {
     return { success: false, message: '저장 파일이 손상되었거나 편집되었습니다.' }
   }
+  if (isFutureGameStateValue(parsed.state)) {
+    return { success: false, message: '더 새로운 게임 버전에서 만든 저장 파일입니다.' }
+  }
   const state = decodeGameState(parsed.state)
   if (state === null || state.lastSavedAt > parsed.exportedAt) {
     return { success: false, message: '게임 진행 데이터가 올바르지 않습니다.' }
@@ -130,7 +134,8 @@ export function commitPortableSave(
   if (
     serializedState === undefined ||
     checksumText(serializedState) !== preview.checksum ||
-    !isSafeNonNegativeInteger(preview.exportedAt)
+    !isSafeNonNegativeInteger(preview.exportedAt) ||
+    isFutureGameStateValue(preview.state)
   ) {
     return { status: 'blocked', currentRevision: expectedRevision }
   }

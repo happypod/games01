@@ -20,52 +20,52 @@ import {
 const EXPECTED_FIXTURES = {
   'visual.combat.hero-default': {
     stage: 1,
-    hash: 'fnv1a32-v1:d806658f',
+    hash: 'fnv1a32-v1:81143bec',
     seed: 1137774350,
   },
   'visual.combat.enemy-default': {
     stage: 5,
-    hash: 'fnv1a32-v1:4429d732',
+    hash: 'fnv1a32-v1:9c0d00a1',
     seed: 184967352,
   },
   'visual.combat.boss-default': {
     stage: 10,
-    hash: 'fnv1a32-v1:da34bac0',
+    hash: 'fnv1a32-v1:b9b459fe',
     seed: 2839317265,
   },
   'visual.combat.fallback': {
     stage: 1,
-    hash: 'fnv1a32-v1:f7eb4c9d',
+    hash: 'fnv1a32-v1:fda0f6fa',
     seed: 847540328,
   },
   'visual.map.stage-frontier': {
     stage: 105,
-    hash: 'fnv1a32-v1:dde4ed52',
+    hash: 'fnv1a32-v1:927ce627',
     seed: 2652276946,
   },
   'visual.cards.mixed-states': {
     stage: 3,
-    hash: 'fnv1a32-v1:06bae429',
+    hash: 'fnv1a32-v1:4fd4aca2',
     seed: 2691896847,
   },
   'visual.cards.fallback': {
     stage: 3,
-    hash: 'fnv1a32-v1:8828e98f',
+    hash: 'fnv1a32-v1:2205d268',
     seed: 1091907769,
   },
   'visual.combat.event-log': {
     stage: 10,
-    hash: 'fnv1a32-v1:9fe0a39a',
+    hash: 'fnv1a32-v1:c78a61d4',
     seed: 4251790753,
   },
   'visual.result.boss-victory': {
     stage: 10,
-    hash: 'fnv1a32-v1:423150a6',
+    hash: 'fnv1a32-v1:c1f94bec',
     seed: 2519199221,
   },
   'visual.result.defeat': {
     stage: 10,
-    hash: 'fnv1a32-v1:7ea862c2',
+    hash: 'fnv1a32-v1:2d65716c',
     seed: 1543179630,
   },
 } as const

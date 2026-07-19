@@ -29,6 +29,11 @@ import {
   getBossMilestoneReward,
   hasClaimedBossMilestone,
 } from './bossMilestones'
+import {
+  createInitialExpeditionEventState,
+  isValidExpeditionEventState,
+  resolveReachedExpeditionMilestones,
+} from './expedition'
 import { createRngState, nextRandom, seedFromText } from './rng'
 import { SAVE_VERSION } from './types'
 import type {
@@ -41,6 +46,7 @@ import type {
   BossMilestoneRewardSnapshot,
   CompanionId,
   CommandResult,
+  ExpeditionChoiceId,
   GameState,
   SkillId,
   UpgradeId,
@@ -181,6 +187,16 @@ const emptyReport = (elapsedMs: number): AdvanceReport => ({
 
 const cloneState = (state: GameState): GameState => ({
   ...state,
+  expeditionEvents: {
+    ...state.expeditionEvents,
+    pending: state.expeditionEvents.pending.map((pending) => ({
+      ...pending,
+      resolvedChoices: pending.resolvedChoices.map((choice) => ({
+        ...choice,
+        effect: { ...choice.effect },
+      })) as typeof pending.resolvedChoices,
+    })),
+  },
   rng: { ...state.rng },
   player: {
     ...state.player,
@@ -201,6 +217,7 @@ export function createInitialState(
     schemaVersion: SAVE_VERSION,
     lastSavedAt: now,
     claimedBossMilestoneMask: 0,
+    expeditionEvents: createInitialExpeditionEventState(),
     rng: createRngState(seed),
     player: {
       level: 1,
@@ -284,6 +301,7 @@ function resolveEnemyDefeat(
   grantExperience(state, enemy.xpReward, report)
 
   const previousStage = state.battle.stage
+  const previousHighestStage = state.battle.highestStage
   state.battle.stage = Math.min(MAX_STAGE, state.battle.stage + 1)
   state.battle.highestStage = Math.max(state.battle.highestStage, state.battle.stage)
   if (state.battle.stage > previousStage) {
@@ -291,6 +309,13 @@ function resolveEnemyDefeat(
   }
 
   hero = getHeroStats(state)
+  state.expeditionEvents = resolveReachedExpeditionMilestones(
+    state.expeditionEvents,
+    state.rng.seed,
+    previousHighestStage,
+    state.battle.highestStage,
+    hero.maxHp,
+  )
   state.player.currentHp = Math.min(
     hero.maxHp,
     addSafeIntegers(state.player.currentHp, Math.round(hero.maxHp * 0.2)),
@@ -602,12 +627,68 @@ export function selectStage(input: GameState, rawStage: number): CommandResult {
   return { state, success: true, message: `${stage} 스테이지로 이동` }
 }
 
+export function chooseExpeditionEvent(
+  input: GameState,
+  eventId: string,
+  choiceId: ExpeditionChoiceId | string,
+): CommandResult {
+  if (
+    !isValidExpeditionEventState(
+      input.expeditionEvents,
+      input.rng.seed,
+      input.stats.prestiges,
+      input.battle.highestStage,
+    )
+  ) {
+    return { state: input, success: false, message: '원정 이벤트 데이터가 올바르지 않습니다.' }
+  }
+
+  const pendingIndex = input.expeditionEvents.pending.findIndex(
+    (pending) => pending.eventId === eventId,
+  )
+  const pending = input.expeditionEvents.pending[pendingIndex]
+  const choice = pending?.resolvedChoices.find(
+    (resolvedChoice) => resolvedChoice.choiceId === choiceId,
+  )
+  if (pendingIndex < 0 || pending === undefined || choice === undefined) {
+    return { state: input, success: false, message: '선택할 수 없는 원정 이벤트입니다.' }
+  }
+
+  const state = cloneState(input)
+  if (choice.effect.type === 'grantGold') {
+    const previousGold = state.player.gold
+    state.player.gold = addSafeIntegers(state.player.gold, choice.effect.amount)
+    const appliedGold = state.player.gold - previousGold
+    state.stats.goldEarned = addSafeIntegers(state.stats.goldEarned, appliedGold)
+  } else {
+    const maxHp = getHeroStats(state).maxHp
+    state.player.currentHp = Math.min(
+      maxHp,
+      addSafeIntegers(state.player.currentHp, choice.effect.amount),
+    )
+  }
+  state.expeditionEvents = {
+    ...state.expeditionEvents,
+    pending: state.expeditionEvents.pending.filter((_, index) => index !== pendingIndex),
+  }
+
+  return { state, success: true, message: '원정 이벤트 선택을 적용했습니다.' }
+}
+
 export function performPrestige(input: GameState): CommandResult {
   if (input.battle.highestStage < PRESTIGE_STAGE) {
     return {
       state: input,
       success: false,
       message: `${PRESTIGE_STAGE} 스테이지부터 환생할 수 있습니다.`,
+    }
+  }
+
+  if (input.stats.prestiges === Number.MAX_SAFE_INTEGER) {
+    return {
+      state: input,
+      success: false,
+      message: '환생 회차가 최대 안전 범위에 도달했습니다.',
     }
   }
 
@@ -625,5 +706,14 @@ export function performPrestige(input: GameState): CommandResult {
     enemiesDefeated: input.stats.enemiesDefeated,
     prestiges: addSafeIntegers(input.stats.prestiges, 1),
   }
-  return { state, success: true, message: `불씨 정수 ${reward}개를 획득했습니다.` }
+  state.expeditionEvents = createInitialExpeditionEventState(state.stats.prestiges)
+  const discardedEvents = input.expeditionEvents.pending.length
+  const discardedMessage = discardedEvents > 0
+    ? ` 대기 이벤트 ${discardedEvents}개를 보상 없이 폐기했습니다.`
+    : ''
+  return {
+    state,
+    success: true,
+    message: `불씨 정수 ${reward}개를 획득했습니다.${discardedMessage}`,
+  }
 }

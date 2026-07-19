@@ -57,6 +57,17 @@ function expectStateInvariants(state: GameState) {
     state.schemaVersion,
     state.lastSavedAt,
     state.claimedBossMilestoneMask,
+    state.expeditionEvents.definitionVersion,
+    state.expeditionEvents.runPrestige,
+    state.expeditionEvents.milestoneMask,
+    state.expeditionEvents.overflowCount,
+    ...state.expeditionEvents.pending.flatMap((event) => [
+      event.definitionVersion,
+      event.milestoneIndex,
+      event.milestoneStage,
+      event.maxHpAtOffer,
+      ...event.resolvedChoices.map((choice) => choice.effect.amount),
+    ]),
     state.rng.seed,
     state.rng.state,
     state.rng.draws,
@@ -88,6 +99,9 @@ function expectStateInvariants(state: GameState) {
   expect(state.rng.state).toBeGreaterThan(0)
   expect(state.rng.state).toBeLessThanOrEqual(0xffffffff)
   expect(state.claimedBossMilestoneMask).toBeLessThanOrEqual(MAX_BOSS_MILESTONE_MASK)
+  expect(state.expeditionEvents.runPrestige).toBe(state.stats.prestiges)
+  expect(state.expeditionEvents.milestoneMask).toBeLessThanOrEqual(MAX_BOSS_MILESTONE_MASK)
+  expect(state.expeditionEvents.pending.length).toBeLessThanOrEqual(3)
   expect(state.player.level).toBeGreaterThanOrEqual(1)
   expect(state.player.level).toBeLessThanOrEqual(999)
   expect(state.player.currentHp).toBeGreaterThanOrEqual(1)
@@ -132,6 +146,13 @@ function createUpperBoundaryState(): GameState {
   const state = createInitialState(0, SOAK_SEED)
   return {
     ...state,
+    expeditionEvents: {
+      definitionVersion: 1,
+      runPrestige: Number.MAX_SAFE_INTEGER,
+      milestoneMask: MAX_BOSS_MILESTONE_MASK,
+      pending: [],
+      overflowCount: 0,
+    },
     rng: { ...state.rng, draws: Number.MAX_SAFE_INTEGER },
     player: {
       level: 999,

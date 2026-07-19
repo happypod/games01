@@ -6,6 +6,7 @@ import {
   type DebugSpeed,
 } from '../game/debugSimulator'
 import { selectStage } from '../game/engine'
+import { deriveLegacyExpeditionMilestoneMask } from '../game/expedition'
 import type { GameState } from '../game/types'
 
 export { DEBUG_SPEEDS }
@@ -30,6 +31,16 @@ function assertIntegerInRange(
 export function cloneDebugState(input: GameState): GameState {
   return {
     ...input,
+    expeditionEvents: {
+      ...input.expeditionEvents,
+      pending: input.expeditionEvents.pending.map((event) => ({
+        ...event,
+        resolvedChoices: event.resolvedChoices.map((choice) => ({
+          ...choice,
+          effect: { ...choice.effect },
+        })) as typeof event.resolvedChoices,
+      })),
+    },
     rng: { ...input.rng },
     player: {
       ...input.player,
@@ -68,6 +79,10 @@ export function setDebugStage(input: GameState, stage: unknown): GameState {
 
   const state = cloneDebugState(input)
   state.battle.highestStage = Math.max(state.battle.highestStage, stage)
+  state.expeditionEvents = {
+    ...state.expeditionEvents,
+    milestoneMask: deriveLegacyExpeditionMilestoneMask(state.battle.highestStage),
+  }
   const selected = selectStage(state, stage)
 
   if (!selected.success) {

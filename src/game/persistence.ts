@@ -1,6 +1,8 @@
 import {
   COMPANION_ATTACK_INTERVAL_MS,
   COMPANION_DEFINITIONS,
+  EXPEDITION_DEFINITION_VERSION,
+  EXPEDITION_MILESTONE_COUNT,
   MAX_OFFLINE_MS,
   MAX_STAGE,
   SKILL_DEFINITIONS,
@@ -13,9 +15,14 @@ import {
   deriveLegacyBossMilestoneMask,
   isBossMilestoneMask,
 } from './bossMilestones'
+import {
+  deriveLegacyExpeditionMilestoneMask,
+  isValidExpeditionEventState,
+} from './expedition'
 import { MAX_UINT32, createRngState, seedFromText } from './rng'
 import {
   COMPANION_IDS,
+  EXPEDITION_DEFINITION_IDS,
   RNG_ALGORITHM,
   SAVE_VERSION,
   SKILL_IDS,
@@ -24,6 +31,7 @@ import {
 import type {
   AdvanceReport,
   BattleState,
+  ExpeditionEventState,
   GameState,
   LifetimeStats,
   PlayerState,
@@ -109,6 +117,11 @@ interface LegacyGameStateV3 {
   stats: LifetimeStats
 }
 
+type LegacyGameStateV4 = Omit<LegacyGameStateV3, 'schemaVersion'> & {
+  schemaVersion: 4
+  claimedBossMilestoneMask: number
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
@@ -140,6 +153,7 @@ function hasValidSharedState(value: Record<string, unknown>): boolean {
     battle.stage >= 1 &&
     isSafeNonNegativeInteger(battle.highestStage) &&
     battle.highestStage >= 1 &&
+    battle.highestStage >= battle.stage &&
     isSafeNonNegativeInteger(battle.enemyHp) &&
     isSafeNonNegativeInteger(battle.roundRemainderMs) &&
     isSafeNonNegativeInteger(battle.powerStrikeCooldownMs) &&
@@ -200,6 +214,73 @@ function isLegacyGameStateV3(value: unknown): value is LegacyGameStateV3 {
   )
 }
 
+function isLegacyGameStateV4(value: unknown): value is LegacyGameStateV4 {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === 4 &&
+    hasValidSharedState(value) &&
+    isBossMilestoneMask(value.claimedBossMilestoneMask) &&
+    hasValidCompanionState(value) &&
+    hasValidRng(value.rng)
+  )
+}
+
+function hasStructurallySafeExpeditionEvents(value: unknown): value is ExpeditionEventState {
+  if (
+    !isRecord(value) ||
+    !isSafeNonNegativeInteger(value.definitionVersion) ||
+    !isSafeNonNegativeInteger(value.runPrestige) ||
+    !isSafeNonNegativeInteger(value.milestoneMask) ||
+    !Array.isArray(value.pending) ||
+    !isSafeNonNegativeInteger(value.overflowCount)
+  ) {
+    return false
+  }
+
+  return value.pending.every((pending) => {
+    if (
+      !isRecord(pending) ||
+      typeof pending.eventId !== 'string' ||
+      !EXPEDITION_DEFINITION_IDS.some((id) => id === pending.definitionId) ||
+      !isSafeNonNegativeInteger(pending.definitionVersion) ||
+      !isSafeNonNegativeInteger(pending.milestoneIndex) ||
+      pending.milestoneIndex >= EXPEDITION_MILESTONE_COUNT ||
+      !isSafeNonNegativeInteger(pending.milestoneStage) ||
+      !isSafeNonNegativeInteger(pending.maxHpAtOffer) ||
+      !Array.isArray(pending.resolvedChoices) ||
+      pending.resolvedChoices.length !== 2
+    ) {
+      return false
+    }
+
+    return pending.resolvedChoices.every((choice) => {
+      if (
+        !isRecord(choice) ||
+        (choice.choiceId !== 'gold' && choice.choiceId !== 'recovery') ||
+        !isRecord(choice.effect)
+      ) {
+        return false
+      }
+      return (
+        (choice.effect.type === 'grantGold' || choice.effect.type === 'restoreHp') &&
+        isSafeNonNegativeInteger(choice.effect.amount)
+      )
+    })
+  })
+}
+
+function hasValidExpeditionEvents(
+  value: unknown,
+  stats: LifetimeStats,
+  rng: RngState,
+  battle: BattleState,
+): value is ExpeditionEventState {
+  return (
+    hasStructurallySafeExpeditionEvents(value) &&
+    isValidExpeditionEventState(value, rng.seed, stats.prestiges, battle.highestStage)
+  )
+}
+
 export function isGameState(value: unknown): value is GameState {
   if (!isRecord(value) || value.schemaVersion !== SAVE_VERSION || !hasValidSharedState(value)) {
     return false
@@ -207,7 +288,13 @@ export function isGameState(value: unknown): value is GameState {
   return (
     isBossMilestoneMask(value.claimedBossMilestoneMask) &&
     hasValidCompanionState(value) &&
-    hasValidRng(value.rng)
+    hasValidRng(value.rng) &&
+    hasValidExpeditionEvents(
+      value.expeditionEvents,
+      value.stats as LifetimeStats,
+      value.rng,
+      value.battle as BattleState,
+    )
   )
 }
 
@@ -274,6 +361,19 @@ function deriveLegacySeed(state: LegacyGameStateV1): number {
   return seedFromText(`emberwatch-game-state-v1|${values.join('|')}`)
 }
 
+function createMigratedExpeditionEvents(
+  highestStage: number,
+  prestiges: number,
+): ExpeditionEventState {
+  return {
+    definitionVersion: EXPEDITION_DEFINITION_VERSION,
+    runPrestige: prestiges,
+    milestoneMask: deriveLegacyExpeditionMilestoneMask(highestStage),
+    pending: [],
+    overflowCount: 0,
+  }
+}
+
 function migrateLegacyGameState(
   state: LegacyGameStateV1 | LegacyGameStateV2,
   rng: RngState,
@@ -283,6 +383,10 @@ function migrateLegacyGameState(
     schemaVersion: SAVE_VERSION,
     lastSavedAt: legacy.lastSavedAt,
     claimedBossMilestoneMask: deriveLegacyBossMilestoneMask(
+      legacy.battle.highestStage,
+      legacy.stats.prestiges,
+    ),
+    expeditionEvents: createMigratedExpeditionEvents(
       legacy.battle.highestStage,
       legacy.stats.prestiges,
     ),
@@ -309,6 +413,33 @@ function migrateLegacyGameStateV3(state: LegacyGameStateV3): GameState {
       legacy.battle.highestStage,
       legacy.stats.prestiges,
     ),
+    expeditionEvents: createMigratedExpeditionEvents(
+      legacy.battle.highestStage,
+      legacy.stats.prestiges,
+    ),
+    rng: { ...legacy.rng },
+    player: {
+      ...legacy.player,
+      upgrades: { ...legacy.player.upgrades },
+      skills: { ...legacy.player.skills },
+      companion: { ...legacy.player.companion },
+    },
+    battle: { ...legacy.battle },
+    stats: { ...legacy.stats },
+  }
+  return normalizeGameState(migrated)
+}
+
+function migrateLegacyGameStateV4(state: LegacyGameStateV4): GameState {
+  const legacy = structuredClone(state)
+  const migrated: GameState = {
+    schemaVersion: SAVE_VERSION,
+    lastSavedAt: legacy.lastSavedAt,
+    claimedBossMilestoneMask: legacy.claimedBossMilestoneMask,
+    expeditionEvents: createMigratedExpeditionEvents(
+      legacy.battle.highestStage,
+      legacy.stats.prestiges,
+    ),
     rng: { ...legacy.rng },
     player: {
       ...legacy.player,
@@ -324,6 +455,19 @@ function migrateLegacyGameStateV3(state: LegacyGameStateV3): GameState {
 
 export function decodeGameState(value: unknown): GameState | null {
   if (isGameState(value)) return normalizeGameState(value)
+  if (
+    isRecord(value) &&
+    value.schemaVersion === SAVE_VERSION &&
+    isRecord(value.expeditionEvents) &&
+    value.expeditionEvents.definitionVersion === undefined
+  ) {
+    const transitional = structuredClone(value)
+    if (isRecord(transitional.expeditionEvents)) {
+      transitional.expeditionEvents.definitionVersion = 1
+      if (isGameState(transitional)) return normalizeGameState(transitional)
+    }
+  }
+  if (isLegacyGameStateV4(value)) return migrateLegacyGameStateV4(value)
   if (isLegacyGameStateV3(value)) return migrateLegacyGameStateV3(value)
   if (isLegacyGameStateV2(value)) return migrateLegacyGameState(value, value.rng)
   return isLegacyGameStateV1(value)
@@ -377,11 +521,8 @@ function hasFutureSaveData(raw: string): boolean {
     ) {
       return true
     }
-    return (
-      isRecord(parsed.state) &&
-      isSafeNonNegativeInteger(parsed.state.schemaVersion) &&
-      parsed.state.schemaVersion > SAVE_VERSION
-    )
+    if (!isRecord(parsed.state)) return false
+    return isFutureGameStateValue(parsed.state)
   } catch {
     return false
   }
@@ -390,14 +531,41 @@ function hasFutureSaveData(raw: string): boolean {
 function hasFutureGameState(raw: string): boolean {
   try {
     const parsed: unknown = JSON.parse(raw)
-    return (
-      isRecord(parsed) &&
-      isSafeNonNegativeInteger(parsed.schemaVersion) &&
-      parsed.schemaVersion > SAVE_VERSION
-    )
+    return isFutureGameStateValue(parsed)
   } catch {
     return false
   }
+}
+
+export function isFutureGameStateValue(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (
+    isSafeNonNegativeInteger(value.schemaVersion) &&
+    value.schemaVersion > SAVE_VERSION
+  ) {
+    return true
+  }
+  return hasFutureExpeditionDefinitionVersion(value)
+}
+
+function hasFutureExpeditionDefinitionVersion(value: Record<string, unknown>): boolean {
+  if (value.schemaVersion !== SAVE_VERSION || !isRecord(value.expeditionEvents)) {
+    return false
+  }
+  if (
+    isSafeNonNegativeInteger(value.expeditionEvents.definitionVersion) &&
+    value.expeditionEvents.definitionVersion > EXPEDITION_DEFINITION_VERSION
+  ) {
+    return true
+  }
+  const pending = value.expeditionEvents.pending
+  if (!Array.isArray(pending)) return false
+  return pending.some(
+    (event) =>
+      isRecord(event) &&
+      isSafeNonNegativeInteger(event.definitionVersion) &&
+      event.definitionVersion > EXPEDITION_DEFINITION_VERSION,
+  )
 }
 
 function readSlot(storage: StorageLike, key: SaveSlotKey): SlotRead {
