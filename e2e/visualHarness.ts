@@ -24,6 +24,8 @@ async function installFailureRoute(page: Page, fixture: VisualFixtureDefinition)
     ? /\/(?:ashen-knight-default|ash-slime)[^/]*\.webp(?:\?.*)?$/
     : fixture.failureRoute === 'cards-corrupt'
       ? /\/(?:equipment-(?:ember-blade|guard-armor|fortune-charm)|skill-(?:power-strike|iron-will|loot-sense))[^/]*\.webp(?:\?.*)?$/
+      : fixture.failureRoute === 'events-corrupt'
+        ? /\/event-(?:ember-shrine|wandering-smith|ash-camp)[^/]*\.webp(?:\?.*)?$/
       : null
   if (pattern === null) return
   await page.route(pattern, async (route) => {
@@ -122,6 +124,20 @@ export async function openVisualFixture(
     }
   }
 
+  if (fixture.setupAction === 'open-expedition-events') {
+    const eventSlots = page.locator('[data-event-asset-id]')
+    await expect(eventSlots).toHaveCount(3)
+    for (let index = 0; index < 3; index += 1) {
+      const slot = eventSlots.nth(index)
+      await slot.scrollIntoViewIfNeeded()
+      await expect(slot).toHaveAttribute('data-art-active', 'true')
+      await expect(slot.locator('.expedition-event-card__asset')).toHaveAttribute(
+        'data-state',
+        fixture.failureRoute === 'events-corrupt' ? 'fallback' : 'loaded',
+      )
+    }
+  }
+
   if (fixture.setupAction === 'open-combat-log') {
     await page.getByRole('button', { name: '전투 로그 펼치기' }).click()
     const list = page.getByTestId('combat-log-list')
@@ -173,6 +189,17 @@ export async function openVisualFixture(
     for (let index = 0; index < 6; index += 1) {
       await expect(cardAssets.nth(index)).toHaveAttribute('data-state', 'fallback')
       await expect(cardAssets.nth(index)).toHaveAttribute(
+        'data-resolved-asset-id',
+        'fallback.card',
+      )
+    }
+  }
+  if (fixture.failureRoute === 'events-corrupt') {
+    const eventAssets = target.locator('.expedition-event-card__asset')
+    await expect(eventAssets).toHaveCount(3)
+    for (let index = 0; index < 3; index += 1) {
+      await expect(eventAssets.nth(index)).toHaveAttribute('data-state', 'fallback')
+      await expect(eventAssets.nth(index)).toHaveAttribute(
         'data-resolved-asset-id',
         'fallback.card',
       )

@@ -210,6 +210,31 @@ h2 { font-size: 20px; letter-spacing: -.02em; }
 .stage-map-node small { position: absolute; top: 2px; right: 4px; color: #e9877d; font-size: 7px; font-weight: 700; }
 .stage-map-node[aria-disabled='true'] { cursor: not-allowed; }
 
+.expedition-event-panel { margin-top: 18px; padding: 24px 27px 27px; border-color: rgba(238,125,61,.16); }
+.expedition-event-panel__header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.expedition-event-panel__header p:last-child { margin: 7px 0 0; color: #aaa097; font-size: 11px; line-height: 1.5; }
+.expedition-event-panel__count { flex: 0 0 auto; padding: 7px 10px; border: 1px solid rgba(238,125,61,.24); border-radius: 999px; color: #f0b184; background: rgba(238,125,61,.07); font-size: 10px; font-weight: 700; }
+.expedition-event-panel__disabled, .expedition-event-panel__feedback { margin: 16px 0 0; padding: 9px 11px; border: 1px solid rgba(238,125,61,.2); border-radius: 6px; background: rgba(104,43,25,.24); color: #f0b896; font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.expedition-event-panel__feedback--success { border-color: rgba(104,201,180,.22); background: rgba(104,201,180,.065); color: #aee3d7; }
+.expedition-event-panel__limit-note { margin: 14px 0 0; color: #817871; font-size: 9px; line-height: 1.5; }
+.expedition-event-panel__empty { margin: 18px 0 0; color: #aaa097; font-size: 11px; line-height: 1.6; }
+.expedition-event-panel h2:focus { outline: 2px solid var(--ember-soft); outline-offset: 5px; }
+.expedition-event-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+.expedition-event-card { min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(238,125,61,.15); border-radius: 9px; background: linear-gradient(155deg, rgba(87,45,30,.18), rgba(255,255,255,.018)); }
+.expedition-event-card__art { width: 100%; min-width: 0; aspect-ratio: 1; overflow: hidden; border-bottom: 1px solid rgba(238,125,61,.13); background: linear-gradient(145deg, rgba(135,55,34,.18), rgba(45,28,25,.4)); }
+.expedition-event-card__asset { width: 100%; height: 100%; }
+.expedition-event-card__art-placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #ef9d69; font: 700 38px/1 'Emberwatch Sans', sans-serif; }
+.expedition-event-card__body { min-width: 0; flex: 1; padding: 14px 14px 11px; }
+.expedition-event-card__heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 5px 9px; }
+.expedition-event-card__heading h3 { margin: 0; color: #eaded2; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+.expedition-event-card__heading span { color: #ef9d69; font: 700 9px/1 'Emberwatch Sans', sans-serif; letter-spacing: .08em; }
+.expedition-event-card__body > p { margin: 7px 0 0; color: #aaa097; font-size: 10px; line-height: 1.55; overflow-wrap: anywhere; }
+.expedition-event-card__choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 0 12px 12px; }
+.expedition-event-card__choices button { min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 6px; border: 1px solid rgba(238,125,61,.22); border-radius: 6px; background: rgba(238,125,61,.065); color: #f0b184; font-size: 10px; line-height: 1.35; cursor: pointer; }
+.expedition-event-card__choices button:hover:not(:disabled) { border-color: rgba(238,125,61,.42); background: rgba(238,125,61,.14); }
+.expedition-event-card__choices button small { color: #c6a084; font-size: 9px; line-height: 1.35; overflow-wrap: anywhere; }
+.expedition-event-card__choices button:disabled { filter: grayscale(.45); opacity: .52; cursor: not-allowed; }
+
 .hero-panel { padding: 25px; flex: 1; }
 .level-seal { color: var(--gold); border: 1px solid rgba(230,184,93,.2); background: rgba(230,184,93,.06); padding: 6px 9px; border-radius: 5px; font: 700 11px/1 'Emberwatch Sans', sans-serif; }
 .hero-portrait { inline-size: clamp(144px, 48%, 176px); max-inline-size: 100%; margin: 18px auto 8px; border: 1px solid rgba(230,184,93,.16); border-radius: 10px; box-shadow: 0 16px 38px rgba(0,0,0,.28), inset 0 0 30px rgba(238,125,61,.06); }
@@ -384,6 +409,7 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
 @media (max-width: 900px) {
   .dashboard { grid-template-columns: 1fr; }
   .battle { min-height: auto; }
+  .expedition-event-grid { grid-template-columns: 1fr; }
   .progression-panels { grid-template-columns: 1fr; }
   .stage-map-node-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
   .combat-result-dialog { width: min(650px, 100%); grid-template-columns: 1fr; }
@@ -411,6 +437,9 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .stage-map-scene__copy { left: 14px; right: 14px; bottom: 13px; }
   .stage-map-scene__copy p { max-width: 28ch; }
   .stage-map-node-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+  .expedition-event-panel { padding: 22px 20px; }
+  .expedition-event-panel__header { align-items: flex-start; }
+  .expedition-event-card__choices { grid-template-columns: 1fr; }
   .live-badge { font-size: 0; padding: 8px; }
   .live-badge i { margin: 0; }
   .enemy-portrait { margin-top: 24px; }

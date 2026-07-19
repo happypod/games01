@@ -119,11 +119,17 @@ const FINAL_CONTENT_ASSET_IDS = new Set([
   'skill.loot-sense',
   'result.boss-victory',
   'result.defeat',
+  'event.ember-shrine',
+  'event.wandering-smith',
+  'event.ash-camp',
 ])
 
 const REQUIRED_PROMPT_RECORD_BY_ASSET_ID = new Map([
   ['result.boss-victory', 'docs/assets/prompts/battle-results.md'],
   ['result.defeat', 'docs/assets/prompts/battle-results.md'],
+  ['event.ember-shrine', 'docs/assets/prompts/expedition-event-cards.md'],
+  ['event.wandering-smith', 'docs/assets/prompts/expedition-event-cards.md'],
+  ['event.ash-camp', 'docs/assets/prompts/expedition-event-cards.md'],
 ])
 
 const SPEC_BY_KIND = Object.freeze({

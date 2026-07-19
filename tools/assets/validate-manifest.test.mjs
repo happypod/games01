@@ -173,6 +173,18 @@ test('requires final battle result art to be ready, hashed, and tied to its appr
   assert.equal(hasError(result, ERROR_CODES.RIGHTS_METADATA, 'result.boss-victory'), true)
 })
 
+test('requires final expedition event art to be ready, hashed, and tied to its approved prompt record', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    const entry = findEntry(manifest, 'event.ember-shrine')
+    entry.status = 'placeholder'
+    entry.promptRecord = 'docs/assets/prompts/placeholder-assets.md'
+    delete entry.sha256
+  })
+  assert.equal(hasError(result, ERROR_CODES.INVALID_STATUS, 'event.ember-shrine'), true)
+  assert.equal(hasError(result, ERROR_CODES.HASH_REQUIRED, 'event.ember-shrine'), true)
+  assert.equal(hasError(result, ERROR_CODES.RIGHTS_METADATA, 'event.ember-shrine'), true)
+})
+
 test('compares declared region hashes to the real files', async () => {
   const result = await runFixture(async ({ manifest }) => {
     findEntry(manifest, 'region.moonfall-pass').sha256 = '0'.repeat(64)
@@ -238,6 +250,27 @@ test('rejects shared source paths and hashes across final battle result art', as
   })
   assert.equal(
     hasError(sharedHash, ERROR_CODES.DUPLICATE_SHA256, 'result.defeat'),
+    true,
+  )
+})
+
+test('rejects shared source paths and hashes across final expedition event art', async () => {
+  const sharedSource = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'event.wandering-smith').src = findEntry(
+      manifest,
+      'event.ember-shrine',
+    ).src
+  })
+  assert.equal(hasError(sharedSource, ERROR_CODES.DUPLICATE_SRC, 'event.wandering-smith'), true)
+
+  const sharedHash = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'event.ash-camp').sha256 = findEntry(
+      manifest,
+      'event.ember-shrine',
+    ).sha256
+  })
+  assert.equal(
+    hasError(sharedHash, ERROR_CODES.DUPLICATE_SHA256, 'event.ash-camp'),
     true,
   )
 })

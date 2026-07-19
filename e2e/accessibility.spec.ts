@@ -60,6 +60,7 @@ test.describe('360px keyboard and screenreader semantics', () => {
       '방랑 기사 아렌',
       '승패 결과',
       '3지역 원정 지도',
+      '원정 선택 이벤트',
       '성장 장비',
       '스킬 각인',
       '동료 원정대',
@@ -70,7 +71,7 @@ test.describe('360px keyboard and screenreader semantics', () => {
     }
     expect(
       await page.locator('main section[aria-labelledby] > :first-child h2, main section[aria-labelledby] > h2').allTextContents(),
-    ).toEqual(['스테이지 1', '방랑 기사 아렌', '승패 결과', '3지역 원정 지도', '성장 장비', '스킬 각인', '동료 원정대', '전투 로그', '불씨의 계승', '저장 백업'])
+    ).toEqual(['스테이지 1', '방랑 기사 아렌', '승패 결과', '3지역 원정 지도', '원정 선택 이벤트', '성장 장비', '스킬 각인', '동료 원정대', '전투 로그', '불씨의 계승', '저장 백업'])
     await expect(page.locator('.ambient[aria-hidden="true"]')).toHaveCount(2)
     await expect(page.locator('.enemy-portrait')).toHaveAttribute('aria-hidden', 'true')
     await expect(page.locator('.growth-card__art[aria-hidden="true"]')).toHaveCount(6)

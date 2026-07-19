@@ -53,6 +53,16 @@ const EXPECTED_FIXTURES = {
     hash: 'fnv1a32-v1:2205d268',
     seed: 1091907769,
   },
+  'visual.events.pending-three': {
+    stage: 30,
+    hash: 'fnv1a32-v1:fd5059e1',
+    seed: 1635907649,
+  },
+  'visual.events.fallback': {
+    stage: 30,
+    hash: 'fnv1a32-v1:18b9b92d',
+    seed: 3134554997,
+  },
   'visual.combat.event-log': {
     stage: 10,
     hash: 'fnv1a32-v1:c78a61d4',
@@ -85,8 +95,8 @@ describe('IRPG-506 named visual fixtures', () => {
   it('pins the fixture states and their canonical metadata', () => {
     expect(VISUAL_FIXTURE_IDS).toEqual(Object.keys(EXPECTED_FIXTURES))
     expect(VISUAL_FIXTURE_NOW).toBe(1_767_225_600_000)
-    expect(VISUAL_FIXTURE_IDS).toHaveLength(10)
-    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(40)
+    expect(VISUAL_FIXTURE_IDS).toHaveLength(12)
+    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(48)
     expect(VISUAL_FIXTURE_VARIANTS).toEqual([
       {
         id: 'mobile-default',
@@ -129,6 +139,8 @@ describe('IRPG-506 named visual fixtures', () => {
           ? 'IRPG-408'
           : id.startsWith('visual.cards.')
             ? 'IRPG-409'
+            : id.startsWith('visual.events.')
+              ? 'IRPG-412'
             : id.startsWith('visual.result.')
               ? 'IRPG-410'
             : id === 'visual.combat.event-log'
@@ -164,6 +176,16 @@ describe('IRPG-506 named visual fixtures', () => {
     expect(VISUAL_FIXTURE_REGISTRY['visual.cards.mixed-states']).toMatchObject({
       captureTarget: '.progression-panels',
       setupAction: 'open-growth-cards',
+    })
+    expect(VISUAL_FIXTURE_REGISTRY['visual.events.pending-three']).toMatchObject({
+      captureTarget: '.expedition-event-panel',
+      failureRoute: 'none',
+      setupAction: 'open-expedition-events',
+    })
+    expect(VISUAL_FIXTURE_REGISTRY['visual.events.fallback']).toMatchObject({
+      captureTarget: '.expedition-event-panel',
+      failureRoute: 'events-corrupt',
+      setupAction: 'open-expedition-events',
     })
     const eventDefinition = VISUAL_FIXTURE_REGISTRY['visual.combat.event-log']
     const eventBatch = createVisualFixtureCombatEventBatch('visual.combat.event-log')
@@ -249,6 +271,19 @@ describe('IRPG-506 named visual fixtures', () => {
       upgrades: { weapon: 2, armor: 1, charm: 50 },
       skills: { powerStrike: 3, ironWill: 10, fortune: 0 },
     })
+
+    for (const id of ['visual.events.pending-three', 'visual.events.fallback'] as const) {
+      const eventState = createVisualFixtureState(id)
+      expect(eventState.expeditionEvents).toMatchObject({
+        definitionVersion: 1,
+        runPrestige: 0,
+        milestoneMask: 7,
+        overflowCount: 0,
+      })
+      expect(eventState.expeditionEvents.pending).toHaveLength(3)
+      expect(new Set(eventState.expeditionEvents.pending.map(({ definitionId }) => definitionId)))
+        .toEqual(new Set(['event.ember-shrine', 'event.wandering-smith', 'event.ash-camp']))
+    }
   })
 
   it('sorts every object level before hashing and returns fresh states', () => {

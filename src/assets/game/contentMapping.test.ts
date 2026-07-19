@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EXPEDITION_EVENT_DEFINITIONS,
   SKILL_DEFINITIONS,
   UPGRADE_DEFINITIONS,
   getEnemyDefinition,
@@ -102,6 +103,39 @@ describe('IRPG-410 battle result asset mapping', () => {
         promptRecord: 'docs/assets/prompts/battle-results.md',
       })
       expect(asset.bytes).toBeLessThanOrEqual(300 * 1024)
+      expect(asset.sha256).toMatch(/^[a-f0-9]{64}$/)
+      sources.add(asset.src)
+      hashes.add(asset.sha256 ?? '')
+    }
+
+    expect(sources.size).toBe(expected.length)
+    expect(hashes.size).toBe(expected.length)
+  })
+})
+
+describe('IRPG-412 expedition event card asset mapping', () => {
+  it('maps every fixed expedition event to unique production-ready card art', () => {
+    const declaredById = new Map(manifestJson.assets.map((asset) => [asset.id, asset]))
+    const expected = [
+      ['불씨 성소', EXPEDITION_EVENT_DEFINITIONS['event.ember-shrine'].assetId],
+      ['떠돌이 대장장이', EXPEDITION_EVENT_DEFINITIONS['event.wandering-smith'].assetId],
+      ['잿빛 야영지', EXPEDITION_EVENT_DEFINITIONS['event.ash-camp'].assetId],
+    ] as const
+    const sources = new Set<string>()
+    const hashes = new Set<string>()
+
+    for (const [name, assetId] of expected) {
+      const asset = declaredById.get(assetId)
+      if (!asset) throw new Error(`Missing ${name} manifest asset: ${assetId}`)
+      expect(asset).toMatchObject({
+        kind: 'event',
+        status: 'ready',
+        format: 'webp',
+        width: 512,
+        height: 512,
+        promptRecord: 'docs/assets/prompts/expedition-event-cards.md',
+      })
+      expect(asset.bytes).toBeLessThanOrEqual(160 * 1024)
       expect(asset.sha256).toMatch(/^[a-f0-9]{64}$/)
       sources.add(asset.src)
       hashes.add(asset.sha256 ?? '')

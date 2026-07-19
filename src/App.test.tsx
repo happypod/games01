@@ -14,6 +14,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: '동료 원정대' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '승패 결과' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '3지역 원정 지도' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '원정 선택 이벤트' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '원정 지도 열기' })).toHaveAttribute(
       'aria-expanded',
       'false',

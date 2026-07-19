@@ -19,7 +19,7 @@ import type {
   CommandResult,
   GameState,
 } from '../game/types'
-import type { GameController } from '../hooks/useGame'
+import type { GameCommandFeedback, GameController } from '../hooks/useGame'
 import { DebugPanel } from './DebugPanel'
 import {
   applyDebugOfflineMinutes,
@@ -77,10 +77,17 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     setActiveVisualFixtureId(null)
   }, [])
 
-  const runCommand = useCallback((command: (input: GameState) => CommandResult) => {
+  const runCommand = useCallback((
+    command: (input: GameState) => CommandResult,
+  ): GameCommandFeedback => {
     const result = command(stateRef.current)
-    if (result.success) commit(result.state)
+    if (!result.success) {
+      setNotice(result.message)
+      return { success: false, message: result.message, reason: 'rejected' }
+    }
+    commit(result.state)
     setNotice(result.message)
+    return { success: true, message: result.message, reason: 'committed' }
   }, [commit])
 
   useEffect(() => {
@@ -171,14 +178,26 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     ready: true,
     readOnly: false,
     lockSupported: false,
-    buyUpgrade: (id) => runCommand((current) => purchaseUpgrade(current, id)),
-    buySkill: (id) => runCommand((current) => upgradeSkill(current, id)),
-    recruitCompanion: (id) => runCommand((current) => recruitCompanion(current, id)),
-    trainCompanion: () => runCommand(trainCompanion),
-    chooseStage: (stage) => runCommand((current) => selectStage(current, stage)),
+    buyUpgrade: (id) => {
+      void runCommand((current) => purchaseUpgrade(current, id))
+    },
+    buySkill: (id) => {
+      void runCommand((current) => upgradeSkill(current, id))
+    },
+    recruitCompanion: (id) => {
+      void runCommand((current) => recruitCompanion(current, id))
+    },
+    trainCompanion: () => {
+      void runCommand(trainCompanion)
+    },
+    chooseStage: (stage) => {
+      void runCommand((current) => selectStage(current, stage))
+    },
     chooseExpeditionEvent: (eventId, choiceId) =>
       runCommand((current) => chooseExpeditionEvent(current, eventId, choiceId)),
-    prestige: () => runCommand(performPrestige),
+    prestige: () => {
+      void runCommand(performPrestige)
+    },
     reset,
     restoreSave: () => ({
       success: false,

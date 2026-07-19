@@ -1,4 +1,5 @@
 import { createInitialState } from '../game/engine'
+import { createExpeditionPendingEvent } from '../game/expedition'
 import { getHeroStats } from '../game/formulas'
 import { seedFromText } from '../game/rng'
 import type {
@@ -19,6 +20,8 @@ export const VISUAL_FIXTURE_IDS = [
   'visual.map.stage-frontier',
   'visual.cards.mixed-states',
   'visual.cards.fallback',
+  'visual.events.pending-three',
+  'visual.events.fallback',
   'visual.combat.event-log',
   'visual.result.boss-victory',
   'visual.result.defeat',
@@ -49,14 +52,14 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411'
-  readonly stage: 1 | 3 | 5 | 10 | 105
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412'
+  readonly stage: 1 | 3 | 5 | 10 | 30 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
   readonly canonicalEventHash?: `fnv1a32-v1:${string}`
-  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel' | '.progression-panels' | '.combat-log-panel' | '.combat-result-dialog'
-  readonly failureRoute: 'none' | 'hero-and-enemy-corrupt' | 'cards-corrupt'
-  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result'
+  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel' | '.progression-panels' | '.expedition-event-panel' | '.combat-log-panel' | '.combat-result-dialog'
+  readonly failureRoute: 'none' | 'hero-and-enemy-corrupt' | 'cards-corrupt' | 'events-corrupt'
+  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards' | 'open-expedition-events' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result'
   readonly variants: readonly VisualVariantId[]
 }
 
@@ -176,6 +179,30 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     captureTarget: '.progression-panels',
     failureRoute: 'cards-corrupt',
     setupAction: 'open-growth-cards',
+    variants: VISUAL_VARIANT_IDS,
+  },
+  'visual.events.pending-three': {
+    id: 'visual.events.pending-three',
+    label: '원정 이벤트 3종 대기 상태',
+    ownerTicket: 'IRPG-412',
+    stage: 30,
+    seedKey: 'irpg-506:visual.events.pending-three:v1',
+    canonicalHash: 'fnv1a32-v1:fd5059e1',
+    captureTarget: '.expedition-event-panel',
+    failureRoute: 'none',
+    setupAction: 'open-expedition-events',
+    variants: VISUAL_VARIANT_IDS,
+  },
+  'visual.events.fallback': {
+    id: 'visual.events.fallback',
+    label: '원정 이벤트 이미지 fallback 상태',
+    ownerTicket: 'IRPG-412',
+    stage: 30,
+    seedKey: 'irpg-506:visual.events.fallback:v1',
+    canonicalHash: 'fnv1a32-v1:18b9b92d',
+    captureTarget: '.expedition-event-panel',
+    failureRoute: 'events-corrupt',
+    setupAction: 'open-expedition-events',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.combat.event-log': {
@@ -407,6 +434,24 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
     state = {
       ...state,
       player: { ...state.player, currentHp: getHeroStats(state).maxHp },
+    }
+  }
+  if (id === 'visual.events.pending-three' || id === 'visual.events.fallback') {
+    const maxHpAtOffer = getHeroStats(state).maxHp
+    state = {
+      ...state,
+      expeditionEvents: {
+        ...state.expeditionEvents,
+        pending: [0, 1, 2].map((milestoneIndex) =>
+          createExpeditionPendingEvent(
+            state.rng.seed,
+            state.stats.prestiges,
+            milestoneIndex,
+            maxHpAtOffer,
+          ),
+        ),
+        overflowCount: 0,
+      },
     }
   }
   const actualHash = hashVisualGameState(state)

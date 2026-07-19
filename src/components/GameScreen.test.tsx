@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createInitialState } from '../game/engine'
+import { EXPEDITION_EVENT_DEFINITIONS_V1 } from '../game/content'
 import { createExpeditionPendingEvent } from '../game/expedition'
 import type { GameController } from '../hooks/useGame'
 import { GameScreen } from './GameScreen'
@@ -35,7 +36,11 @@ function createController(): GameController {
     recruitCompanion: vi.fn(),
     trainCompanion: vi.fn(),
     chooseStage: vi.fn(),
-    chooseExpeditionEvent: vi.fn(),
+    chooseExpeditionEvent: vi.fn(() => ({
+      success: false,
+      message: 'unused',
+      reason: 'rejected' as const,
+    })),
     prestige: vi.fn(),
     reset: vi.fn(),
     restoreSave: vi.fn(() => ({ success: false, message: 'unused' })),
@@ -44,6 +49,34 @@ function createController(): GameController {
 }
 
 describe('GameScreen expedition prestige warning', () => {
+  it('connects the stored expedition offer to the public command', () => {
+    const game = createController()
+    const pending = game.state.expeditionEvents.pending[0]!
+    const definition = EXPEDITION_EVENT_DEFINITIONS_V1[pending.definitionId]
+    const choice = pending.resolvedChoices[0]!
+    const label = definition.choices.find(({ id }) => id === choice.choiceId)!.label
+    const preview = choice.effect.type === 'grantGold'
+      ? `골드 최대 +${choice.effect.amount}`
+      : `체력 최대 +${choice.effect.amount}`
+    render(
+      <GameScreen
+        game={game}
+        showReadOnlyWarning={false}
+        showSaveTransfer={false}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: '원정 선택 이벤트' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', {
+      name: `${definition.name}, ${label}, ${preview}`,
+    }))
+    expect(game.chooseExpeditionEvent).toHaveBeenCalledTimes(1)
+    expect(game.chooseExpeditionEvent).toHaveBeenCalledWith(
+      pending.eventId,
+      choice.choiceId,
+    )
+  })
+
   it('discloses the exact pending discard count before running prestige', () => {
     const game = createController()
     const confirm = vi.spyOn(window, 'confirm')

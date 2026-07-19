@@ -3,6 +3,7 @@ import { BattleArena } from './BattleArena'
 import { CombatLogPanel } from './CombatLogPanel'
 import { CombatResultRegion } from './CombatResultRegion'
 import { CompanionPanel } from './CompanionPanel'
+import { ExpeditionEventPanel } from './ExpeditionEventPanel'
 import { HeroPanel } from './HeroPanel'
 import { OfflineReport } from './OfflineReport'
 import { PrestigePanel } from './PrestigePanel'
@@ -154,6 +155,17 @@ export function GameScreen({
             ? { disabledReason: '게임 상태를 준비하는 중이라 스테이지를 이동할 수 없습니다.' }
             : game.readOnly
               ? { disabledReason: '다른 탭이 진행을 저장 중인 읽기 전용 모드에서는 스테이지를 이동할 수 없습니다.' }
+              : {})}
+        />
+
+        <ExpeditionEventPanel
+          pending={game.state.expeditionEvents.pending}
+          onChoose={game.chooseExpeditionEvent}
+          disabled={controlsDisabled}
+          {...(!game.ready
+            ? { disabledReason: '게임 상태를 준비하는 중이라 원정 이벤트를 선택할 수 없습니다.' }
+            : game.readOnly
+              ? { disabledReason: '다른 탭이 진행을 저장 중인 읽기 전용 모드에서는 원정 이벤트를 선택할 수 없습니다.' }
               : {})}
         />
 

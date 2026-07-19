@@ -53,6 +53,8 @@ IRPG-206 기준선은 비동료·동료 각 10개 첫 원정→환생→stage 30
 
 IRPG-410 Done 기준선은 Vitest 32파일·243테스트, 자산 validator 30테스트, 신규 일반 Playwright 6테스트, production 자산 Playwright 4테스트와 named fixture 10개·canonical screenshot 40개다. bossVictory/defeat 전용 BigInt dedupe·queue 3·overflow·generation reset·pinned snapshot·reward non-mutation, focus trap/복원, reload/offline 비재생, 360px·200%·reduced-motion, corrupt result fallback, status 0→detail 1개 lazy-load를 포함하며 Ubuntu 40/40 비교와 같은 runner 3회 반복 120/120을 통과했다.
 
+IRPG-412 Verify 기준선은 Vitest 35파일·285테스트, 자산 validator 32테스트, 일반 Playwright 37테스트, production 자산 Playwright 4테스트와 named fixture 12개·canonical screenshot 목표 48개다. 저장된 원정 효과 preview·1,000 이상 비축약, 성공 revision +1·재선택/reader/save-failed no-write, rapid 중복 차단, 성공·거절·외부 snapshot focus, 카드별 요청 0→1→2→3, corrupt event `fallback.card`, 360px·200%·reduced-motion을 포함한다. 로컬 전체 게이트는 통과했고 Ubuntu 48/48·3회 반복 144/144 및 새 baseline 8개 승인이 남아 있다.
+
 ## 3. 요구사항 추적
 
 | 요구 | 자동 증거 | 남은 수동·E2E |
@@ -67,13 +69,13 @@ IRPG-410 Done 기준선은 Vitest 32파일·243테스트, 자산 validator 30테
 | 스테이지·패배 | 선택 범위·장시간 엔진, IRPG-410 패배 art·복귀/최고점 snapshot E2E | 장기 플레이 체감 확인 |
 | 환생 유지·초기화 | 영구·임시 필드 비교 | 확인 대화상자와 예상 보상 |
 | 환생 후 재도달 | 비동료·동료 20개 paired ratio 50~70%, exact timing·상태 hash·RNG, A/B 600초 중간 저장 재개 | IRPG-205 외부 사용자 체감 검증 |
-| 결정론적 원정 이벤트 | v1 shuffle golden hash, 30-bit prefix, pending 3·overflow, 320개 선택 RNG 불변, 중복 no-write, 환생 폐기·MAX 거부 | IRPG-412 카드 UI의 실제 keyboard·reload 흐름 |
+| 결정론적 원정 이벤트 | v1 shuffle golden hash, 30-bit prefix, pending 3·overflow, 320개 선택 RNG 불변, 중복 no-write, 환생 폐기·MAX 거부, IRPG-412 pointer·keyboard·reload exact-once | 실제 보조공학 조합의 외부 전문 감사 |
 | 저장 복구 | A/B fallback·부분 쓰기·미래 포맷·v1 migration | 실제 저장 차단 환경 |
 | 저장 백업 | checksum·크기·schema·stale revision·read-back rollback, Playwright 다운로드·취소·복원 | 다른 기기 파일 이동 |
 | 오프라인 중복 방지 | 같은 시각 재부팅, Playwright 닫기·재접속·재새로고침 | 탭 숨김과 OS 절전 복귀 |
 | 다중 탭 충돌 | stale revision 원문 불변, reader 무쓰기, 동일 revision 충돌 차단, 두 페이지 lock 인계 | 비정상 브라우저 종료 복구 |
 | 반응형·접근성 | progressbar·modal focus 컴포넌트 테스트, 360px·키보드·reduced-motion Playwright | 실제 보조공학 조합의 외부 전문 감사 |
-| 시각 자산 | manifest validator fixture, production URL·gzip·lazy-load, 적·보스 8종·결과 2종 stable mapping, 360px·200%·fallback·A/B 저장 지속 | 후속 원정 이벤트 card art는 IRPG-412에서 검토 |
+| 시각 자산 | manifest validator fixture, production URL·gzip·lazy-load, 적·보스 8종·결과 2종·원정 이벤트 3종 stable mapping, 카드별 lazy-load, 360px·200%·fallback·A/B 저장 지속 | IRPG-412 Ubuntu event baseline 8개 승인 |
 | 첫 환생 목표 | 10회 결정론적 가속 세션과 대표 브라우저 상태 | IRPG-205 외부 사용자 10회 실제 플레이 |
 | 장시간 결정론 | 1x·10x·100x 24시간 soak와 3×8시간 canonical 비교 | IRPG-507 브라우저 개발 패널, IRPG-508 7일 stress |
 | 브라우저 debug 격리 | 순수 입력 경계, 실제 경과 배속, reader clone, legacy/A/B raw byte 불변 | development UI 1x·10x·100x·stage·자원·offline, production bundle·DOM 부재 |
@@ -152,7 +154,7 @@ npm run test:e2e:assets
 npm run test:e2e:visual
 ```
 
-로컬 전체 게이트는 `npm run verify`다. 브라우저 제외 게이트는 `npm run verify:code`다. canonical screenshot 비교는 Ubuntu GitHub Actions 전용이며 로컬에서는 건너뛰고, Ubuntu CI에서는 동일 전체 게이트가 현재 40개 baseline을 반드시 비교한다. CI는 Chromium과 시스템 의존성을 설치한 뒤 worker 1개로 실행하며, 실패한 Playwright trace·screenshot·video와 HTML report를 artifact로 보존한다. 티켓을 Done으로 옮길 때 명령, 통과 결과, 필요한 수동 증거를 `Test evidence`에 남긴다.
+로컬 전체 게이트는 `npm run verify`다. 브라우저 제외 게이트는 `npm run verify:code`다. canonical screenshot 비교는 Ubuntu GitHub Actions 전용이며 로컬에서는 건너뛴다. 현재 체크인 기준선은 40개이고 IRPG-412 registry 목표는 48개이므로, 구현 workflow에서 새 event baseline 8개를 생성·승인한 뒤 동일 전체 게이트가 48개를 반드시 비교해야 한다. CI는 Chromium과 시스템 의존성을 설치한 뒤 worker 1개로 실행하며, 실패한 Playwright trace·screenshot·video와 HTML report를 artifact로 보존한다. 티켓을 Done으로 옮길 때 명령, 통과 결과, 필요한 수동 증거를 `Test evidence`에 남긴다.
 
 ## 8. 현재 브라우저 증거
 
@@ -169,5 +171,6 @@ npm run test:e2e:visual
 - IRPG-507 Playwright에서 stage 300·1x/100x·자원·offline·잘못된 경계를 적용하고 5초 대기·pagehide·reload·reset 뒤 legacy/A/B raw byte 불변을 확인했다. 일반 흐름 13/13과 production debug 부재·자산 흐름 3/3이 통과했다.
 - IRPG-411 Playwright에서 최근 20개·6종·filter·focus·reload/offline 비재생·200% 확대를 3/3 검증했다. 최종 로컬 `npm run verify`는 Vitest 169/169, 일반 Playwright 29/29, production 자산 3/3을 통과했고 Ubuntu quality push·PR와 canonical 32개·3회 반복도 성공했다.
 - IRPG-410 Playwright에서 nonmodal 승패 상태·정확한 보상/복귀 snapshot·queue pin·reload/offline 비재생·fallback·200% 확대를 6/6 검증했다. 최종 로컬 `npm run verify`는 Vitest 243/243, 일반 Playwright 35/35, production 자산 4/4을 통과했고 GitHub push/PR quality run `29659072476`·`29659074246`, Ubuntu canonical 40/40·3회 반복 120/120 run `29659072473`도 성공했다.
+- IRPG-412 Playwright에서 실제 자동 전투·강화 UI의 첫 이벤트 rapid 중복 입력→보상·revision·카드 제거 1회→reload 유지와 카드별 lazy request·fallback·keyboard focus·200% 확대를 2/2 검증했다. 로컬 `npm run verify`는 Vitest 285/285, 일반 Playwright 37/37, production 자산 4/4을 통과했고 Ubuntu canonical 48개 생성·승인은 Verify 단계에 남아 있다.
 
 이 스크린샷은 자동 생성된 검증 증거이며 미술 방향의 최종 승인을 뜻하지 않는다.

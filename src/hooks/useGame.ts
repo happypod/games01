@@ -47,6 +47,16 @@ interface HeldWriterLock {
   release: () => void
 }
 
+export interface GameCommandFeedback {
+  success: boolean
+  message: string
+  reason: 'committed' | 'rejected' | 'read-only' | 'save-failed'
+}
+
+type PersistResult =
+  | { success: true }
+  | { success: false; message: string }
+
 export interface GameController {
   state: GameState
   offlineReport: AdvanceReport | null
@@ -63,7 +73,10 @@ export interface GameController {
   recruitCompanion: (id: CompanionId) => void
   trainCompanion: () => void
   chooseStage: (stage: number) => void
-  chooseExpeditionEvent: (eventId: string, choiceId: ExpeditionChoiceId) => void
+  chooseExpeditionEvent: (
+    eventId: string,
+    choiceId: ExpeditionChoiceId,
+  ) => GameCommandFeedback
   prestige: () => void
   reset: () => void
   restoreSave: (preview: SaveImportPreview) => { success: boolean; message: string }
@@ -165,25 +178,28 @@ export function useGame(): GameController {
   )
 
   const persist = useCallback(
-    (next: GameState) => {
+    (next: GameState): PersistResult => {
       if (!writerRef.current || saveBlockedRef.current) {
+        const message = '저장을 안전하게 확인할 수 없어 진행을 변경하지 않았습니다.'
         setSaveHealthy(false)
-        return false
+        setNotice(message)
+        return { success: false, message }
       }
       const result = saveGameAtRevision(window.localStorage, next, revisionRef.current)
       if (result.status === 'saved') {
         revisionRef.current = result.revision
         setSaveHealthy(true)
-        return true
+        return { success: true }
       }
       const conflict = result.status === 'conflict'
+      const message = conflict
+        ? '더 새로운 저장을 반영하고 이 탭을 읽기 전용으로 전환했습니다.'
+        : '저장을 안전하게 확인할 수 없어 이 탭을 읽기 전용으로 전환했습니다.'
       stopWriting(
-        conflict
-          ? '더 새로운 저장을 반영하고 이 탭을 읽기 전용으로 전환했습니다.'
-          : '저장을 안전하게 확인할 수 없어 이 탭을 읽기 전용으로 전환했습니다.',
+        message,
         conflict,
       )
-      return false
+      return { success: false, message }
     },
     [stopWriting],
   )
@@ -293,17 +309,30 @@ export function useGame(): GameController {
   }, [applyBootstrap, stopWriting])
 
   const runCommand = useCallback(
-    (command: (current: GameState) => CommandResult) => {
+    (command: (current: GameState) => CommandResult): GameCommandFeedback => {
       if (!ready || readOnly || !writerRef.current) {
-        setNotice('읽기 전용 탭에서는 진행을 변경할 수 없습니다.')
-        return
+        const message = '읽기 전용 탭에서는 진행을 변경할 수 없습니다.'
+        setNotice(message)
+        return { success: false, message, reason: 'read-only' }
       }
       const result = command(stateRef.current)
-      setNotice(result.message)
-      if (!result.success) return
+      if (!result.success) {
+        setNotice(result.message)
+        return { success: false, message: result.message, reason: 'rejected' }
+      }
       const now = Date.now()
       const next = { ...result.state, lastSavedAt: now }
-      if (persist(next)) commit(next)
+      const persisted = persist(next)
+      if (!persisted.success) {
+        return {
+          success: false,
+          message: persisted.message,
+          reason: 'save-failed',
+        }
+      }
+      commit(next)
+      setNotice(result.message)
+      return { success: true, message: result.message, reason: 'committed' }
     },
     [commit, persist, readOnly, ready],
   )
