@@ -156,7 +156,7 @@ npm run test:e2e:assets
 npm run test:e2e:visual
 ```
 
-로컬 전체 게이트는 `npm run verify`다. 브라우저 제외 게이트는 `npm run verify:code`다. canonical screenshot 비교는 Ubuntu GitHub Actions 전용이며 로컬에서는 건너뛴다. 현재 픽스처 카탈로그는 IRPG-414의 `visual.dashboard.one-view` 4개 variant를 포함한 52개다. 각 variant는 먼저 정확한 360×800·1440×900에서 geometry·overflow·명령·motion을 검증하고, target이 viewport보다 길면 폭·DPR·media를 유지한 `captureViewport`로 높이만 늘려 full-surface를 캡처한다. artifact metadata는 `layoutViewport`·`captureViewport`·`expanded`를 구분한다. CI는 Chromium과 시스템 의존성을 설치한 뒤 worker 1개로 실행하며, 실패한 Playwright trace·screenshot·video와 HTML report를 artifact로 보존한다. 티켓을 Done으로 옮길 때 명령, 통과 결과, 필요한 수동 증거를 `Test evidence`에 남긴다.
+로컬 전체 게이트는 `npm run verify`다. 브라우저 제외 게이트는 `npm run verify:code`다. canonical screenshot 비교는 Ubuntu GitHub Actions 전용이며 로컬에서는 건너뛴다. IRPG-415 Test 게이트는 기존 13개 fixture·52개 기준선을 수정하지 않고 `visual.dashboard.tactical-canvas`와 `visual.events.tactical-overlay`의 4개 variant씩을 추가해 15개 fixture·60개 canonical screenshot, 같은 runner 3회 반복 180개를 목표로 한다. 각 variant는 먼저 정확한 360×800·1440×900에서 geometry·overflow·명령·motion을 검증하고, target이 viewport보다 길면 폭·DPR·media를 유지한 `captureViewport`로 높이만 늘려 full-surface를 캡처한다. artifact metadata는 `layoutViewport`·`captureViewport`·`expanded`를 구분한다. CI는 Chromium과 시스템 의존성을 설치한 뒤 worker 1개로 실행하며, 실패한 Playwright trace·screenshot·video와 HTML report를 artifact로 보존한다. 티켓을 Done으로 옮길 때 명령, 통과 결과, 필요한 수동 증거를 `Test evidence`에 남긴다.
 
 ## 8. 현재 브라우저 증거
 

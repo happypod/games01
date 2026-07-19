@@ -26,6 +26,8 @@ export const VISUAL_FIXTURE_IDS = [
   'visual.result.boss-victory',
   'visual.result.defeat',
   'visual.dashboard.one-view',
+  'visual.dashboard.tactical-canvas',
+  'visual.events.tactical-overlay',
 ] as const
 
 export type VisualFixtureId = (typeof VISUAL_FIXTURE_IDS)[number]
@@ -53,14 +55,14 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414'
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414' | 'IRPG-415'
   readonly stage: 1 | 3 | 5 | 10 | 30 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
   readonly canonicalEventHash?: `fnv1a32-v1:${string}`
-  readonly captureTarget: '.dashboard' | '.battle' | '.game-dashboard' | '.stage-map-panel' | '.progression-panels' | '.expedition-event-panel' | '.combat-log-panel' | '.combat-result-dialog'
+  readonly captureTarget: '.dashboard' | '.battle' | '.game-dashboard' | '.tactical-canvas' | '.stage-map-panel' | '.progression-panels' | '.expedition-event-panel' | '.combat-log-panel' | '.combat-result-dialog'
   readonly failureRoute: 'none' | 'hero-and-enemy-corrupt' | 'cards-corrupt' | 'events-corrupt'
-  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards' | 'open-expedition-events' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result'
+  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards' | 'open-expedition-events' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result' | 'select-tactical-layout'
   readonly variants: readonly VisualVariantId[]
 }
 
@@ -258,6 +260,32 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     setupAction: 'none',
     variants: VISUAL_VARIANT_IDS,
   },
+  'visual.dashboard.tactical-canvas': {
+    id: 'visual.dashboard.tactical-canvas',
+    label: '통합 전술 캔버스 · 스테이지 10',
+    ownerTicket: 'IRPG-415',
+    stage: 10,
+    seedKey: 'irpg-415:visual.dashboard.tactical-canvas:v1',
+    canonicalHash: 'fnv1a32-v1:42de094f',
+    canonicalEventHash: 'fnv1a32-v1:c306eb11',
+    captureTarget: '.tactical-canvas',
+    failureRoute: 'none',
+    setupAction: 'select-tactical-layout',
+    variants: VISUAL_VARIANT_IDS,
+  },
+  'visual.events.tactical-overlay': {
+    id: 'visual.events.tactical-overlay',
+    label: '통합 전술 원정 오버레이 · 대기 3종',
+    ownerTicket: 'IRPG-415',
+    stage: 30,
+    seedKey: 'irpg-415:visual.events.tactical-overlay:v1',
+    canonicalHash: 'fnv1a32-v1:64bf7fd5',
+    canonicalEventHash: 'fnv1a32-v1:15091bd6',
+    captureTarget: '.tactical-canvas',
+    failureRoute: 'none',
+    setupAction: 'select-tactical-layout',
+    variants: VISUAL_VARIANT_IDS,
+  },
 }
 
 function canonicalStringify(value: unknown): string {
@@ -418,10 +446,11 @@ export function createVisualFixtureCombatEventBatch(id: VisualFixtureId): Combat
     return { nextCursor: '46', totalEvents: events.length, events }
   }
 
-  if (id === 'visual.dashboard.one-view') {
+  if (id === 'visual.dashboard.one-view' || id === 'visual.dashboard.tactical-canvas') {
     const outcomeTypes = ['kill', 'bossVictory', 'defeat'] as const
+    const firstRound = id === 'visual.dashboard.one-view' ? 61 : 71
     const events = Array.from({ length: 3 }, (_, index) => {
-      const round = 61 + index
+      const round = firstRound + index
       return [
         createVisualCombatEvent(round, 10, 'skill'),
         createVisualCombatEvent(round, 20, 'critical'),
@@ -429,7 +458,11 @@ export function createVisualFixtureCombatEventBatch(id: VisualFixtureId): Combat
         createVisualCombatEvent(round, 30, outcomeTypes[index]!),
       ]
     }).flat()
-    return { nextCursor: '63', totalEvents: events.length, events }
+    return {
+      nextCursor: String(firstRound + 2),
+      totalEvents: events.length,
+      events,
+    }
   }
 
   return { nextCursor: '0', totalEvents: 0, events: [] }
@@ -482,7 +515,7 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
       },
     }
   }
-  if (id === 'visual.dashboard.one-view') {
+  if (id === 'visual.dashboard.one-view' || id === 'visual.dashboard.tactical-canvas') {
     state = {
       ...state,
       claimedBossMilestoneMask: 1,
@@ -521,12 +554,32 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
       expeditionEvents: {
         ...state.expeditionEvents,
         milestoneMask: 1,
-        pending: [createExpeditionPendingEvent(
-          state.rng.seed,
-          state.stats.prestiges,
-          0,
-          maxHpAtOffer,
-        )],
+        pending: id === 'visual.dashboard.one-view'
+          ? [createExpeditionPendingEvent(
+            state.rng.seed,
+            state.stats.prestiges,
+            0,
+            maxHpAtOffer,
+          )]
+          : [],
+        overflowCount: 0,
+      },
+    }
+  }
+  if (id === 'visual.events.tactical-overlay') {
+    const maxHpAtOffer = getHeroStats(state).maxHp
+    state = {
+      ...state,
+      expeditionEvents: {
+        ...state.expeditionEvents,
+        pending: [0, 1, 2].map((milestoneIndex) =>
+          createExpeditionPendingEvent(
+            state.rng.seed,
+            state.stats.prestiges,
+            milestoneIndex,
+            maxHpAtOffer,
+          ),
+        ),
         overflowCount: 0,
       },
     }

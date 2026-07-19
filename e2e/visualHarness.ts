@@ -93,7 +93,9 @@ export async function openVisualFixture(
   await enterDebugSession(page)
 
   const panel = page.getByTestId('debug-panel')
-  await panel.getByLabel('시각 회귀 fixture').selectOption(fixture.id)
+  const fixtureSelect = panel.getByLabel('시각 회귀 fixture')
+  await fixtureSelect.selectOption(fixture.id)
+  await expect(fixtureSelect).toHaveValue(fixture.id)
   await panel.getByRole('button', { name: 'fixture 적용' }).click()
 
   const root = page.getByTestId('visual-fixture-root')
@@ -109,6 +111,16 @@ export async function openVisualFixture(
       'data-expected-canonical-event-hash',
       fixture.canonicalEventHash,
     )
+  }
+
+  if (fixture.setupAction === 'select-tactical-layout') {
+    const tacticalOption = page.getByRole('radio', {
+      name: '유형 2 · 전술 전장',
+      exact: true,
+    })
+    await tacticalOption.click()
+    await expect(tacticalOption).toHaveAttribute('aria-checked', 'true')
+    await expect(page.locator('.tactical-canvas')).toBeVisible()
   }
 
   if (fixture.setupAction === 'open-stage-map') {

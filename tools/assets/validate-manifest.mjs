@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 export const REQUIRED_ASSET_IDS = Object.freeze([
   'hero.ashen-knight.default',
+  'companion.ember-fox.default',
   'enemy.ash-slime',
   'enemy.twilight-wolf',
   'enemy.abandoned-armor',
@@ -66,6 +67,7 @@ export const ERROR_CODES = Object.freeze({
 
 const KINDS = new Set([
   'hero',
+  'companion',
   'enemy',
   'boss',
   'region',
@@ -108,6 +110,7 @@ const OPTIONAL_FIELDS = [
 const ALLOWED_FIELDS = new Set([...REQUIRED_FIELDS, ...OPTIONAL_FIELDS])
 
 const FINAL_CONTENT_ASSET_IDS = new Set([
+  'companion.ember-fox.default',
   'region.ashen-border',
   'region.moonfall-pass',
   'region.forgotten-caldera',
@@ -125,6 +128,7 @@ const FINAL_CONTENT_ASSET_IDS = new Set([
 ])
 
 const REQUIRED_PROMPT_RECORD_BY_ASSET_ID = new Map([
+  ['companion.ember-fox.default', 'docs/assets/prompts/companion-ember-fox.md'],
   ['result.boss-victory', 'docs/assets/prompts/battle-results.md'],
   ['result.defeat', 'docs/assets/prompts/battle-results.md'],
   ['event.ember-shrine', 'docs/assets/prompts/expedition-event-cards.md'],
@@ -134,6 +138,7 @@ const REQUIRED_PROMPT_RECORD_BY_ASSET_ID = new Map([
 
 const SPEC_BY_KIND = Object.freeze({
   hero: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
+  companion: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
   enemy: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
   boss: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
   region: { format: 'webp', width: 1600, height: 900, maxBytes: 350 * 1024 },

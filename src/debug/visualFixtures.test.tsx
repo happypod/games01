@@ -84,6 +84,16 @@ const EXPECTED_FIXTURES = {
     hash: 'fnv1a32-v1:d85d7ca1',
     seed: 1799040046,
   },
+  'visual.dashboard.tactical-canvas': {
+    stage: 10,
+    hash: 'fnv1a32-v1:42de094f',
+    seed: 878861757,
+  },
+  'visual.events.tactical-overlay': {
+    stage: 30,
+    hash: 'fnv1a32-v1:64bf7fd5',
+    seed: 2255225468,
+  },
 } as const
 
 function reverseObjectKeys(value: unknown): unknown {
@@ -101,8 +111,8 @@ describe('IRPG-506 named visual fixtures', () => {
   it('pins the fixture states and their canonical metadata', () => {
     expect(VISUAL_FIXTURE_IDS).toEqual(Object.keys(EXPECTED_FIXTURES))
     expect(VISUAL_FIXTURE_NOW).toBe(1_767_225_600_000)
-    expect(VISUAL_FIXTURE_IDS).toHaveLength(13)
-    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(52)
+    expect(VISUAL_FIXTURE_IDS).toHaveLength(15)
+    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(60)
     expect(VISUAL_FIXTURE_VARIANTS).toEqual([
       {
         id: 'mobile-default',
@@ -141,7 +151,10 @@ describe('IRPG-506 named visual fixtures', () => {
 
       expect(definition).toMatchObject({
         id,
-        ownerTicket: id === 'visual.dashboard.one-view'
+        ownerTicket: id === 'visual.dashboard.tactical-canvas' ||
+          id === 'visual.events.tactical-overlay'
+          ? 'IRPG-415'
+          : id === 'visual.dashboard.one-view'
           ? 'IRPG-414'
           : id === 'visual.map.stage-frontier'
           ? 'IRPG-408'
@@ -155,7 +168,11 @@ describe('IRPG-506 named visual fixtures', () => {
               ? 'IRPG-411'
             : 'IRPG-506',
         stage: expected.stage,
-        seedKey: id === 'visual.dashboard.one-view'
+        seedKey: id === 'visual.dashboard.tactical-canvas'
+          ? 'irpg-415:visual.dashboard.tactical-canvas:v1'
+          : id === 'visual.events.tactical-overlay'
+            ? 'irpg-415:visual.events.tactical-overlay:v1'
+          : id === 'visual.dashboard.one-view'
           ? 'irpg-414:visual.dashboard.one-view:v1'
           : `irpg-506:${id}:v1`,
         canonicalHash: expected.hash,
@@ -170,7 +187,10 @@ describe('IRPG-506 named visual fixtures', () => {
         },
         battle: {
           stage: expected.stage,
-          highestStage: id === 'visual.dashboard.one-view' ? 11 : expected.stage,
+          highestStage: id === 'visual.dashboard.one-view' ||
+            id === 'visual.dashboard.tactical-canvas'
+            ? 11
+            : expected.stage,
           enemyHp: getEnemyDefinition(expected.stage).maxHp,
           roundRemainderMs: 0,
         },
@@ -243,6 +263,49 @@ describe('IRPG-506 named visual fixtures', () => {
     expect(hashVisualCombatEventBatch(dashboardBatch))
       .toBe(dashboardDefinition.canonicalEventHash)
 
+    const tacticalDefinition = VISUAL_FIXTURE_REGISTRY[
+      'visual.dashboard.tactical-canvas'
+    ]
+    const tacticalBatch = createVisualFixtureCombatEventBatch(
+      'visual.dashboard.tactical-canvas',
+    )
+    expect(tacticalDefinition).toMatchObject({
+      ownerTicket: 'IRPG-415',
+      captureTarget: '.tactical-canvas',
+      setupAction: 'select-tactical-layout',
+      canonicalEventHash: 'fnv1a32-v1:c306eb11',
+    })
+    expect(tacticalBatch).toMatchObject({ nextCursor: '73', totalEvents: 12 })
+    expect(tacticalBatch.events).toHaveLength(12)
+    expect(tacticalBatch.events.slice(-4).map(({ type }) => type)).toEqual([
+      'skill',
+      'critical',
+      'companionAssist',
+      'defeat',
+    ])
+    expect(hashVisualCombatEventBatch(tacticalBatch))
+      .toBe(tacticalDefinition.canonicalEventHash)
+
+    const tacticalOverlayDefinition = VISUAL_FIXTURE_REGISTRY[
+      'visual.events.tactical-overlay'
+    ]
+    const tacticalOverlayBatch = createVisualFixtureCombatEventBatch(
+      'visual.events.tactical-overlay',
+    )
+    expect(tacticalOverlayDefinition).toMatchObject({
+      ownerTicket: 'IRPG-415',
+      captureTarget: '.tactical-canvas',
+      setupAction: 'select-tactical-layout',
+      canonicalEventHash: 'fnv1a32-v1:15091bd6',
+    })
+    expect(tacticalOverlayBatch).toEqual({
+      nextCursor: '0',
+      totalEvents: 0,
+      events: [],
+    })
+    expect(hashVisualCombatEventBatch(tacticalOverlayBatch))
+      .toBe(tacticalOverlayDefinition.canonicalEventHash)
+
     const victoryDefinition = VISUAL_FIXTURE_REGISTRY['visual.result.boss-victory']
     const victoryBatch = createVisualFixtureCombatEventBatch(
       'visual.result.boss-victory',
@@ -303,7 +366,11 @@ describe('IRPG-506 named visual fixtures', () => {
       skills: { powerStrike: 3, ironWill: 10, fortune: 0 },
     })
 
-    for (const id of ['visual.events.pending-three', 'visual.events.fallback'] as const) {
+    for (const id of [
+      'visual.events.pending-three',
+      'visual.events.fallback',
+      'visual.events.tactical-overlay',
+    ] as const) {
       const eventState = createVisualFixtureState(id)
       expect(eventState.expeditionEvents).toMatchObject({
         definitionVersion: 1,
@@ -345,6 +412,20 @@ describe('IRPG-506 named visual fixtures', () => {
     expect(dashboardState.expeditionEvents.pending).toHaveLength(1)
     expect(dashboardState.expeditionEvents.pending[0]?.definitionId)
       .toBe('event.wandering-smith')
+
+    const tacticalState = createVisualFixtureState('visual.dashboard.tactical-canvas')
+    expect(tacticalState).toMatchObject({
+      claimedBossMilestoneMask: 1,
+      player: {
+        level: 8,
+        gold: 860,
+        companion: { id: 'emberFox', rank: 2 },
+      },
+      battle: { stage: 10, highestStage: 11 },
+      expeditionEvents: { milestoneMask: 1, pending: [], overflowCount: 0 },
+    })
+    expect(tacticalState.player.currentHp)
+      .toBe(Math.floor(getHeroStats(tacticalState).maxHp * 0.82))
   })
 
   it('sorts every object level before hashing and returns fresh states', () => {

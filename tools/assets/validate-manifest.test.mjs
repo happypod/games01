@@ -44,7 +44,7 @@ async function runFixture(mutate) {
 
 test('checked-in manifest contains the exact inventory and validates', async () => {
   const result = await validateManifest({ repoRoot: REPO_ROOT })
-  assert.equal(REQUIRED_ASSET_IDS.length, 27)
+  assert.equal(REQUIRED_ASSET_IDS.length, 28)
   assert.deepEqual(result.errors, [])
   assert.equal(result.valid, true)
 })

@@ -1,16 +1,20 @@
 import type { ReactNode } from 'react'
 import { BattleArena } from './BattleArena'
 import { CombatLogPanel } from './CombatLogPanel'
-import { CombatResultRegion } from './CombatResultRegion'
+import { CombatResultSurface } from './CombatResultRegion'
 import { ExpeditionEventPanel } from './ExpeditionEventPanel'
 import { GrowthTabs } from './GrowthTabs'
 import { HeroPanel } from './HeroPanel'
+import { LayoutModeSelector } from './LayoutModeSelector'
 import { OfflineReport } from './OfflineReport'
 import { PrestigePanel } from './PrestigePanel'
 import { SaveTransferPanel } from './SaveTransferPanel'
 import { StageMapPanel } from './StageMapPanel'
+import { TacticalStage } from './TacticalStage'
 import { formatNumber } from '../game/format'
 import type { GameController } from '../hooks/useGame'
+import { useCombatResults } from '../hooks/useCombatResults'
+import { useLayoutPreference } from '../hooks/useLayoutPreference'
 
 interface GameScreenProps {
   game: GameController
@@ -40,6 +44,16 @@ export function GameScreen({
   footerSuffix = '',
 }: GameScreenProps) {
   const controlsDisabled = !game.ready || game.readOnly
+  const [layoutMode, setLayoutMode] = useLayoutPreference()
+  const combatResults = useCombatResults(
+    game.combatEventBatch,
+    game.combatEventGeneration,
+  )
+  const disabledReason = !game.ready
+    ? '게임 상태를 준비하는 중이라 명령을 실행할 수 없습니다.'
+    : game.readOnly
+      ? '다른 탭이 진행을 저장 중인 읽기 전용 모드에서는 명령을 실행할 수 없습니다.'
+      : undefined
 
   const requestReset = () => {
     const message = resetCopy?.confirmation ?? '모든 진행을 지우고 새 원정을 시작할까요?'
@@ -76,6 +90,9 @@ export function GameScreen({
           </div>
         </div>
         <div className="topbar__right">
+          <div className="topbar__layout">
+            <LayoutModeSelector value={layoutMode} onChange={setLayoutMode} />
+          </div>
           <div className="resource-rack" role="group" aria-label="보유 자원">
             <div><span className="resource-icon resource-icon--gold" aria-hidden="true">●</span><span>골드<strong>{formatNumber(game.state.player.gold)}</strong></span></div>
             <div><span className="resource-icon resource-icon--essence" aria-hidden="true">✦</span><span>불씨 정수<strong>{formatNumber(game.state.player.essence)}</strong></span></div>
@@ -134,81 +151,132 @@ export function GameScreen({
 
         {developerTools}
 
-        <div className="game-dashboard" data-testid="game-dashboard">
-          <section className="dashboard dashboard-column dashboard-column--battle" aria-label="전투와 영웅">
-            <BattleArena
-              state={game.state}
-              onChooseStage={game.chooseStage}
-              disabled={controlsDisabled}
-            />
-            <div className="side-stack">
-              <HeroPanel state={game.state} />
-              <div className="notice-strip" role="status" aria-live="polite">{game.notice}</div>
-            </div>
-          </section>
+        <p
+          className="sr-only"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          data-testid="combat-result-announcement"
+        >
+          {combatResults.announcement}
+        </p>
 
-          <section className="dashboard-column dashboard-column--journey" aria-label="원정 상황과 전투 기록">
-            <div className="dashboard-pane dashboard-pane--campaign">
-              <StageMapPanel
-                currentStage={game.state.battle.stage}
-                highestStage={game.state.battle.highestStage}
+        {layoutMode === 'dashboard' ? (
+          <div className="game-dashboard" data-testid="game-dashboard">
+            <section className="dashboard dashboard-column dashboard-column--battle" aria-label="전투와 영웅">
+              <BattleArena
+                state={game.state}
                 onChooseStage={game.chooseStage}
                 disabled={controlsDisabled}
-                {...(!game.ready
-                  ? { disabledReason: '게임 상태를 준비하는 중이라 스테이지를 이동할 수 없습니다.' }
-                  : game.readOnly
-                    ? { disabledReason: '다른 탭이 진행을 저장 중인 읽기 전용 모드에서는 스테이지를 이동할 수 없습니다.' }
-                    : {})}
               />
+              <div className="side-stack">
+                <HeroPanel state={game.state} />
+                <div className="notice-strip" role="status" aria-live="polite">{game.notice}</div>
+              </div>
+            </section>
 
-              <ExpeditionEventPanel
-                pending={game.state.expeditionEvents.pending}
-                onChoose={game.chooseExpeditionEvent}
+            <section className="dashboard-column dashboard-column--journey" aria-label="원정 상황과 전투 기록">
+              <div className="dashboard-pane dashboard-pane--campaign">
+                <StageMapPanel
+                  currentStage={game.state.battle.stage}
+                  highestStage={game.state.battle.highestStage}
+                  onChooseStage={game.chooseStage}
+                  disabled={controlsDisabled}
+                  {...(!game.ready
+                    ? { disabledReason: '게임 상태를 준비하는 중이라 스테이지를 이동할 수 없습니다.' }
+                    : game.readOnly
+                      ? { disabledReason: '다른 탭이 진행을 저장 중인 읽기 전용 모드에서는 스테이지를 이동할 수 없습니다.' }
+                      : {})}
+                />
+
+                <ExpeditionEventPanel
+                  pending={game.state.expeditionEvents.pending}
+                  onChoose={game.chooseExpeditionEvent}
+                  disabled={controlsDisabled}
+                  {...(!game.ready
+                    ? { disabledReason: '게임 상태를 준비하는 중이라 원정 이벤트를 선택할 수 없습니다.' }
+                    : game.readOnly
+                      ? { disabledReason: '다른 탭이 진행을 저장 중인 읽기 전용 모드에서는 원정 이벤트를 선택할 수 없습니다.' }
+                      : {})}
+                />
+
+                <CombatResultSurface results={combatResults} />
+              </div>
+
+              <CombatLogPanel batch={game.combatEventBatch} />
+            </section>
+
+            <aside className="dashboard-column dashboard-column--growth" aria-label="성장과 관리">
+              <GrowthTabs
+                state={game.state}
+                onBuyUpgrade={game.buyUpgrade}
+                onBuySkill={game.buySkill}
+                onRecruitCompanion={game.recruitCompanion}
+                onTrainCompanion={game.trainCompanion}
                 disabled={controlsDisabled}
-                {...(!game.ready
-                  ? { disabledReason: '게임 상태를 준비하는 중이라 원정 이벤트를 선택할 수 없습니다.' }
-                  : game.readOnly
-                    ? { disabledReason: '다른 탭이 진행을 저장 중인 읽기 전용 모드에서는 원정 이벤트를 선택할 수 없습니다.' }
-                    : {})}
               />
 
-              <CombatResultRegion
-                batch={game.combatEventBatch}
-                streamGeneration={game.combatEventGeneration}
-              />
-            </div>
+              <div className="dashboard-pane dashboard-pane--management">
+                <PrestigePanel
+                  state={game.state}
+                  onPrestige={requestPrestige}
+                  disabled={controlsDisabled}
+                />
 
-            <CombatLogPanel batch={game.combatEventBatch} />
-          </section>
-
-          <aside className="dashboard-column dashboard-column--growth" aria-label="성장과 관리">
-            <GrowthTabs
+                {showSaveTransfer && (
+                  <SaveTransferPanel
+                    state={game.state}
+                    exportDisabled={!game.ready}
+                    importDisabled={controlsDisabled}
+                    onRestore={game.restoreSave}
+                  />
+                )}
+              </div>
+            </aside>
+          </div>
+        ) : (
+          <div className="tactical-layout" data-testid="tactical-layout">
+            <TacticalStage
               state={game.state}
-              onBuyUpgrade={game.buyUpgrade}
-              onBuySkill={game.buySkill}
-              onRecruitCompanion={game.recruitCompanion}
-              onTrainCompanion={game.trainCompanion}
+              batch={game.combatEventBatch}
+              streamGeneration={game.combatEventGeneration}
+              notice={game.notice}
+              onChooseStage={game.chooseStage}
+              onChooseExpeditionEvent={game.chooseExpeditionEvent}
               disabled={controlsDisabled}
+              {...(disabledReason ? { disabledReason } : {})}
             />
 
-            <div className="dashboard-pane dashboard-pane--management">
-              <PrestigePanel
+            <aside className="tactical-command-dock" aria-label="성장과 원정 관리">
+              <GrowthTabs
                 state={game.state}
-                onPrestige={requestPrestige}
+                onBuyUpgrade={game.buyUpgrade}
+                onBuySkill={game.buySkill}
+                onRecruitCompanion={game.recruitCompanion}
+                onTrainCompanion={game.trainCompanion}
                 disabled={controlsDisabled}
               />
 
-              {showSaveTransfer && (
-                <SaveTransferPanel
+              <div className="tactical-command-dock__lower">
+                <CombatLogPanel batch={game.combatEventBatch} />
+                <CombatResultSurface results={combatResults} />
+                <PrestigePanel
                   state={game.state}
-                  exportDisabled={!game.ready}
-                  importDisabled={controlsDisabled}
-                  onRestore={game.restoreSave}
+                  onPrestige={requestPrestige}
+                  disabled={controlsDisabled}
                 />
-              )}
-            </div>
-          </aside>
-        </div>
+                {showSaveTransfer && (
+                  <SaveTransferPanel
+                    state={game.state}
+                    exportDisabled={!game.ready}
+                    importDisabled={controlsDisabled}
+                    onRestore={game.restoreSave}
+                  />
+                )}
+              </div>
+            </aside>
+          </div>
+        )}
 
         <footer className="dashboard-footer">
           <span>로컬 프로토타입 v0.1{footerSuffix}</span>

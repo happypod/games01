@@ -1,6 +1,9 @@
 import { useRef } from 'react'
 import type { CombatEventBatch } from '../game/types'
-import { useCombatResults } from '../hooks/useCombatResults'
+import {
+  useCombatResults,
+  type CombatResultsController,
+} from '../hooks/useCombatResults'
 import { CombatResultDialog } from './CombatResultDialog'
 import { CombatResultTrigger } from './CombatResultTrigger'
 import type { CombatResultSnapshot } from './combatResultView'
@@ -10,18 +13,22 @@ interface CombatResultRegionProps {
   streamGeneration: number
 }
 
+interface CombatResultSurfaceProps {
+  results: CombatResultsController
+  announce?: boolean
+}
+
 function getResultLabel(result: CombatResultSnapshot) {
   return result.type === 'bossVictory'
     ? `스테이지 ${result.defeatedStage} 보스 승리`
     : `스테이지 ${result.defeatedAtStage} 패배 · 스테이지 ${result.returnStage} 복귀`
 }
 
-export function CombatResultRegion({
-  batch,
-  streamGeneration,
-}: CombatResultRegionProps) {
+export function CombatResultSurface({
+  results,
+  announce = false,
+}: CombatResultSurfaceProps) {
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const results = useCombatResults(batch, streamGeneration)
   const newestFirst = [...results.queue].reverse()
   const latest = newestFirst[0]
 
@@ -46,15 +53,17 @@ export function CombatResultRegion({
           )}
         </div>
 
-        <p
-          className="sr-only"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          data-testid="combat-result-announcement"
-        >
-          {results.announcement}
-        </p>
+        {announce && (
+          <p
+            className="sr-only"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            data-testid="combat-result-announcement"
+          >
+            {results.announcement}
+          </p>
+        )}
 
         {newestFirst.length === 0 ? (
           <p className="combat-result-region__empty">
@@ -90,4 +99,12 @@ export function CombatResultRegion({
       )}
     </>
   )
+}
+
+export function CombatResultRegion({
+  batch,
+  streamGeneration,
+}: CombatResultRegionProps) {
+  const results = useCombatResults(batch, streamGeneration)
+  return <CombatResultSurface results={results} announce />
 }

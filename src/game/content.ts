@@ -1,4 +1,5 @@
 import type {
+  CompanionAssetId,
   CompanionId,
   EnemyAssetId,
   EnemyDefinition,
@@ -71,6 +72,7 @@ export interface SkillDefinition {
 
 export interface CompanionDefinition {
   id: CompanionId
+  assetId: CompanionAssetId
   name: string
   description: string
   unlockStage: number
@@ -141,6 +143,7 @@ export const SKILL_DEFINITIONS: Record<SkillId, SkillDefinition> = {
 export const COMPANION_DEFINITIONS: Record<CompanionId, CompanionDefinition> = {
   emberFox: {
     id: 'emberFox',
+    assetId: 'companion.ember-fox.default',
     name: '불씨 여우 루미',
     description: '3초마다 영웅 공격력에 비례한 불꽃 협공을 가합니다.',
     unlockStage: 11,

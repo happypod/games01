@@ -58,6 +58,8 @@ export type ProgressionCardAssetId =
 export const COMPANION_IDS = ['emberFox'] as const
 export type CompanionId = (typeof COMPANION_IDS)[number]
 
+export type CompanionAssetId = 'companion.ember-fox.default'
+
 export type EnemyAssetId =
   | 'enemy.ash-slime'
   | 'enemy.twilight-wolf'

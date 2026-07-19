@@ -704,6 +704,91 @@ test('production cold load stays within the asset budget and preserves lazy name
   }
 })
 
+test('type 1 defers tactical scenery and type 2 loads only its visible region', async ({
+  browser,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-cold-load',
+    'This production-only assertion runs through playwright.assets.config.ts.',
+  )
+
+  const context = await browser.newContext({
+    baseURL: ORIGIN,
+    locale: 'ko-KR',
+    timezoneId: 'Asia/Seoul',
+    serviceWorkers: 'block',
+    viewport: { width: 1_440, height: 900 },
+  })
+  const page = await context.newPage()
+  const requestedImageFiles = new Set<string>()
+  page.on('response', (response) => {
+    if (
+      response.request().resourceType() !== 'image' ||
+      response.status() < 200 ||
+      response.status() >= 300 ||
+      new URL(response.url()).origin !== ORIGIN
+    ) return
+    requestedImageFiles.add(resolveRequestedDistFile(response.url()).relative)
+  })
+
+  try {
+    const assetManifest = loadAssetManifest()
+    const viteManifest = loadViteManifest()
+    const distFiles = walkFiles(DIST_ROOT)
+    const imageOutputs = (id: string) => {
+      const entry = findAsset(assetManifest.assets, id)
+      return new Set(
+        [...outputFilesForSource(resolveManifestSource(entry.src), viteManifest, distFiles)]
+          .filter((file) => IMAGE_EXTENSIONS.has(extname(file).toLowerCase())),
+      )
+    }
+    const activeRegionOutputs = imageOutputs('region.ashen-border')
+    const inactiveRegionOutputs = new Set([
+      ...imageOutputs('region.moonfall-pass'),
+      ...imageOutputs('region.forgotten-caldera'),
+    ])
+    const companionOutputs = imageOutputs('companion.ember-fox.default')
+    const allTacticalOnlyOutputs = new Set([
+      ...activeRegionOutputs,
+      ...inactiveRegionOutputs,
+      ...companionOutputs,
+    ])
+
+    await page.goto('/', { waitUntil: 'networkidle' })
+    await expect(page.getByRole('radio', { name: '유형 1 · 대시보드' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    const initialTacticalRequests = intersection(allTacticalOnlyOutputs, requestedImageFiles)
+    expect(initialTacticalRequests).toEqual([])
+
+    await page.getByRole('radio', { name: '유형 2 · 전술 전장' }).click()
+    const background = page.locator('.tactical-canvas__background')
+    await expect(background).toHaveAttribute('data-asset-id', 'region.ashen-border')
+    await expect(background).toHaveAttribute('data-state', 'loaded')
+
+    const activeRegionRequests = intersection(activeRegionOutputs, requestedImageFiles)
+    const inactiveRegionRequests = intersection(inactiveRegionOutputs, requestedImageFiles)
+    const companionRequests = intersection(companionOutputs, requestedImageFiles)
+    await testInfo.attach('irpg-415-tactical-lazy-load.json', {
+      body: Buffer.from(JSON.stringify({
+        initialTacticalRequests,
+        activeRegionRequests,
+        inactiveRegionRequests,
+        companionRequests,
+        companionState: 'not-recruited',
+      }, null, 2)),
+      contentType: 'application/json',
+    })
+
+    expect(activeRegionRequests).toEqual([...activeRegionOutputs].sort())
+    expect(inactiveRegionRequests).toEqual([])
+    expect(companionRequests).toEqual([])
+  } finally {
+    await context.close()
+  }
+})
+
 test('loads only the selected result illustration after an explicit detail action', async ({
   browser,
 }, testInfo) => {

@@ -48,7 +48,12 @@ function inferPurpose(purposeOrAssetId: string): GameAssetPurpose {
   }
 
   const namespace = purposeOrAssetId.split('.', 1)[0]
-  if (namespace === 'hero' || namespace === 'enemy' || namespace === 'boss') return 'character'
+  if (
+    namespace === 'hero' ||
+    namespace === 'companion' ||
+    namespace === 'enemy' ||
+    namespace === 'boss'
+  ) return 'character'
   if (namespace === 'region') return 'region'
   if (namespace === 'result') return 'result'
   if (namespace === 'fallback') {

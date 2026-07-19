@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  COMPANION_DEFINITIONS,
   EXPEDITION_EVENT_DEFINITIONS,
   SKILL_DEFINITIONS,
   UPGRADE_DEFINITIONS,
@@ -44,6 +45,26 @@ describe('combat visual asset mapping', () => {
     }
 
     expect(portraitSources.size).toBe(expectedByStage.length)
+  })
+})
+
+describe('IRPG-415 companion portrait asset mapping', () => {
+  it('maps the fixed companion to its production-ready generated portrait', () => {
+    const asset = manifestJson.assets.find(
+      (entry) => entry.id === COMPANION_DEFINITIONS.emberFox.assetId,
+    )
+
+    expect(asset).toMatchObject({
+      id: 'companion.ember-fox.default',
+      kind: 'companion',
+      status: 'ready',
+      format: 'webp',
+      width: 768,
+      height: 768,
+      promptRecord: 'docs/assets/prompts/companion-ember-fox.md',
+    })
+    expect(asset?.bytes).toBeLessThanOrEqual(250 * 1024)
+    expect(asset?.sha256).toMatch(/^[a-f0-9]{64}$/)
   })
 })
 
