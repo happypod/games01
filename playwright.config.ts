@@ -11,7 +11,9 @@ export default defineConfig({
   forbidOnly: isCi,
   failOnFlakyTests: isCi,
   retries: isCi ? 1 : 0,
-  workers: isCi ? 1 : undefined,
+  // Keep local full-suite runs deterministic on developer machines while CI
+  // remains serialized for the canonical visual and accessibility gates.
+  workers: isCi ? 1 : 2,
   reporter: isCi
     ? [['line'], ['html', { open: 'never', outputFolder: 'playwright-report' }]]
     : [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],

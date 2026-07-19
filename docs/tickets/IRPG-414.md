@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Ready
+- Status: Verify
 - Skill tags: FE-GAME, UX-FEEDBACK, QA-E2E
 - Owner / Reviewer: Codex / independent review
 
@@ -59,12 +59,14 @@ IRPG-506에 `visual.dashboard.one-view`의 360×800·1440×900 × default·reduc
 ## Verification
 
 - 구현 전 제품·아키텍처·접근성·저장 계약 검토: 게임/저장 무영향, React 조합과 CSS layout만 변경
-- Review → Verify → Test 순서로 기록
+- Review: 독립 검토에서 fixture 내부 스크롤, 모바일 탭 semantics, 1024px 핵심 조작 증거 누락을 발견했고 fixture 문서 흐름·반응형 일반 section·대시보드 E2E로 보완했다.
+- Verify: `npm run verify` 전체 통과. 게임 상태·저장 schema·RNG·보상 계약 변경 없음.
+- Test: Ubuntu canonical 52개 생성과 3회 반복 156개 검증 후 Done으로 전환한다.
 
 ## Test evidence
 
-- 예정: GrowthTabs·GameScreen·StageMapPanel·CombatLogPanel Vitest
-- 예정: 1440×900·1024×768·360×800·200% 확대 Playwright
-- 예정: inactive 성장 자산 lazy-load와 기존 fallback 회귀
-- 예정: IRPG-506 Ubuntu 52/52와 3회 반복 156/156
-- 예정: `npm run verify`
+- 통과: Vitest 36파일·297테스트, 자산 validator 32테스트, manifest 27 ID, production build
+- 통과: 일반 Playwright 40테스트 — 1440×900·1024×768 원 뷰, 360×800 세로 흐름, 200% 확대·모션 감소 포함
+- 통과: production 자산 Playwright 4테스트 — 비활성 성장 자산 lazy-load와 기존 fallback 회귀 포함
+- 통과: `npm run verify` (Windows, Node 24, Chromium, local worker 2)
+- 대기: IRPG-506 Ubuntu canonical 52/52와 같은 runner 3회 반복 156/156

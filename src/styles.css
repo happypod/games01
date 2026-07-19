@@ -406,11 +406,438 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
 @keyframes pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 @keyframes rotate { to { transform: rotate(360deg); } }
 
+/* IRPG-414 · one-view dashboard */
+.topbar {
+  height: auto;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 16px;
+  padding-block: 11px;
+}
+.topbar__campaign { grid-column: 1 / -1; grid-row: 3; min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.topbar__campaign > p { margin: 0 0 5px; color: var(--ember-soft); font-size: 8px; font-weight: 700; letter-spacing: .16em; }
+.topbar__campaign > div { min-width: 0; display: flex; align-items: center; gap: 12px; }
+.topbar__campaign h1 { min-width: 0; font-size: 25px; white-space: nowrap; }
+.topbar__stage {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 6px 8px;
+  border: 1px solid rgba(238,125,61,.22);
+  border-radius: 6px;
+  color: #f1ad77;
+  background: rgba(238,125,61,.07);
+  font: 700 9px/1 'Emberwatch Sans', sans-serif;
+  letter-spacing: .08em;
+}
+.topbar__stage small { color: #9f948a; font-size: 8px; font-weight: 500; letter-spacing: 0; }
+.topbar__right { display: contents; }
+.topbar .resource-rack { grid-column: 2; grid-row: 1; justify-self: end; align-self: center; }
+.topbar .status-cluster { grid-column: 1 / -1; grid-row: 2; justify-self: end; min-height: 44px; }
+
+.game-main {
+  width: min(1600px, calc(100% - 32px));
+  margin: 0 auto;
+  padding-top: 16px;
+  position: relative;
+  z-index: 1;
+}
+.dashboard-alerts { display: grid; gap: 8px; }
+.dashboard-alerts:empty { display: none; }
+.dashboard-alerts .warning-banner { margin: 0 0 12px; }
+.game-dashboard { display: grid; gap: 18px; min-width: 0; }
+.dashboard-column { min-width: 0; display: grid; gap: 18px; }
+.dashboard { grid-template-columns: 1fr; }
+.dashboard-pane { min-width: 0; display: grid; gap: 18px; }
+.dashboard-footer { padding-inline: 4px; }
+
+.stage-map-compact { margin-top: 18px; }
+.stage-map-compact__header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.stage-map-compact__region { color: #d8cec3; font-size: 11px; }
+.stage-map-compact__range { color: #8f857d; font-size: 9px; font-variant-numeric: tabular-nums; }
+.stage-map-compact__timeline {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(44px, 1fr));
+  gap: 5px;
+  padding-bottom: 3px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+.stage-map-compact__stage {
+  min-width: 44px;
+  min-height: 44px;
+  position: relative;
+  padding: 5px 2px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px;
+  background: rgba(255,255,255,.025);
+  color: #aaa097;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.stage-map-compact__stage:hover:not([aria-disabled='true']) { border-color: rgba(238,125,61,.42); color: #f6efe4; }
+.stage-map-compact__stage[data-stage-state='completed'] { border-color: rgba(104,201,180,.21); background: rgba(104,201,180,.07); color: #a9d5cc; }
+.stage-map-compact__stage[data-stage-state='frontier'] { border-color: rgba(238,125,61,.55); background: rgba(238,125,61,.13); color: #ffc08e; }
+.stage-map-compact__stage[data-stage-state='locked'] { color: #766f69; background: repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 3px, transparent 3px 6px); cursor: not-allowed; }
+.stage-map-compact__stage[aria-current='step'] { box-shadow: inset 0 0 0 2px #f4c57d, 0 0 12px rgba(244,197,125,.1); color: #fff1d8; }
+.stage-map-compact__stage[data-boss='true'] { border-radius: 999px; border-color: rgba(217,93,84,.45); }
+.stage-map-compact__stage small { position: absolute; top: 2px; right: 4px; color: #e9877d; font-size: 7px; }
+
+.combat-log-preview {
+  max-height: 190px;
+  display: grid;
+  gap: 6px;
+  margin: 15px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.combat-log-preview .combat-log-entry { grid-template-columns: 62px minmax(0, 1fr); padding: 8px 10px; }
+.combat-log-preview .combat-log-entry small { grid-column: 1 / -1; white-space: normal; }
+
+.growth-center { min-width: 0; }
+.growth-center__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 24px 25px 0; }
+.growth-tabs__tablist { display: none; }
+.growth-tabpanel { min-width: 0; }
+.growth-tabpanel[data-active='false'] { display: block; }
+.growth-center > .progression-panels { grid-template-columns: 1fr; }
+.growth-center .collection-panel { margin-top: 18px; }
+
+@media (min-width: 1024px) {
+  html, body, #root { height: 100%; overflow: hidden; }
+  .app-shell { height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+  .topbar {
+    flex: 0 0 84px;
+    min-height: 84px;
+    grid-template-columns: minmax(180px, .72fr) minmax(320px, 1.2fr) auto;
+    grid-template-rows: 1fr;
+    gap: clamp(16px, 2vw, 34px);
+    padding: 0 max(16px, calc((100vw - 1600px) / 2));
+  }
+  .topbar__campaign {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    padding: 0;
+    border: 0;
+  }
+  .topbar__campaign > div { justify-content: flex-start; }
+  .topbar__campaign h1 { font-size: 22px; }
+  .topbar__right {
+    grid-column: 3;
+    grid-row: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: clamp(14px, 1.7vw, 28px);
+  }
+  .topbar .resource-rack,
+  .topbar .status-cluster { grid-column: auto; grid-row: auto; justify-self: auto; min-height: 44px; }
+  .topbar .status-cluster { gap: 10px; }
+
+  .game-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-top: 12px;
+  }
+  .dashboard-alerts { flex: 0 0 auto; max-height: 92px; overflow-y: auto; }
+  .game-dashboard {
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: minmax(0, 35fr) minmax(0, 40fr) minmax(250px, 25fr);
+    gap: 12px;
+    overflow: hidden;
+  }
+  .dashboard-column { min-height: 0; gap: 12px; overflow: hidden; }
+  .dashboard-column--battle {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding-right: 3px;
+  }
+  .dashboard-column--journey {
+    grid-template-rows: minmax(0, 1fr) minmax(190px, 31%);
+  }
+  .dashboard-column--growth {
+    grid-template-rows: minmax(0, 1fr) minmax(190px, 34%);
+  }
+  .dashboard-pane { gap: 12px; }
+  .dashboard-pane--campaign,
+  .dashboard-pane--management {
+    min-height: 0;
+    align-content: start;
+    grid-auto-rows: max-content;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 3px;
+    scrollbar-gutter: stable;
+  }
+  .game-dashboard .stage-map-disclosure,
+  .game-dashboard .expedition-event-panel,
+  .game-dashboard .combat-result-region,
+  .game-dashboard .combat-log-panel,
+  .game-dashboard .prestige-panel,
+  .game-dashboard .save-transfer,
+  .game-dashboard .growth-grid,
+  .game-dashboard .collection-panel { margin-top: 0; }
+
+  .dashboard-column--battle .battle { min-height: 386px; flex: 1 0 auto; padding: 18px 20px 16px; }
+  .dashboard-column--battle .battle::before { width: 190px; height: 190px; top: 78px; }
+  .dashboard-column--battle .enemy-portrait { width: 94px; height: 94px; margin: 10px auto 6px; }
+  .dashboard-column--battle .enemy-portrait__asset { width: 72px; }
+  .dashboard-column--battle .enemy-portrait--boss .enemy-portrait__asset { width: 80px; }
+  .dashboard-column--battle .enemy-name { margin-bottom: 8px; }
+  .dashboard-column--battle .enemy-name strong { font-size: 15px; }
+  .dashboard-column--battle .battle__meta { margin: 8px 0 10px; gap: 5px 16px; }
+  .dashboard-column--battle .skill-cycle { padding: 7px 9px; }
+  .dashboard-column--battle .skill-cycle__icon { width: 29px; height: 29px; }
+  .dashboard-column--battle .companion-cycle { margin-top: 6px; }
+  .dashboard-column--battle .stage-nav { margin-top: 8px; }
+
+  .dashboard-column--battle .side-stack { flex: 0 0 auto; }
+  .dashboard-column--battle .hero-panel {
+    flex: none;
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    grid-template-areas:
+      'hero-header hero-header'
+      'hero-portrait hero-health'
+      'hero-portrait hero-xp'
+      'hero-portrait hero-stats';
+    column-gap: 14px;
+    padding: 16px 18px;
+  }
+  .dashboard-column--battle .hero-panel .panel__header { grid-area: hero-header; }
+  .dashboard-column--battle .hero-portrait { grid-area: hero-portrait; inline-size: 104px; margin: 12px 0 0; }
+  .dashboard-column--battle .hero-portrait + .stat-bar { grid-area: hero-health; margin-top: 12px; }
+  .dashboard-column--battle .hero-portrait + .stat-bar + .stat-bar { grid-area: hero-xp; margin-top: 7px; }
+  .dashboard-column--battle .stat-grid {
+    grid-area: hero-stats;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 8px 0 0;
+  }
+  .dashboard-column--battle .stat-grid div { padding: 8px 6px; }
+  .dashboard-column--battle .stat-grid dt { font-size: 8px; }
+  .dashboard-column--battle .stat-grid dd { font-size: 12px; }
+
+  .dashboard-pane--campaign > .panel,
+  .dashboard-column--journey > .combat-log-panel { padding: 16px 17px 18px; }
+  .dashboard-pane--campaign h2,
+  .dashboard-column--journey h2 { font-size: 16px; }
+  .dashboard-pane--campaign .stage-map-disclosure__header,
+  .dashboard-pane--campaign .expedition-event-panel__header,
+  .dashboard-pane--campaign .combat-result-region__header { gap: 12px; }
+  .dashboard-pane--campaign .stage-map-disclosure__header p:last-child,
+  .dashboard-pane--campaign .expedition-event-panel__header p:last-child,
+  .dashboard-pane--campaign .combat-result-region__summary { font-size: 10px; }
+  .dashboard-pane--campaign .expedition-event-grid { grid-template-columns: 1fr; }
+  .dashboard-pane--campaign .combat-result-card { grid-template-columns: 1fr; gap: 10px; }
+  .dashboard-pane--campaign .combat-result-card button { width: 100%; min-width: 0; }
+  .dashboard-column--journey > .combat-log-panel { min-height: 0; overflow-y: auto; }
+  .dashboard-column--journey .combat-log-panel__header { gap: 10px; }
+  .dashboard-column--journey .combat-log-panel__toggle { min-width: 112px; padding-inline: 10px; }
+
+  .growth-center {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(35,29,26,.94), rgba(23,20,18,.94));
+    box-shadow: 0 24px 70px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.02);
+  }
+  .growth-center__header { flex: 0 0 auto; padding: 16px 16px 0; }
+  .growth-center__header h2 { font-size: 17px; }
+  .growth-tabs__tablist {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin: 12px 12px 0;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(10,8,7,.36);
+  }
+  .growth-tabs__tablist button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 7px 4px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #9f958c;
+    font-size: 10px;
+    cursor: pointer;
+  }
+  .growth-tabs__tablist button[aria-selected='true'] {
+    border-color: rgba(230,184,93,.25);
+    background: rgba(230,184,93,.09);
+    color: #f0cb80;
+    box-shadow: inset 0 -2px rgba(230,184,93,.45);
+  }
+  .growth-tabs__available { display: block; margin-top: 3px; color: #8fd8c8; font-size: 8px; }
+  .growth-center > .progression-panels,
+  .growth-center > .growth-tabpanel--companion {
+    flex: 1;
+    min-height: 0;
+    display: block;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+  .growth-tabpanel[data-active='false'] { display: none; }
+  .growth-center .collection-panel {
+    min-height: 100%;
+    padding: 14px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .growth-center .collection-panel::after { display: none; }
+  .growth-center .card-list { margin-top: 14px; }
+  .growth-center .growth-card { grid-template-columns: 58px minmax(0, 1fr); gap: 10px; padding: 10px; }
+  .growth-center .growth-card__art { width: 58px; }
+  .growth-center .growth-card > button { grid-column: 1 / -1; width: 100%; }
+  .growth-center .companion-card { grid-template-columns: 38px minmax(0, 1fr); }
+  .growth-center .companion-card > button { grid-column: 1 / -1; width: 100%; }
+
+  .dashboard-pane--management .prestige-panel,
+  .dashboard-pane--management .save-transfer { padding: 15px 16px; }
+  .dashboard-pane--management .prestige-panel { align-items: stretch; flex-direction: column; gap: 10px; }
+  .dashboard-pane--management .prestige-panel__action { min-width: 0; text-align: left; }
+  .dashboard-pane--management .prestige-panel__action span { margin-bottom: 7px; }
+  .dashboard-pane--management .save-transfer__actions { position: static; margin-top: 12px; }
+  .dashboard-pane--management .save-transfer__actions > * { flex: 1; padding-inline: 7px; }
+  .dashboard-pane--management h2 { font-size: 16px; }
+
+  .dashboard-footer {
+    flex: 0 0 30px;
+    align-items: center;
+    padding: 6px 4px 4px;
+  }
+
+  html:has([data-testid='visual-fixture-root']:not([data-visual-fixture-id])),
+  body:has([data-testid='visual-fixture-root']:not([data-visual-fixture-id])),
+  #root:has([data-testid='visual-fixture-root']:not([data-visual-fixture-id])) {
+    height: auto;
+    overflow: visible;
+  }
+  [data-testid='visual-fixture-root']:not([data-visual-fixture-id]) .app-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+  [data-testid='visual-fixture-root']:not([data-visual-fixture-id]) .game-main,
+  [data-testid='visual-fixture-root']:not([data-visual-fixture-id]) .game-dashboard {
+    overflow: visible;
+  }
+  [data-testid='visual-fixture-root']:not([data-visual-fixture-id]) .game-dashboard {
+    flex: none;
+    min-height: calc(100vh - 126px);
+  }
+
+  html:has([data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view'])),
+  body:has([data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view'])),
+  #root:has([data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view'])) {
+    height: auto;
+    overflow: visible;
+  }
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .app-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .game-main,
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .game-dashboard,
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .dashboard-column,
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .dashboard-pane {
+    height: auto;
+    overflow: visible;
+  }
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .game-dashboard {
+    flex: none;
+    align-items: start;
+  }
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .dashboard-column--journey,
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .dashboard-column--growth {
+    display: block;
+  }
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .dashboard-column--journey > .combat-log-panel,
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.one-view']) .dashboard-pane--management {
+    margin-top: 12px;
+  }
+
+  [data-visual-fixture-id] .debug-panel,
+  [data-visual-fixture-id] .dashboard-alerts { display: none; }
+
+  [data-visual-fixture-id^='visual.cards'] .game-dashboard {
+    display: block;
+    overflow: visible;
+  }
+  [data-visual-fixture-id^='visual.cards'] .dashboard-column--battle,
+  [data-visual-fixture-id^='visual.cards'] .dashboard-column--journey,
+  [data-visual-fixture-id^='visual.cards'] .dashboard-pane--management,
+  [data-visual-fixture-id^='visual.cards'] .growth-center__header,
+  [data-visual-fixture-id^='visual.cards'] .growth-tabs__tablist,
+  [data-visual-fixture-id^='visual.cards'] .growth-tabpanel--companion { display: none; }
+  [data-visual-fixture-id^='visual.cards'] .dashboard-column--growth,
+  [data-visual-fixture-id^='visual.cards'] .growth-center,
+  [data-visual-fixture-id^='visual.cards'] .growth-center > .progression-panels {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  [data-visual-fixture-id^='visual.cards'] .growth-center {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  [data-visual-fixture-id^='visual.cards'] .growth-center > .progression-panels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  [data-visual-fixture-id^='visual.cards'] .growth-tabpanel--equipment,
+  [data-visual-fixture-id^='visual.cards'] .growth-tabpanel--skill { display: block; }
+  [data-visual-fixture-id^='visual.cards'] .growth-center .collection-panel {
+    padding: 25px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(35,29,26,.94), rgba(23,20,18,.94));
+    box-shadow: 0 24px 70px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.02);
+  }
+  [data-visual-fixture-id^='visual.cards'] .growth-center .growth-card {
+    grid-template-columns: 80px minmax(0, 1fr) 86px;
+    gap: 13px;
+    padding: 13px;
+  }
+  [data-visual-fixture-id^='visual.cards'] .growth-center .growth-card__art { width: 80px; }
+  [data-visual-fixture-id^='visual.cards'] .growth-center .growth-card > button {
+    grid-column: auto;
+    width: auto;
+  }
+}
+
 @media (max-width: 900px) {
   .dashboard { grid-template-columns: 1fr; }
   .battle { min-height: auto; }
   .expedition-event-grid { grid-template-columns: 1fr; }
   .progression-panels { grid-template-columns: 1fr; }
+  .stage-map-compact__timeline {
+    grid-template-columns: repeat(5, minmax(44px, 1fr));
+    overflow-x: visible;
+  }
   .stage-map-node-grid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
   .combat-result-dialog { width: min(650px, 100%); grid-template-columns: 1fr; }
   .combat-result-dialog__art { height: auto; min-height: 0; border-radius: 12px 12px 0 0; }

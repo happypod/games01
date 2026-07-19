@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { StageMapPanel } from './StageMapPanel'
 
@@ -34,6 +34,91 @@ function openMap() {
 }
 
 describe('StageMapPanel', () => {
+  it('shows only the current ten-stage block while the full map is closed', () => {
+    const { container } = renderMap({ currentStage: 105, highestStage: 107 })
+
+    const compactMap = container.querySelector<HTMLElement>('.stage-map-compact')
+    expect(compactMap).not.toBeNull()
+    if (compactMap === null) return
+
+    expect(within(compactMap).getByText('월락 고개')).toBeInTheDocument()
+    expect(within(compactMap).getByText('101–110')).toBeInTheDocument()
+    expect(within(compactMap).getAllByRole('button')).toHaveLength(10)
+    expect(container.querySelectorAll('.stage-map-node')).toHaveLength(0)
+    expect(screen.queryByTestId('stage-map-region-art')).not.toBeInTheDocument()
+
+    expect(within(compactMap).getByRole('button', { name: '스테이지 104, 완료' }))
+      .toHaveAttribute('data-stage-state', 'completed')
+    expect(within(compactMap).getByRole('button', {
+      name: '스테이지 105, 현재 위치, 완료',
+    })).toHaveAttribute('aria-current', 'step')
+    expect(within(compactMap).getByRole('button', { name: '스테이지 107, 최전선' }))
+      .toHaveAttribute('data-stage-state', 'frontier')
+    expect(within(compactMap).getByRole('button', {
+      name: '스테이지 108, 잠김, 스테이지 108 도달 시 해제, 현재 최고 107',
+    })).toHaveAttribute('aria-disabled', 'true')
+    expect(within(compactMap).getByRole('button', {
+      name: '스테이지 110, 보스, 잠김, 스테이지 110 도달 시 해제, 현재 최고 107',
+    })).toHaveAttribute('data-boss', 'true')
+  })
+
+  it('moves the compact timeline to the next block at a ten-stage boundary', () => {
+    const onChooseStage = vi.fn()
+    const view = render(
+      <StageMapPanel currentStage={110} highestStage={110} onChooseStage={onChooseStage} />,
+    )
+
+    let timeline = screen.getByRole('group', { name: '월락 고개 현재 10단계' })
+    expect(within(timeline).getAllByRole('button').map((button) => button.textContent))
+      .toEqual(['101', '102', '103', '104', '105', '106', '107', '108', '109', '110B'])
+
+    view.rerender(
+      <StageMapPanel currentStage={111} highestStage={111} onChooseStage={onChooseStage} />,
+    )
+    timeline = screen.getByRole('group', { name: '월락 고개 현재 10단계' })
+    expect(within(timeline).getAllByRole('button').map((button) => button.textContent))
+      .toEqual(['111', '112', '113', '114', '115', '116', '117', '118', '119', '120B'])
+  })
+
+  it('selects available compact stages once and blocks locked or read-only commands', () => {
+    const { container, onChooseStage, rerender } = renderMap({
+      currentStage: 105,
+      highestStage: 105,
+    })
+    const compactMap = container.querySelector<HTMLElement>('.stage-map-compact')
+    expect(compactMap).not.toBeNull()
+    if (compactMap === null) return
+
+    fireEvent.click(within(compactMap).getByRole('button', { name: '스테이지 104, 완료' }))
+    fireEvent.click(within(compactMap).getByRole('button', {
+      name: '스테이지 105, 현재 위치, 최전선',
+    }))
+    fireEvent.click(within(compactMap).getByRole('button', {
+      name: '스테이지 106, 잠김, 스테이지 106 도달 시 해제, 현재 최고 105',
+    }))
+    expect(onChooseStage.mock.calls).toEqual([[104], [105]])
+
+    rerender(
+      <StageMapPanel
+        currentStage={105}
+        highestStage={105}
+        onChooseStage={onChooseStage}
+        disabled
+        disabledReason="읽기 전용 탭에서는 이동할 수 없습니다."
+      />,
+    )
+    const readOnlyCurrent = screen.getByRole('button', {
+      name: '스테이지 105, 현재 위치, 최전선, 현재 스테이지 이동 불가',
+    })
+    expect(readOnlyCurrent).not.toBeDisabled()
+    expect(readOnlyCurrent).toHaveAttribute('aria-disabled', 'true')
+    expect(readOnlyCurrent).toHaveAccessibleDescription(
+      '읽기 전용 탭에서는 이동할 수 없습니다.',
+    )
+    fireEvent.click(readOnlyCurrent)
+    expect(onChooseStage.mock.calls).toEqual([[104], [105]])
+  })
+
   it('mounts no region asset until opened and shows the current region only', () => {
     const { container } = renderMap()
 
@@ -42,6 +127,7 @@ describe('StageMapPanel', () => {
     expect(screen.queryByTestId('stage-map-region-art')).not.toBeInTheDocument()
     openMap()
 
+    expect(container.querySelector('.stage-map-compact')).not.toBeInTheDocument()
     expect(toggle).toHaveAttribute('aria-controls', 'stage-map-content')
     expect(screen.getByTestId('stage-map-region-art')).toHaveAttribute(
       'data-asset-id',

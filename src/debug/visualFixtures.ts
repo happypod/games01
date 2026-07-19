@@ -25,6 +25,7 @@ export const VISUAL_FIXTURE_IDS = [
   'visual.combat.event-log',
   'visual.result.boss-victory',
   'visual.result.defeat',
+  'visual.dashboard.one-view',
 ] as const
 
 export type VisualFixtureId = (typeof VISUAL_FIXTURE_IDS)[number]
@@ -52,12 +53,12 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412'
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414'
   readonly stage: 1 | 3 | 5 | 10 | 30 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
   readonly canonicalEventHash?: `fnv1a32-v1:${string}`
-  readonly captureTarget: '.dashboard' | '.battle' | '.stage-map-panel' | '.progression-panels' | '.expedition-event-panel' | '.combat-log-panel' | '.combat-result-dialog'
+  readonly captureTarget: '.dashboard' | '.battle' | '.game-dashboard' | '.stage-map-panel' | '.progression-panels' | '.expedition-event-panel' | '.combat-log-panel' | '.combat-result-dialog'
   readonly failureRoute: 'none' | 'hero-and-enemy-corrupt' | 'cards-corrupt' | 'events-corrupt'
   readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards' | 'open-expedition-events' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result'
   readonly variants: readonly VisualVariantId[]
@@ -244,6 +245,19 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     setupAction: 'open-defeat-result',
     variants: VISUAL_VARIANT_IDS,
   },
+  'visual.dashboard.one-view': {
+    id: 'visual.dashboard.one-view',
+    label: '원 뷰 대시보드 · 스테이지 10',
+    ownerTicket: 'IRPG-414',
+    stage: 10,
+    seedKey: 'irpg-414:visual.dashboard.one-view:v1',
+    canonicalHash: 'fnv1a32-v1:d85d7ca1',
+    canonicalEventHash: 'fnv1a32-v1:aa4f41fb',
+    captureTarget: '.game-dashboard',
+    failureRoute: 'none',
+    setupAction: 'none',
+    variants: VISUAL_VARIANT_IDS,
+  },
 }
 
 function canonicalStringify(value: unknown): string {
@@ -404,6 +418,20 @@ export function createVisualFixtureCombatEventBatch(id: VisualFixtureId): Combat
     return { nextCursor: '46', totalEvents: events.length, events }
   }
 
+  if (id === 'visual.dashboard.one-view') {
+    const outcomeTypes = ['kill', 'bossVictory', 'defeat'] as const
+    const events = Array.from({ length: 3 }, (_, index) => {
+      const round = 61 + index
+      return [
+        createVisualCombatEvent(round, 10, 'skill'),
+        createVisualCombatEvent(round, 20, 'critical'),
+        createVisualCombatEvent(round, 25, 'companionAssist'),
+        createVisualCombatEvent(round, 30, outcomeTypes[index]!),
+      ]
+    }).flat()
+    return { nextCursor: '63', totalEvents: events.length, events }
+  }
+
   return { nextCursor: '0', totalEvents: 0, events: [] }
 }
 
@@ -450,6 +478,55 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
             maxHpAtOffer,
           ),
         ),
+        overflowCount: 0,
+      },
+    }
+  }
+  if (id === 'visual.dashboard.one-view') {
+    state = {
+      ...state,
+      claimedBossMilestoneMask: 1,
+      player: {
+        ...state.player,
+        level: 8,
+        xp: 72,
+        gold: 860,
+        essence: 12,
+        skillPoints: 2,
+        upgrades: { weapon: 4, armor: 3, charm: 2 },
+        skills: { powerStrike: 2, ironWill: 1, fortune: 1 },
+        companion: { id: 'emberFox', rank: 2 },
+      },
+      battle: {
+        ...state.battle,
+        highestStage: 11,
+        powerStrikeCooldownMs: 1_000,
+        companionCooldownMs: 2_000,
+        kills: 18,
+        defeats: 2,
+      },
+      stats: {
+        goldEarned: 4_200,
+        enemiesDefeated: 42,
+        prestiges: 0,
+      },
+    }
+    const maxHpAtOffer = getHeroStats(state).maxHp
+    state = {
+      ...state,
+      player: {
+        ...state.player,
+        currentHp: Math.floor(maxHpAtOffer * 0.82),
+      },
+      expeditionEvents: {
+        ...state.expeditionEvents,
+        milestoneMask: 1,
+        pending: [createExpeditionPendingEvent(
+          state.rng.seed,
+          state.stats.prestiges,
+          0,
+          maxHpAtOffer,
+        )],
         overflowCount: 0,
       },
     }

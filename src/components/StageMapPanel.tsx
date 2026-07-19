@@ -56,6 +56,11 @@ export function StageMapPanel({
 
   const activeRegion = STAGE_REGIONS.find((region) => region.id === activeRegionId)!
   const nodes = getStageNodes(activeRegionId, currentStage, highestStage)
+  const currentRegion = getStageRegionForStage(currentStage)
+  const currentRegionNodes = getStageNodes(currentRegion.id, currentStage, highestStage)
+  const currentNodeOffset = currentRegionNodes.find((node) => node.isCurrent)?.offset ?? 0
+  const compactBlockStart = Math.floor(currentNodeOffset / 10) * 10
+  const compactNodes = currentRegionNodes.slice(compactBlockStart, compactBlockStart + 10)
 
   useLayoutEffect(() => {
     const stage = pendingNodeFocus.current
@@ -176,6 +181,56 @@ export function StageMapPanel({
           {open ? '원정 지도 접기' : '원정 지도 열기'}
         </button>
       </div>
+
+      {!open && (
+        <div className="stage-map-compact">
+          <div className="stage-map-compact__header">
+            <strong className="stage-map-compact__region">{currentRegion.name}</strong>
+            <span className="stage-map-compact__range">
+              {compactNodes[0]?.stage}–{compactNodes.at(-1)?.stage}
+            </span>
+          </div>
+
+          {disabled && (
+            <p className="stage-map-disabled-reason" id={DISABLED_REASON_ID} role="status">
+              {disabledReason ?? '현재 게임 상태에서는 스테이지를 이동할 수 없습니다.'}
+            </p>
+          )}
+
+          <div
+            className="stage-map-compact__timeline"
+            role="group"
+            aria-label={`${currentRegion.name} 현재 10단계`}
+          >
+            {compactNodes.map((node) => {
+              const interactionDisabled = disabled || node.progress === 'locked'
+              return (
+                <button
+                  key={node.stage}
+                  type="button"
+                  className={[
+                    'stage-map-compact__stage',
+                    `stage-map-compact__stage--${node.progress}`,
+                    node.isCurrent ? 'stage-map-compact__stage--current' : '',
+                    node.isBoss ? 'stage-map-compact__stage--boss' : '',
+                  ].filter(Boolean).join(' ')}
+                  aria-label={getNodeLabel(node, highestStage, disabled)}
+                  aria-current={node.isCurrent ? 'step' : undefined}
+                  aria-disabled={interactionDisabled || undefined}
+                  aria-describedby={disabled ? DISABLED_REASON_ID : undefined}
+                  data-stage-state={node.progress}
+                  data-current={node.isCurrent ? 'true' : 'false'}
+                  data-boss={node.isBoss ? 'true' : 'false'}
+                  onClick={() => chooseNode(node)}
+                >
+                  <span>{node.stage}</span>
+                  {node.isBoss && <small aria-hidden="true">B</small>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="stage-map-panel" id={PANEL_ID}>

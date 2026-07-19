@@ -80,13 +80,42 @@ describe('IRPG-411 combat log panel', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     expect(toggle).toHaveAttribute('aria-controls', 'combat-log-content')
     expect(screen.getByText('최근 0건 · 이전 기록 없음')).toBeVisible()
-    expect(screen.queryByText('아직 기록된 전투 이벤트가 없습니다.')).not.toBeVisible()
+    expect(screen.queryByText('아직 기록된 전투 이벤트가 없습니다.')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('combat-log-preview')).not.toBeInTheDocument()
 
     fireEvent.keyDown(toggle, { key: 'Enter' })
     fireEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('아직 기록된 전투 이벤트가 없습니다.')).toBeVisible()
     expect(screen.getByRole('group', { name: '로그 필터' })).toBeVisible()
+  })
+
+  it('previews only the latest five canonical items and swaps to the full list without duplication', () => {
+    const events = Array.from({ length: 25 }, (_, index) => makeEvent(index + 1, 'critical'))
+    render(<CombatLogPanel batch={makeBatch(events)} />)
+
+    const preview = screen.getByTestId('combat-log-preview')
+    const previewItems = within(preview).getAllByRole('listitem')
+    expect(preview).toHaveClass('combat-log-preview')
+    expect(previewItems).toHaveLength(5)
+    expect(previewItems[0]).toHaveTextContent('라운드 21')
+    expect(previewItems[4]).toHaveTextContent('라운드 25')
+    expect(screen.queryByTestId('combat-log-list')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '전투 로그 펼치기' }))
+
+    expect(screen.queryByTestId('combat-log-preview')).not.toBeInTheDocument()
+    const fullList = screen.getByTestId('combat-log-list')
+    const fullItems = within(fullList).getAllByRole('listitem')
+    expect(fullItems).toHaveLength(20)
+    expect(fullItems[0]).toHaveTextContent('라운드 6')
+    expect(fullItems[19]).toHaveTextContent('라운드 25')
+    expect(screen.getAllByText(/치명타로 \d+ 피해를 입혔습니다\./)).toHaveLength(20)
+
+    fireEvent.click(screen.getByRole('button', { name: '전투 로그 접기' }))
+    expect(within(screen.getByTestId('combat-log-preview')).getAllByRole('listitem'))
+      .toHaveLength(5)
+    expect(screen.queryByTestId('combat-log-list')).not.toBeInTheDocument()
   })
 
   it('shows only the latest 20 in canonical order and filters after applying the bound', () => {

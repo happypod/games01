@@ -140,6 +140,10 @@ test('uses fallback.card after corrupt decode and keeps the purchase command ali
   context,
   page,
 }) => {
+  // Keep this card-only fixture in the document-flow layout. At desktop sizes the
+  // intentionally open debug panel participates in the one-view shell and would
+  // otherwise reduce the dashboard viewport being exercised by this focused test.
+  await page.setViewportSize({ width: 900, height: 900 })
   await context.clock.setFixedTime(STARTED_AT)
   await page.route(/\/equipment-guard-armor[^/]*\.webp(?:\?.*)?$/, async (route) => {
     if (route.request().resourceType() !== 'image') {

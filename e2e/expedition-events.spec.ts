@@ -6,6 +6,11 @@ const EVENT_FILE_PATTERN = /\/event-(?:ember-shrine|wandering-smith|ash-camp)[^/
 test.describe.configure({ mode: 'serial', timeout: 60_000 })
 
 async function spendEnabledButtons(page: Page, panelId: string) {
+  const tabName = panelId === 'upgrade-title' ? /^장비/ : panelId === 'skill-title' ? /^스킬/ : null
+  if (tabName !== null) {
+    const tab = page.getByRole('tab', { name: tabName })
+    if (await tab.isVisible()) await tab.click()
+  }
   const enabled = page.locator(`section[aria-labelledby="${panelId}"] button:enabled`)
   for (let purchase = 0; purchase < 30 && (await enabled.count()) > 0; purchase += 1) {
     await enabled.first().click()

@@ -79,6 +79,37 @@ interface CombatLogPanelProps {
   batch: CombatEventBatch
 }
 
+interface CombatLogListProps {
+  items: readonly CombatLogItem[]
+  className: string
+  testId: string
+}
+
+function CombatLogList({ items, className, testId }: CombatLogListProps) {
+  return (
+    <ol className={className} data-testid={testId}>
+      {items.map((item) => {
+        const copy = getEventCopy(item)
+        const roundSequence = safeString(item.event, 'roundSequence') ?? '알 수 없음'
+        const stage = safeNumber(item.event, 'stage') ?? '알 수 없음'
+        return (
+          <li
+            key={item.event.id}
+            className={`combat-log-entry combat-log-entry--${item.filterId}`}
+            data-combat-event-type={item.runtimeType}
+          >
+            <span className="combat-log-entry__badge">{copy.badge}</span>
+            <span className="combat-log-entry__copy">{copy.text}</span>
+            <small>
+              라운드 {roundSequence} · 스테이지 {stage}
+            </small>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 export function CombatLogPanel({ batch }: CombatLogPanelProps) {
   const [open, setOpen] = useState(false)
   const [activeFilters, setActiveFilters] = useState<ReadonlySet<CombatLogFilterId>>(
@@ -132,56 +163,53 @@ export function CombatLogPanel({ batch }: CombatLogPanelProps) {
         {announcement}
       </p>
 
+      {!open && view.items.length > 0 && (
+        <CombatLogList
+          items={view.items.slice(-5)}
+          className="combat-log-list combat-log-preview"
+          testId="combat-log-preview"
+        />
+      )}
+
       <div id={CONTENT_ID} hidden={!open}>
-        <fieldset className="combat-log-filters">
-          <legend>로그 필터</legend>
-          <label>
-            <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-            모두
-          </label>
-          {COMBAT_LOG_FILTER_IDS.map((filterId) => (
-            <label key={filterId}>
-              <input
-                type="checkbox"
-                checked={activeFilters.has(filterId)}
-                onChange={() => toggleFilter(filterId)}
+        {open && (
+          <>
+            <fieldset className="combat-log-filters">
+              <legend>로그 필터</legend>
+              <label>
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+                모두
+              </label>
+              {COMBAT_LOG_FILTER_IDS.map((filterId) => (
+                <label key={filterId}>
+                  <input
+                    type="checkbox"
+                    checked={activeFilters.has(filterId)}
+                    onChange={() => toggleFilter(filterId)}
+                  />
+                  {FILTER_LABELS[filterId]}
+                </label>
+              ))}
+            </fieldset>
+
+            {view.filterHiddenCount > 0 && (
+              <p className="combat-log-filter-summary">
+                현재 필터에서 최근 기록 {view.filterHiddenCount}건을 숨겼습니다.
+              </p>
+            )}
+
+            {view.recentCount === 0 ? (
+              <p className="combat-log-empty">아직 기록된 전투 이벤트가 없습니다.</p>
+            ) : view.items.length === 0 ? (
+              <p className="combat-log-empty">선택한 필터에 해당하는 최근 이벤트가 없습니다.</p>
+            ) : (
+              <CombatLogList
+                items={view.items}
+                className="combat-log-list"
+                testId="combat-log-list"
               />
-              {FILTER_LABELS[filterId]}
-            </label>
-          ))}
-        </fieldset>
-
-        {view.filterHiddenCount > 0 && (
-          <p className="combat-log-filter-summary">
-            현재 필터에서 최근 기록 {view.filterHiddenCount}건을 숨겼습니다.
-          </p>
-        )}
-
-        {view.recentCount === 0 ? (
-          <p className="combat-log-empty">아직 기록된 전투 이벤트가 없습니다.</p>
-        ) : view.items.length === 0 ? (
-          <p className="combat-log-empty">선택한 필터에 해당하는 최근 이벤트가 없습니다.</p>
-        ) : (
-          <ol className="combat-log-list" data-testid="combat-log-list">
-            {view.items.map((item) => {
-              const copy = getEventCopy(item)
-              const roundSequence = safeString(item.event, 'roundSequence') ?? '알 수 없음'
-              const stage = safeNumber(item.event, 'stage') ?? '알 수 없음'
-              return (
-                <li
-                  key={item.event.id}
-                  className={`combat-log-entry combat-log-entry--${item.filterId}`}
-                  data-combat-event-type={item.runtimeType}
-                >
-                  <span className="combat-log-entry__badge">{copy.badge}</span>
-                  <span className="combat-log-entry__copy">{copy.text}</span>
-                  <small>
-                    라운드 {roundSequence} · 스테이지 {stage}
-                  </small>
-                </li>
-              )
-            })}
-          </ol>
+            )}
+          </>
         )}
       </div>
     </section>

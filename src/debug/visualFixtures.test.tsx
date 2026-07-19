@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getEnemyDefinition } from '../game/content'
+import { getHeroStats } from '../game/formulas'
 import { seedFromText } from '../game/rng'
 import type { GameState } from '../game/types'
 import { DebugSessionApp } from './DebugSessionApp'
@@ -78,6 +79,11 @@ const EXPECTED_FIXTURES = {
     hash: 'fnv1a32-v1:2d65716c',
     seed: 1543179630,
   },
+  'visual.dashboard.one-view': {
+    stage: 10,
+    hash: 'fnv1a32-v1:d85d7ca1',
+    seed: 1799040046,
+  },
 } as const
 
 function reverseObjectKeys(value: unknown): unknown {
@@ -95,8 +101,8 @@ describe('IRPG-506 named visual fixtures', () => {
   it('pins the fixture states and their canonical metadata', () => {
     expect(VISUAL_FIXTURE_IDS).toEqual(Object.keys(EXPECTED_FIXTURES))
     expect(VISUAL_FIXTURE_NOW).toBe(1_767_225_600_000)
-    expect(VISUAL_FIXTURE_IDS).toHaveLength(12)
-    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(48)
+    expect(VISUAL_FIXTURE_IDS).toHaveLength(13)
+    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(52)
     expect(VISUAL_FIXTURE_VARIANTS).toEqual([
       {
         id: 'mobile-default',
@@ -135,7 +141,9 @@ describe('IRPG-506 named visual fixtures', () => {
 
       expect(definition).toMatchObject({
         id,
-        ownerTicket: id === 'visual.map.stage-frontier'
+        ownerTicket: id === 'visual.dashboard.one-view'
+          ? 'IRPG-414'
+          : id === 'visual.map.stage-frontier'
           ? 'IRPG-408'
           : id.startsWith('visual.cards.')
             ? 'IRPG-409'
@@ -147,7 +155,9 @@ describe('IRPG-506 named visual fixtures', () => {
               ? 'IRPG-411'
             : 'IRPG-506',
         stage: expected.stage,
-        seedKey: `irpg-506:${id}:v1`,
+        seedKey: id === 'visual.dashboard.one-view'
+          ? 'irpg-414:visual.dashboard.one-view:v1'
+          : `irpg-506:${id}:v1`,
         canonicalHash: expected.hash,
         variants: VISUAL_VARIANT_IDS,
       })
@@ -160,7 +170,7 @@ describe('IRPG-506 named visual fixtures', () => {
         },
         battle: {
           stage: expected.stage,
-          highestStage: expected.stage,
+          highestStage: id === 'visual.dashboard.one-view' ? 11 : expected.stage,
           enemyHp: getEnemyDefinition(expected.stage).maxHp,
           roundRemainderMs: 0,
         },
@@ -211,6 +221,27 @@ describe('IRPG-506 named visual fixtures', () => {
     expect(hashVisualCombatEventBatch(createVisualFixtureCombatEventBatch(
       'visual.combat.hero-default',
     ))).not.toBe(eventDefinition.canonicalEventHash)
+
+    const dashboardDefinition = VISUAL_FIXTURE_REGISTRY['visual.dashboard.one-view']
+    const dashboardBatch = createVisualFixtureCombatEventBatch('visual.dashboard.one-view')
+    expect(dashboardDefinition).toMatchObject({
+      ownerTicket: 'IRPG-414',
+      captureTarget: '.game-dashboard',
+      setupAction: 'none',
+      canonicalEventHash: 'fnv1a32-v1:aa4f41fb',
+    })
+    expect(dashboardBatch).toMatchObject({ nextCursor: '63', totalEvents: 12 })
+    expect(dashboardBatch.events).toHaveLength(12)
+    expect(new Set(dashboardBatch.events.map(({ type }) => type))).toEqual(new Set([
+      'skill',
+      'critical',
+      'companionAssist',
+      'kill',
+      'bossVictory',
+      'defeat',
+    ]))
+    expect(hashVisualCombatEventBatch(dashboardBatch))
+      .toBe(dashboardDefinition.canonicalEventHash)
 
     const victoryDefinition = VISUAL_FIXTURE_REGISTRY['visual.result.boss-victory']
     const victoryBatch = createVisualFixtureCombatEventBatch(
@@ -284,6 +315,36 @@ describe('IRPG-506 named visual fixtures', () => {
       expect(new Set(eventState.expeditionEvents.pending.map(({ definitionId }) => definitionId)))
         .toEqual(new Set(['event.ember-shrine', 'event.wandering-smith', 'event.ash-camp']))
     }
+
+    const dashboardState = createVisualFixtureState('visual.dashboard.one-view')
+    expect(dashboardState).toMatchObject({
+      claimedBossMilestoneMask: 1,
+      player: {
+        level: 8,
+        xp: 72,
+        gold: 860,
+        essence: 12,
+        skillPoints: 2,
+        upgrades: { weapon: 4, armor: 3, charm: 2 },
+        skills: { powerStrike: 2, ironWill: 1, fortune: 1 },
+        companion: { id: 'emberFox', rank: 2 },
+      },
+      battle: {
+        stage: 10,
+        highestStage: 11,
+        powerStrikeCooldownMs: 1_000,
+        companionCooldownMs: 2_000,
+        kills: 18,
+        defeats: 2,
+      },
+      stats: { goldEarned: 4_200, enemiesDefeated: 42, prestiges: 0 },
+      expeditionEvents: { milestoneMask: 1, overflowCount: 0 },
+    })
+    expect(dashboardState.player.currentHp)
+      .toBe(Math.floor(getHeroStats(dashboardState).maxHp * 0.82))
+    expect(dashboardState.expeditionEvents.pending).toHaveLength(1)
+    expect(dashboardState.expeditionEvents.pending[0]?.definitionId)
+      .toBe('event.wandering-smith')
   })
 
   it('sorts every object level before hashing and returns fresh states', () => {
@@ -355,12 +416,53 @@ describe('IRPG-506 visual fixture UI adapter', () => {
       'data-expected-canonical-event-hash',
       'fnv1a32-v1:e0a7de25',
     )
-    expect(screen.queryByTestId('combat-log-list')).not.toBeVisible()
+    expect(screen.queryByTestId('combat-log-list')).not.toBeInTheDocument()
+    expect(screen.getByTestId('combat-log-preview').getElementsByTagName('li'))
+      .toHaveLength(5)
     fireEvent.click(screen.getByRole('button', { name: '전투 로그 펼치기' }))
     expect(screen.getByTestId('combat-log-list').getElementsByTagName('li')).toHaveLength(20)
     expect(hashVisualGameState(createVisualFixtureState('visual.combat.event-log')))
       .toBe(stateBefore)
     expect(window.localStorage).toHaveLength(0)
+  })
+
+  it('keeps the card capture target stable inside the growth tab wrapper', () => {
+    render(<DebugSessionApp onExit={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText('시각 회귀 fixture'), {
+      target: { value: 'visual.cards.mixed-states' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'fixture 적용' }))
+
+    const root = screen.getByTestId('visual-fixture-root')
+    const growthCenter = root.querySelector('.growth-center')
+    const captureTarget = root.querySelector('.progression-panels')
+    expect(root).toHaveAttribute('data-visual-fixture-id', 'visual.cards.mixed-states')
+    expect(growthCenter).toContainElement(captureTarget as HTMLElement)
+    expect(captureTarget).toContainElement(root.querySelector('.growth-tabpanel--equipment'))
+    expect(captureTarget).toContainElement(root.querySelector('.growth-tabpanel--skill'))
+    expect(captureTarget).not.toContainElement(root.querySelector('.growth-tabpanel--companion'))
+    expect(captureTarget?.querySelectorAll('[data-card-asset-id]')).toHaveLength(6)
+  })
+
+  it('renders the deterministic one-view dashboard fixture surface', () => {
+    render(<DebugSessionApp onExit={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText('시각 회귀 fixture'), {
+      target: { value: 'visual.dashboard.one-view' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'fixture 적용' }))
+
+    const root = screen.getByTestId('visual-fixture-root')
+    expect(root).toHaveAttribute('data-visual-fixture-id', 'visual.dashboard.one-view')
+    expect(root).toHaveAttribute('data-canonical-state-hash', 'fnv1a32-v1:d85d7ca1')
+    expect(root).toHaveAttribute('data-canonical-event-hash', 'fnv1a32-v1:aa4f41fb')
+    expect(root.querySelector('.game-dashboard')).toBeInTheDocument()
+    expect(root.querySelectorAll('.stage-map-compact__stage')).toHaveLength(10)
+    expect(screen.getByTestId('combat-log-preview').getElementsByTagName('li'))
+      .toHaveLength(5)
+    expect(screen.getByRole('tablist', { name: '성장 메뉴' })).toBeInTheDocument()
+    expect(screen.getByTestId('expedition-event-panel')).toHaveTextContent('대기 중 1/3')
   })
 
   it.each([

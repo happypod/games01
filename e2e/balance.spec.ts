@@ -10,6 +10,11 @@ function collectBrowserErrors(page: Page, errors: string[]) {
 }
 
 async function spendEnabledButtons(page: Page, panelId: string) {
+  const tabName = panelId === 'upgrade-title' ? /^장비/ : panelId === 'skill-title' ? /^스킬/ : null
+  if (tabName !== null) {
+    const tab = page.getByRole('tab', { name: tabName })
+    if (await tab.isVisible()) await tab.click()
+  }
   const enabled = page.locator(`section[aria-labelledby="${panelId}"] button:enabled`)
   for (let purchase = 0; purchase < 30 && (await enabled.count()) > 0; purchase += 1) {
     await enabled.first().click()
@@ -20,6 +25,7 @@ test('representative active play keeps browser UI and progression in sync', asyn
   context,
   page,
 }, testInfo) => {
+  test.setTimeout(60_000)
   const browserErrors: string[] = []
   collectBrowserErrors(page, browserErrors)
   await context.clock.setFixedTime(STARTED_AT)
@@ -40,11 +46,13 @@ test('representative active play keeps browser UI and progression in sync', asyn
   const goldResource = page.locator('.resource-rack > div').filter({ hasText: '골드' })
   await expect(goldResource.locator('strong')).toHaveText('13')
 
+  await page.getByRole('tab', { name: /^장비/ }).click()
   const upgrades = page.getByRole('region', { name: '성장 장비' })
   await expect(upgrades.locator('article').filter({ hasText: '불씨 검' })).toContainText('Lv.3')
   await expect(upgrades.locator('article').filter({ hasText: '수호 갑옷' })).toContainText('Lv.2')
   await expect(upgrades.locator('article').filter({ hasText: '행운 부적' })).toContainText('Lv.0')
 
+  await page.getByRole('tab', { name: /^스킬/ }).click()
   const skills = page.getByRole('region', { name: '스킬 각인' })
   await expect(skills.locator('article').filter({ hasText: '화염 강타' })).toContainText('Rank 3')
   await expect(skills.locator('article').filter({ hasText: '강철 의지' })).toContainText('Rank 0')

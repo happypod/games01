@@ -24,7 +24,7 @@
 | 다중 탭 E2E | 구현 | 두 번째 탭 읽기 전용, 열린 reader 동기화, writer 종료 뒤 lock 인계 |
 | 접근성 E2E | 구현 | 360px overflow·44px target·skip link·키보드 명령·progressbar·modal focus·200% 확대·모션 감소 |
 | 시각 자산 | 구현 | 필수 27 ID·로컬 경로·실제 포맷/픽셀/바이트·권리 metadata, fallback 2단계, production cold-load 600 KiB와 lazy namespace |
-| 시각 회귀 | 구현 | Ubuntu 24.04·고정 Chromium/font/time/seed에서 10 named fixture × 4 viewport/motion variant, state/event hash, overflow·motion, screenshot diff artifact |
+| 시각 회귀 | 구현 | Ubuntu 24.04·고정 Chromium/font/time/seed에서 13 named fixture × 4 viewport/motion variant, state/event hash, overflow·motion, screenshot diff artifact |
 | 장시간 soak | 구현 | 1x·10x·100x의 8·16·24시간 전체 상태·누적 report, safe integer·HP·stage·RNG·정체·고정 fixture |
 
 IRPG-107 Done 기준선은 Vitest 34파일·274테스트다. schema5 run-pinned marker, markerless schema5 literal-v1 transition, frozen v1 shuffle golden hash, 10~300 milestone, pending 3·overflow 27 상한, 선택 transaction·중복 no-write, MAX_SAFE, schema1~4 migration, 빈 queue·pending-only future A/B·legacy·portable fence, portable rollback, split/offline·24시간 soak를 포함한다. 4개 선택 조합 × 10 seed × 솔로/동료 80 paired session은 80/80 통과했고 첫 환생 cohort 중앙값 1,863.5~2,013.5초, 재도달 ratio 54.3562~69.9886%, aggregate hash `b2a62828`을 기록했다. 회복률 5%·5%·5%의 각 +5%p 인접 후보는 79/80로 실패해 승인 격자 경계를 확인했다. 로컬 `npm run verify`와 commit `da731ea`의 push·PR quality-gate가 성공했고 Ubuntu canonical 40/40 및 3회 반복 120/120도 통과했다.
@@ -154,7 +154,7 @@ npm run test:e2e:assets
 npm run test:e2e:visual
 ```
 
-로컬 전체 게이트는 `npm run verify`다. 브라우저 제외 게이트는 `npm run verify:code`다. canonical screenshot 비교는 Ubuntu GitHub Actions 전용이며 로컬에서는 건너뛴다. 현재 체크인 기준선은 IRPG-412가 추가한 event 8개를 포함한 48개다. 각 variant는 먼저 정확한 360×800·1440×900에서 geometry·overflow·명령·motion을 검증하고, target이 viewport보다 길면 폭·DPR·media를 유지한 `captureViewport`로 높이만 늘려 full-surface를 캡처한다. artifact metadata는 `layoutViewport`·`captureViewport`·`expanded`를 구분한다. CI는 Chromium과 시스템 의존성을 설치한 뒤 worker 1개로 실행하며, 실패한 Playwright trace·screenshot·video와 HTML report를 artifact로 보존한다. 티켓을 Done으로 옮길 때 명령, 통과 결과, 필요한 수동 증거를 `Test evidence`에 남긴다.
+로컬 전체 게이트는 `npm run verify`다. 브라우저 제외 게이트는 `npm run verify:code`다. canonical screenshot 비교는 Ubuntu GitHub Actions 전용이며 로컬에서는 건너뛴다. 현재 픽스처 카탈로그는 IRPG-414의 `visual.dashboard.one-view` 4개 variant를 포함한 52개다. 각 variant는 먼저 정확한 360×800·1440×900에서 geometry·overflow·명령·motion을 검증하고, target이 viewport보다 길면 폭·DPR·media를 유지한 `captureViewport`로 높이만 늘려 full-surface를 캡처한다. artifact metadata는 `layoutViewport`·`captureViewport`·`expanded`를 구분한다. CI는 Chromium과 시스템 의존성을 설치한 뒤 worker 1개로 실행하며, 실패한 Playwright trace·screenshot·video와 HTML report를 artifact로 보존한다. 티켓을 Done으로 옮길 때 명령, 통과 결과, 필요한 수동 증거를 `Test evidence`에 남긴다.
 
 ## 8. 현재 브라우저 증거
 

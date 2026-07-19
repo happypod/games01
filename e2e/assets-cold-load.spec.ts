@@ -479,6 +479,8 @@ test('production cold load stays within the asset budget and preserves lazy name
     }
     const cardImageOutputsById = new Map<string, Set<string>>()
     const allCardImageOutputs = new Set<string>()
+    const equipmentCardImageOutputs = new Set<string>()
+    const skillCardImageOutputs = new Set<string>()
     for (const entry of assetManifest.assets.filter(({ id }) =>
       /^(?:equipment|skill)\./.test(id),
     )) {
@@ -489,13 +491,19 @@ test('production cold load stays within the asset budget and preserves lazy name
       )
       cardImageOutputsById.set(entry.id, imageOutputs)
       addOutputFiles(allCardImageOutputs, imageOutputs)
+      addOutputFiles(
+        entry.id.startsWith('equipment.')
+          ? equipmentCardImageOutputs
+          : skillCardImageOutputs,
+        imageOutputs,
+      )
     }
 
     const lazyOutputs = new Set<string>()
     const nonCurrentCombatOutputs = new Set<string>()
     for (const entry of assetManifest.assets) {
       const outputs = outputsByAssetId.get(entry.id) ?? []
-      if (/^(?:region|equipment|skill|result|event)\./.test(entry.id)) {
+      if (/^(?:region|result|event)\./.test(entry.id)) {
         addOutputFiles(lazyOutputs, outputs)
       }
       if ((entry.id.startsWith('enemy.') && entry.id !== currentEnemy.id) || entry.id.startsWith('boss.')) {
@@ -503,6 +511,11 @@ test('production cold load stays within the asset budget and preserves lazy name
       }
     }
 
+    const initialEquipmentCardImageRequests = intersection(
+      equipmentCardImageOutputs,
+      requestedDistFiles,
+    )
+    const initialSkillCardImageRequests = intersection(skillCardImageOutputs, requestedDistFiles)
     const evidence = {
       budgetBytes: BUDGET_BYTES,
       totalGzipBytes,
@@ -517,6 +530,8 @@ test('production cold load stays within the asset budget and preserves lazy name
       currentEnemyOutputs: [...currentEnemyImageOutputs].sort(),
       initialRegionImageRequests: intersection(allRegionImageOutputs, requestedDistFiles),
       initialCardImageRequests: intersection(allCardImageOutputs, requestedDistFiles),
+      initialEquipmentCardImageRequests,
+      initialSkillCardImageRequests,
       lazyOutputRequests: intersection(lazyOutputs, requestedDistFiles),
       nonCurrentCombatRequests: intersection(nonCurrentCombatOutputs, requestedDistFiles),
       resources: budgetResources.sort((left, right) => left.url.localeCompare(right.url)),
@@ -538,7 +553,7 @@ test('production cold load stays within the asset budget and preserves lazy name
       intersection(currentEnemyImageOutputs, requestedDistFiles),
       'Stage-1 ash slime image was not requested',
     ).not.toEqual([])
-    expect(evidence.lazyOutputRequests, 'A lazy region/card/result/event asset was requested').toEqual([])
+    expect(evidence.lazyOutputRequests, 'A lazy region/result/event asset was requested').toEqual([])
     expect(
       evidence.nonCurrentCombatRequests,
       'A non-current enemy or boss asset was requested',
@@ -547,7 +562,15 @@ test('production cold load stays within the asset budget and preserves lazy name
     const activeRegionId = 'region.ashen-border'
     const activeRegionImageOutputs = regionImageOutputsById.get(activeRegionId) ?? new Set<string>()
     expect(evidence.initialRegionImageRequests, 'A region image loaded before map disclosure').toEqual([])
-    expect(evidence.initialCardImageRequests, 'A progression card loaded before entering the panel').toEqual([])
+    expect(
+      initialEquipmentCardImageRequests.length,
+      'The visible equipment tab did not request any equipment card art',
+    ).toBeGreaterThan(0)
+    expect(
+      initialSkillCardImageRequests,
+      'The inactive skill tab requested card art during cold load',
+    ).toEqual([])
+    expect(evidence.initialCardImageRequests).toEqual(initialEquipmentCardImageRequests)
     expect(activeRegionImageOutputs.size, 'Vite manifest has no unique active-region image').toBe(1)
 
     await page.getByRole('button', { name: '원정 지도 열기' }).click()
@@ -588,10 +611,48 @@ test('production cold load stays within the asset budget and preserves lazy name
       'Opening the map requested an inactive region image',
     ).toEqual(expectedActiveRegionRequests)
 
-    const cardSlots = page.locator('[data-card-asset-id]')
-    await expect(cardSlots).toHaveCount(6)
-    for (let index = 0; index < 6; index += 1) {
-      const slot = cardSlots.nth(index)
+    const equipmentPanel = page.locator('#growth-tabpanel-equipment')
+    const skillPanel = page.locator('#growth-tabpanel-skill')
+    const equipmentSlots = equipmentPanel.locator('[data-card-asset-id]')
+    const skillSlots = skillPanel.locator('[data-card-asset-id]')
+    await expect(equipmentPanel).toBeVisible()
+    await expect(skillPanel).not.toBeVisible()
+    await expect(equipmentSlots).toHaveCount(3)
+    await expect(skillSlots).toHaveCount(3)
+    expect(
+      await skillSlots.evaluateAll((slots) =>
+        slots.map((slot) => slot.getAttribute('data-art-active')),
+      ),
+    ).toEqual(['false', 'false', 'false'])
+
+    for (let index = 0; index < 3; index += 1) {
+      const slot = equipmentSlots.nth(index)
+      const assetId = await slot.getAttribute('data-card-asset-id')
+      expect(assetId).not.toBeNull()
+      expect(cardImageOutputsById.get(assetId ?? '')?.size).toBe(1)
+      await slot.scrollIntoViewIfNeeded()
+      await expect(slot).toHaveAttribute('data-art-active', 'true')
+      await expect(slot.locator('.growth-card__asset')).toHaveAttribute('data-state', 'loaded')
+    }
+    while (pendingResponses.size > 0) await Promise.all([...pendingResponses])
+
+    const imageRequestsBeforeSkillTab = new Set(
+      captured
+        .filter(({ resourceType, status }) =>
+          resourceType === 'image' && status >= 200 && status < 300,
+        )
+        .map(({ url }) => resolveRequestedDistFile(url).relative),
+    )
+    expect(
+      intersection(skillCardImageOutputs, imageRequestsBeforeSkillTab),
+      'Scrolling the equipment tab requested an inactive skill card',
+    ).toEqual([])
+
+    await page.getByRole('tab', { name: '스킬', exact: true }).click()
+    await expect(equipmentPanel).not.toBeVisible()
+    await expect(skillPanel).toBeVisible()
+    for (let index = 0; index < 3; index += 1) {
+      const slot = skillSlots.nth(index)
       const assetId = await slot.getAttribute('data-card-asset-id')
       expect(assetId).not.toBeNull()
       expect(cardImageOutputsById.get(assetId ?? '')?.size).toBe(1)
@@ -625,6 +686,8 @@ test('production cold load stays within the asset budget and preserves lazy name
     const cardLazyLoadEvidence = {
       cardIds: [...cardImageOutputsById.keys()],
       initialCardImageRequests: evidence.initialCardImageRequests,
+      initialEquipmentCardImageRequests,
+      initialSkillCardImageRequests,
       cardImageRequestsAfterActivation,
       cardImageResponseFiles,
       expectedCardRequests,
