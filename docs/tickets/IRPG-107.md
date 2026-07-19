@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Verify
+- Status: Done
 - Skill tags: PROD-LOOP, ENG-STATE, ENG-SAVE
 - Owner / Reviewer: unassigned / product and save reviewers
 
@@ -89,4 +89,5 @@ legacy migration은 현재 환생 회차를 `runPrestige`로 설정하고 `highe
 - CI 동일 1-worker 환경의 로컬 `npm run verify` 통과: lint·strict typecheck·production build, 일반 Playwright 35/35, production 자산 Playwright 4/4, 자산 validator 30/30. canonical screenshot 비교는 정책대로 Ubuntu GitHub Actions에서 실행한다.
 - Vitest 34파일·274테스트 통과: event command 원자성·중복 no-write, 전투 RNG 불변, frozen v1 golden sequence, schema1~4→5와 markerless schema5→v1, malformed/future A/B·legacy·portable fence, pending rollback, MAX_SAFE, 24시간 soak와 canonical state hash를 포함한다.
 - IRPG-204·206 확장 80 paired session 80/80, first/second 모두 60분 이내, ratio 54.3562~69.9886%, aggregate hash `b2a62828` 반복 일치.
-- 남은 Done gate: push 뒤 GitHub Actions의 Ubuntu canonical visual 및 품질 job 성공 증거.
+- commit `da731eaa73cc8420327d126f28a9614cbf13ea83`의 [push quality-gate](https://github.com/happypod/games01/actions/runs/29679625464)와 [PR quality-gate](https://github.com/happypod/games01/actions/runs/29679626724)가 모두 성공했다. 두 run 모두 `npm run verify`와 Playwright report upload까지 완료했으며 artifact는 각각 `8440156436`(19,637,156 bytes), `8440157957`(19,780,163 bytes)다.
+- [Ubuntu visual-baseline](https://github.com/happypod/games01/actions/runs/29679625467)에서 canonical 40/40 생성과 3회 반복 120/120이 성공했다. artifact `8440165921`은 11,183,044 bytes이며 2026-08-02까지 보존된다.
