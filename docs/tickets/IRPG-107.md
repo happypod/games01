@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Draft
+- Status: Ready
 - Skill tags: PROD-LOOP, ENG-STATE, ENG-SAVE
 - Owner / Reviewer: unassigned / product and save reviewers
 
@@ -57,6 +57,23 @@
 pending entry는 `eventId·definitionId·definitionVersion·milestoneIndex·resolvedChoices`를 저장한다. resolved effect는 승인된 type whitelist와 non-negative safe-integer operand만 허용하고 지급 시 `toSafeInteger`·`addSafeIntegers` 계열 포화 helper를 사용한다. 정의가 바뀌어도 이미 제시한 선택의 효과는 바뀌지 않는다. pending 카드는 전투를 멈추거나 포커스를 강제로 가져가지 않는다. 보상은 `chooseExpeditionEvent` 명령만 지급하며 UI·reload·표시 이벤트는 지급하지 않는다.
 
 Draft를 Ready로 옮기기 전에 발동 milestone, 첫 이벤트 정의 3개, 보상 상한, resolved effect schema, 환생 시 pending 폐기 문구, migration·downgrade fence와 IRPG-204·206 balance fixture를 제품·저장 리뷰에서 확정한다.
+
+## Approved product contract (2026-07-19)
+
+- 현재 원정의 `highestStage`가 10·20·…·300에 처음 도달해 해당 stage에 진입할 때 30-bit milestone을 소비한다. 이전 stage 재선택이나 같은 boss 재처치로 다시 열리지 않는다.
+- milestone 3개 단위 block마다 `event.ember-shrine`, `event.wandering-smith`, `event.ash-camp`를 정확히 한 번씩 배치하는 deterministic shuffle-bag을 사용한다. `hash(savedSeed, runPrestige, blockIndex, "expedition-definitions-v1")`에서 만든 임시 `xorshift32-v1` substream만 사용하며 전투 RNG state와 draw count는 바꾸지 않는다.
+- canonical ID는 `expedition-v1:{seedHex}:{runPrestige}:{milestoneIndex}:{definitionId}`, `definitionVersion`은 1이며 선택지 순서는 고정한다.
+- `n = milestoneStage / 10`일 때 resolved choice effect는 아래 두 종류 중 하나만 저장한다.
+  - 불씨 성소: `3 × n` 골드(최대 90) 또는 발동 당시 최대 HP의 20% 회복량
+  - 떠돌이 대장장이: `5 × n` 골드(최대 150) 또는 발동 당시 최대 HP의 10% 회복량
+  - 잿빛 야영지: `2 × n` 골드(최대 60) 또는 발동 당시 최대 HP의 25% 회복량
+- effect whitelist는 `grantGold`와 `restoreHp`뿐이다. 정수·경험치·스킬 포인트·무료 강화·영구 효과는 제외한다. 골드는 실제 포화 증가량만 `stats.goldEarned`에 더하고 HP는 선택 시점의 현재 최대 HP를 넘지 않는다.
+- pending은 최대 3개다. 가득 찬 상태의 새 milestone은 bit를 소비하고 `overflowCount`만 올리며, 자리가 생겨도 재발동하거나 보상하지 않는다.
+- 선택은 effect 적용과 pending 제거를 하나의 순수 transaction으로 처리한다. 없는 event·choice, 잘못된 effect, 중복 클릭은 입력 객체를 그대로 반환하고 자원·RNG·mask를 바꾸지 않는다.
+- 환생 확인 문구는 `환생하면 대기 중인 원정 이벤트 {N}개가 보상 없이 사라집니다.`이며 성공하면 새 run의 mask·pending·overflow를 0으로 초기화한다. `stats.prestiges === Number.MAX_SAFE_INTEGER`에서는 동일 run ID 재사용과 보상 복제를 막기 위해 환생을 거부한다.
+- 저장은 schema 5로 올린다. schema 1~4 migration은 현재 `stats.prestiges`를 run으로 복사하고 `highestStage` 이하 milestone을 모두 소비한 mask, 빈 pending, overflow 0으로 만든다. 소급 이벤트는 지급하지 않는다. malformed schema 5는 전체 저장을 거부해 다른 A/B slot으로 fallback하며 future schema downgrade overwrite는 계속 차단한다.
+- 정확히 한 번 지급의 범위는 선택된 로컬 A/B 저장 계보다. 과거 portable backup 복원은 pending과 이미 지급된 자원을 함께 rollback할 수 있으며 서버 권위 중복 방지는 범위 밖이다.
+- Ready balance fixture는 선택 보류 경로의 기존 exact timing, 첫 두 이벤트 4개 선택 조합, 10개 seed × 솔로/동료 paired session을 고정한다. 모든 첫 환생은 30~45분, 재도달은 50~70%, 60분 내 20/20 도달, 전투 RNG 무변경과 반복 hash 일치를 통과해야 한다. 70%를 넘으면 회복률을 5%p 단위로 먼저 낮추고 이후 골드 계수를 낮춘다.
 
 legacy migration은 현재 환생 회차를 `runPrestige`로 설정하고 `highestStage` 이하의 milestone bit를 보상 없이 소비된 상태로 초기화한다. 따라서 업데이트 전에 통과한 milestone을 소급 지급하거나 낮은 stage를 재선택해 다시 여는 일이 없다.
 

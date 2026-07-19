@@ -24,7 +24,7 @@
 | IRPG-104 | 저장 가능한 시드 RNG·치명타 | P1 | Done | 101 | ENG-SIM, ENG-SAVE, QA-DOMAIN | 같은 시드는 같은 이벤트·최종 상태를 만든다. |
 | IRPG-105 | 범용 스킬 효과 런타임 | P1 | Draft | 104 | GD-SKILL, ENG-SIM | 회복·버프·보호막의 우선순위와 중첩 정책이 재현된다. |
 | IRPG-106 | 결정론적 전투 이벤트 스트림 | P1 | Done | 103,104,505 | ENG-STATE, ENG-SIM, QA-DOMAIN | 치명타·스킬·협공·처치·보스 승리·패배 이벤트 순서가 재현된다. |
-| IRPG-107 | 결정론적 원정 선택 이벤트 | P2 | Draft | 106,206,303 | PROD-LOOP, ENG-STATE, ENG-SAVE | 로컬 선택 이벤트가 저장·재접속 뒤 한 번만 적용된다. |
+| IRPG-107 | 결정론적 원정 선택 이벤트 | P2 | Ready | 106,206,303 | PROD-LOOP, ENG-STATE, ENG-SAVE | 로컬 선택 이벤트가 저장·재접속 뒤 한 번만 적용된다. |
 | IRPG-108 | 첫 동료 협공 전투 | P1 | Done | 104,204,303,403,505 | ENG-SIM, ENG-STATE, ENG-SAVE, FE-GAME, GD-BAL, QA-E2E | 첫 보스 뒤 영입한 동료가 온라인·오프라인에서 같은 협공을 수행하고 저장된다. |
 | IRPG-201 | 경험치·레벨·장비 성장 | P0 | Done | 102 | GD-BAL, ENG-STATE | 비용 차감과 강화가 원자적이고 레벨업 연속 처리가 된다. |
 | IRPG-202 | 스킬 해금·강화 | P0 | Done | 201 | GD-SKILL | 잠금·포인트 비용·최대 랭크가 강제된다. |
