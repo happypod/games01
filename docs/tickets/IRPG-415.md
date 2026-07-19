@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Ready
+- Status: Done
 - Skill tags: ART-2D, FE-GAME, UX-FEEDBACK, QA-E2E
 - Owner / Reviewer: Codex / independent review
 
@@ -67,10 +67,14 @@ IRPG-506에 `visual.dashboard.tactical-canvas`와 `visual.events.tactical-overla
 ## Verification
 
 - 구현 전 제품·아키텍처·자산·저장·접근성 계약 검토: UI composition과 별도 preference만 변경하며 엔진·GameState·A/B 저장·보상은 무영향
-- Review: pending
-- Verify: pending
-- Test: pending
+- Review: passed — 독립 코드 리뷰에서 단일 active renderer, 단일 combat-result live region, `useCombatResults` 단일 consumer, Type 1 결과 DOM 보존을 확인했으며 잔여 P0/P1/P2 결함이 없다.
+- Verify: passed — 레이아웃 왕복 전후 GameState·RNG·notice·combat batch·A/B raw 저장 hash가 같고, 별도 UI preference만 변경되며 보상·저장·엔진 명령에는 쓰기가 없다.
+- Test: passed — 로컬 전체 게이트, 실제 Chromium 흐름, Ubuntu canonical 생성·3회 반복, reference/implementation 수동 비교를 완료했다.
 
 ## Test evidence
 
-- pending
+- `npm run verify`: ESLint·strict typecheck·production build, Vitest 40파일/317개, manifest validator 32개, 일반 Playwright 51개, production 자산 Playwright 5개가 통과했다. Windows에서는 canonical visual 비교를 설계대로 건너뛰었다.
+- IRPG-415 브라우저 흐름 11개는 기본값·잘못된 preference 복구·키보드 전환·단일 renderer/live region·게임/A/B 저장 불변·1440×900·1024×768·360×800·200%·reduced motion·원정 exact-once·신규 VFX만 재생을 검증했다.
+- Ubuntu [visual-baseline run 29696226574](https://github.com/happypod/games01/actions/runs/29696226574)는 canonical 60/60 생성과 같은 runner 3회 반복 180/180을 통과했다. artifact `8445142347`, digest `sha256:1ce9eb90f342e5c543e50736664912452f974ac6b7019a1226ceef9854c0cf62`를 보관했다.
+- artifact와 체크인 기준선을 SHA-256으로 비교해 기존 Type 1 포함 52개는 변경 0·누락 0, 신규 Type 2 전술 전장/원정 overlay는 정확히 8개임을 확인했다.
+- 1440×900·360×800의 default/reduced 8개 최종 PNG와 첨부 reference/implementation 결합 비교를 수동 검토했다. 잘림·가로 overflow·겹침·잘못된 반경·미로드 자산·P0/P1/P2 시각 결함이 없다.

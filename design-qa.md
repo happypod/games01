@@ -35,4 +35,39 @@
 - Checked-in baseline commit `0d2b9da`: push run `29689492033` and PR run `29689493495` both passed the full quality gate.
 - Manual review covered the four new dashboard variants plus representative map, card, event, combat, result, and fallback baselines; no P0/P1/P2 visual defect remains.
 
+## IRPG-415 Design QA
+
+### Comparison set
+
+- Source: the attached Unified Tactical Canvas brief and generated reference, reviewed beside the implementation in one comparison input.
+- Type 1: the pre-existing `visual.dashboard.one-view` mobile/desktop and default/reduced baselines.
+- Type 2: `visual.dashboard.tactical-canvas` and `visual.events.tactical-overlay` at 360×800 and 1440×900, each in default and reduced-motion states.
+
+### Full-view review
+
+- The existing Type 1 dashboard remains the default and keeps its original 35/40/25 desktop composition and mobile document flow.
+- Type 2 combines region art, hero, enemy, companion, HP, stage strip, combat feedback, and the event overlay in one tactical scene without changing the game's canonical state.
+- The command dock remains reachable at desktop, 360px, and effective 360px at 200% zoom; no horizontal overflow or clipped primary action remains.
+
+### Focused-region review
+
+- The layout selector has one active renderer and one result live region, supports pointer and keyboard selection, and restores only valid preferences.
+- The tactical event overlay reuses saved choices and exact-once resolution while preserving the existing focus restoration contract.
+- New VFX is bounded, non-persistent, decorative, ordered from event-time snapshots, and removed for reduced motion without removing the underlying combat information.
+- The Lumi companion asset fits the measured portrait slot and uses the existing Emberwatch palette, edge treatment, and lazy asset contract.
+
+### Defects resolved during review
+
+- P1 legacy regression: restricted visual-fixture-only debug hiding so all 52 pre-existing baselines remain byte-identical.
+- P2 200% geometry: moved companion/status layers and changed the stage strip to a 5×2 grid at narrow widths.
+- P2 semantics: kept a single active result DOM/live region and restored focus after the last expedition card resolves.
+- P2 evidence: added two named fixtures, eight canonical variants, cold-load checks, and layout round-trip state/hash assertions.
+
+### Verification
+
+- `npm run verify`: 40 Vitest files / 317 tests, 51 browser E2E tests, 5 production-asset E2E tests, manifest validator 32/32, lint, strict typecheck, and production build passed.
+- Ubuntu run `29696226574`: 60/60 baselines generated and 180/180 repeated comparisons passed; artifact `8445142347` has digest `sha256:1ce9eb90f342e5c543e50736664912452f974ac6b7019a1226ceef9854c0cf62`.
+- Hash comparison: all 52 existing baselines were unchanged and present; exactly eight new Type 2 baselines were added.
+- Manual review of the reference comparison and final eight Ubuntu PNGs found no remaining P0/P1/P2 visual defect.
+
 Final result: passed
