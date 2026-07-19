@@ -151,16 +151,6 @@ export function GameScreen({
 
         {developerTools}
 
-        <p
-          className="sr-only"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          data-testid="combat-result-announcement"
-        >
-          {combatResults.announcement}
-        </p>
-
         {layoutMode === 'dashboard' ? (
           <div className="game-dashboard" data-testid="game-dashboard">
             <section className="dashboard dashboard-column dashboard-column--battle" aria-label="전투와 영웅">
@@ -200,7 +190,7 @@ export function GameScreen({
                       : {})}
                 />
 
-                <CombatResultSurface results={combatResults} />
+                <CombatResultSurface results={combatResults} announce />
               </div>
 
               <CombatLogPanel batch={game.combatEventBatch} />
@@ -259,7 +249,7 @@ export function GameScreen({
 
               <div className="tactical-command-dock__lower">
                 <CombatLogPanel batch={game.combatEventBatch} />
-                <CombatResultSurface results={combatResults} />
+                <CombatResultSurface results={combatResults} announce />
                 <PrestigePanel
                   state={game.state}
                   onPrestige={requestPrestige}
