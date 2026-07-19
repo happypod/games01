@@ -1214,6 +1214,13 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
 [data-visual-fixture-id] .debug-panel,
 [data-visual-fixture-id] .dashboard-alerts { display: none !important; }
 
+/* Keep the pre-IRPG-415 component fixtures on their original page geometry.
+   The two tactical fixtures exercise the selector itself; established fixtures
+   continue to isolate their existing capture targets and baseline crop phase. */
+[data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.tactical-canvas']):not([data-visual-fixture-id='visual.events.tactical-overlay']) .topbar__layout {
+  display: none;
+}
+
 @media (min-width: 1024px) {
   html:has([data-visual-fixture-id='visual.dashboard.tactical-canvas']),
   body:has([data-visual-fixture-id='visual.dashboard.tactical-canvas']),
@@ -1252,6 +1259,9 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .topbar__layout { grid-column: 1 / -1; grid-row: 3; width: 100%; }
   .layout-mode-selector__option { min-width: 0; }
   .topbar__campaign { grid-row: 4; }
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.tactical-canvas']):not([data-visual-fixture-id='visual.events.tactical-overlay']) .topbar__campaign {
+    grid-row: 3;
+  }
   .tactical-canvas { min-height: 760px; }
   .tactical-canvas__header { top: 14px; left: 14px; right: 14px; gap: 10px; }
   .tactical-canvas__header > div > p:last-child { display: none; }
