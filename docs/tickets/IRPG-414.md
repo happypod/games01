@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Test
+- Status: Done
 - Skill tags: FE-GAME, UX-FEEDBACK, QA-E2E
 - Owner / Reviewer: Codex / independent review
 
@@ -61,7 +61,7 @@ IRPG-506에 `visual.dashboard.one-view`의 360×800·1440×900 × default·reduc
 - 구현 전 제품·아키텍처·접근성·저장 계약 검토: 게임/저장 무영향, React 조합과 CSS layout만 변경
 - Review: 독립 검토에서 fixture 내부 스크롤, 모바일 탭 semantics, 1024px 핵심 조작 증거 누락을 발견했고 fixture 문서 흐름·반응형 일반 section·대시보드 E2E로 보완했다.
 - Verify: `npm run verify` 전체 통과. 게임 상태·저장 schema·RNG·보상 계약 변경 없음.
-- Test: Ubuntu canonical 52개 생성과 같은 runner 3회 반복 156개 검증·수동 시각 검토를 통과했다. 기준선 push 뒤 PR quality-gate 성공 시 Done으로 전환한다.
+- Test: Ubuntu canonical 52개 생성과 같은 runner 3회 반복 156개 검증·수동 시각 검토를 통과했고, 체크인된 기준선으로 push·PR quality-gate를 모두 통과했다.
 
 ## Test evidence
 
@@ -71,4 +71,4 @@ IRPG-506에 `visual.dashboard.one-view`의 360×800·1440×900 × default·reduc
 - 통과: `npm run verify` (Windows, Node 24, Chromium, local worker 2)
 - 통과: IRPG-506 Ubuntu canonical 52/52와 같은 runner 3회 반복 156/156 — workflow run `29689021639`, artifact `8443046261`, SHA-256 `9864299a2f102f7d9f5777f947b621e8341da1550b4ec214617396671dfbae68`
 - 통과: 새 대시보드 4종과 지도·카드·이벤트·전투·결과·fallback 대표 기준선 수동 검토 — `design-qa.md`
-- 대기: 체크인된 52개 기준선으로 PR quality-gate 재검증
+- 통과: 기준선 commit `0d2b9da`의 push quality-gate run `29689492033`와 PR quality-gate run `29689493495`

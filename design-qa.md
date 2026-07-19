@@ -32,6 +32,7 @@
 - No page or console errors in the dashboard and canonical visual runs.
 - `npm run verify`: 36 Vitest files / 297 tests, 40 browser E2E tests, and 4 production-asset E2E tests passed.
 - Ubuntu canonical workflow run `29689021639`: 52/52 baselines generated and the same runner passed 156/156 over three repetitions.
+- Checked-in baseline commit `0d2b9da`: push run `29689492033` and PR run `29689493495` both passed the full quality gate.
 - Manual review covered the four new dashboard variants plus representative map, card, event, combat, result, and fallback baselines; no P0/P1/P2 visual defect remains.
 
 Final result: passed

@@ -55,7 +55,7 @@ IRPG-410 Done 기준선은 Vitest 32파일·243테스트, 자산 validator 30테
 
 IRPG-412 Done 기준선은 Vitest 35파일·285테스트, 자산 validator 32테스트, 일반 Playwright 37테스트, production 자산 Playwright 4테스트와 named fixture 12개·canonical screenshot 48개다. 저장된 원정 효과 preview·1,000 이상 비축약, 성공 revision +1·재선택/reader/save-failed no-write, rapid 중복 차단, 성공·거절·외부 snapshot focus, 카드별 요청 0→1→2→3, corrupt event `fallback.card`, 360px·200%·reduced-motion을 포함한다. Ubuntu 48/48·3회 반복 144/144, 신규 event baseline 8개 수동 검토와 체크인된 48개의 push·PR quality gate를 모두 통과했다.
 
-IRPG-414 Test 기준선은 Vitest 36파일·297테스트, 자산 validator 32테스트, 일반 Playwright 40테스트, production 자산 Playwright 4테스트와 named fixture 13개·canonical screenshot 52개다. 1440×900·1024×768 문서 무스크롤 35/40/25 대시보드, 360×800 세로 흐름, 성장 탭 keyboard/ARIA, 현재 10단계 strip, 최근 5개 로그, 내부 pane 스크롤과 lazy namespace를 포함한다. Ubuntu workflow run `29689021639`에서 52/52 생성과 같은 runner 3회 반복 156/156을 통과했고 대표 기준선을 `design-qa.md`에 수동 검토했다.
+IRPG-414 Done 기준선은 Vitest 36파일·297테스트, 자산 validator 32테스트, 일반 Playwright 40테스트, production 자산 Playwright 4테스트와 named fixture 13개·canonical screenshot 52개다. 1440×900·1024×768 문서 무스크롤 35/40/25 대시보드, 360×800 세로 흐름, 성장 탭 keyboard/ARIA, 현재 10단계 strip, 최근 5개 로그, 내부 pane 스크롤과 lazy namespace를 포함한다. Ubuntu workflow run `29689021639`에서 52/52 생성과 같은 runner 3회 반복 156/156을 통과했고 대표 기준선을 `design-qa.md`에 수동 검토했다. 기준선 commit `0d2b9da`의 push·PR quality-gate도 모두 통과했다.
 
 ## 3. 요구사항 추적
 
