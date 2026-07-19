@@ -1211,8 +1211,12 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .tactical-companion__asset { width: 60px; }
 }
 
-[data-visual-fixture-id] .debug-panel,
-[data-visual-fixture-id] .dashboard-alerts { display: none !important; }
+[data-visual-fixture-id='visual.dashboard.tactical-canvas'] .debug-panel,
+[data-visual-fixture-id='visual.dashboard.tactical-canvas'] .dashboard-alerts,
+[data-visual-fixture-id='visual.events.tactical-overlay'] .debug-panel,
+[data-visual-fixture-id='visual.events.tactical-overlay'] .dashboard-alerts {
+  display: none !important;
+}
 
 /* Keep the pre-IRPG-415 component fixtures on their original page geometry.
    The two tactical fixtures exercise the selector itself; established fixtures

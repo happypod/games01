@@ -80,6 +80,9 @@ test.describe('IRPG-415 selectable layouts', () => {
     await expectReady(page)
     const dashboard = page.getByRole('radio', { name: DASHBOARD_OPTION })
     const tactical = page.getByRole('radio', { name: TACTICAL_OPTION })
+    const resultAnnouncement = page.getByTestId('combat-result-announcement')
+
+    await expect(resultAnnouncement).toHaveCount(1)
 
     await dashboard.focus()
     await dashboard.press('ArrowRight')
@@ -87,11 +90,13 @@ test.describe('IRPG-415 selectable layouts', () => {
     await expect(tactical).toHaveAttribute('aria-checked', 'true')
     await expect(page.locator('#tactical-stage-title')).toHaveCount(1)
     await expect(page.locator('#battle-title')).toHaveCount(0)
+    await expect(resultAnnouncement).toHaveCount(1)
 
     await tactical.press('Home')
     await expect(dashboard).toBeFocused()
     await expect(page.locator('#tactical-stage-title')).toHaveCount(0)
     await expect(page.locator('#battle-title')).toHaveCount(1)
+    await expect(resultAnnouncement).toHaveCount(1)
     await expect(page.locator('[aria-live="polite"] #tactical-stage-title')).toHaveCount(0)
   })
 
