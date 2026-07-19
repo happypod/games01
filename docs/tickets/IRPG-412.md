@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Draft
+- Status: Ready
 - Skill tags: ART-2D, FE-GAME, ENG-STATE, UX-FEEDBACK
 - Owner / Reviewer: unassigned / frontend, save, and accessibility reviewers
 
@@ -50,6 +50,20 @@
 ## Design
 
 카드는 저장 상태의 view이며 효과를 계산하거나 지급하지 않는다. 선택 성공 뒤 engine이 반환한 새 상태를 표시하고 focus는 다음 pending 카드의 첫 선택지, 없으면 section heading/empty state로 보낸다. 거부된 명령은 원래 선택지에 focus를 유지하고 이유를 연결한다. 대기 중에도 자동 전투 tick을 막지 않는다.
+
+## Approved implementation contract (2026-07-19)
+
+- 카드와 선택지는 저장된 pending 배열 및 `resolvedChoices` 순서를 그대로 사용한다. 이름·설명·선택 문구·asset ID는 pending의 `definitionVersion`에 맞는 immutable registry에서 읽고, 보상 type·amount는 저장된 resolved effect만 `골드 최대 +N` 또는 `체력 최대 +N`으로 표시한다. 현재 콘텐츠 수식으로 효과를 다시 계산하지 않는다.
+- 화면 순서는 section heading `원정 선택 이벤트`, `대기 중 N/3`, 오래된 pending 카드 순이다. 각 카드는 `스테이지 N에서 발견`, 이름, 설명, 고유 일러스트와 두 native button을 갖는다. 공통 문구 `보유 한도와 현재 체력에 따라 실제 증가량은 줄어들 수 있습니다.`를 표시한다. canonical event ID는 DOM key와 `data-expedition-event-id`에만 사용하고 접근성 이름으로 읽지 않는다.
+- UI callback은 `{ success, message, reason }`을 동기로 반환한다. reason은 `committed | rejected | read-only | save-failed`이며 `committed`는 A/B write·read-back이 성공하고 메모리 commit까지 끝난 뒤에만 반환한다. 저장 실패에는 optimistic 카드 제거·성공 표시를 하지 않는다.
+- 첫 입력 handler 진입 전에 event ID를 ref로 잠근다. 같은 이벤트의 rapid pointer·Enter·Space 후속 입력은 engine callback 전 차단하고 notice를 덮어쓰지 않는다. 거절되면 잠금을 풀고, 성공하면 pending에서 제거될 때까지 유지한다.
+- 완료 상태는 새 저장 ledger가 아니라 카드 제거와 기존 전역 polite notice의 일시적 피드백으로 한정한다. reload 뒤 완료 이력 카드를 재구성하지 않는다. 엔진 거절은 누른 버튼에 focus를 유지한다. 성공 뒤에는 제거된 index를 새 pending 길이로 순환한 카드의 첫 선택지로 이동하고, 남은 카드가 없으면 `tabIndex=-1`인 section heading으로 이동한다. 저장 실패·reader snapshot 교체로 대상이 사라지면 남은 카드 또는 section heading으로 안전하게 복원한다. 자동 생성된 새 pending은 기존 focus를 훔치지 않는다.
+- 각 카드는 heading으로 연결된 `article`, 두 선택지는 설명된 group 안의 native button이다. 버튼 접근성 이름은 이벤트명·선택명·preview를 포함한다. 그림은 제목과 중복되므로 decorative다. 읽기 전용에서는 내용과 preview는 유지하고 button을 native disabled로 만들며 보이는 사유를 연결한다. 활성 button은 최소 44×44px이고 360px·200% 확대에서 가로 overflow나 말줄임이 없다.
+- 이벤트 art는 `event.ember-shrine`, `event.wandering-smith`, `event.ash-camp` 각각 고유한 불투명 `512×512` WebP다. 각 파일은 160 KiB 이하, `status: ready`, 고유 src·SHA-256, project-owned 생성 권리와 `docs/assets/prompts/expedition-event-cards.md` 기록을 가져야 한다. 의미 실루엣은 중앙 64% 안에서 성소 U형·모루 수평형·야영지 A형으로 64px 회색조에서도 구분한다. 글자·룬·화폐·UI·워터마크를 넣지 않는다.
+- pending이 없거나 카드가 viewport에 들어오기 전에는 event `GameAsset`을 mount하지 않는다. 표시 직전에만 resolver를 호출하고 primary decode 실패는 `fallback.card`, 다시 실패하면 CSS fallback으로 내려간다. 이미지·presentation metadata 실패에도 저장된 효과 preview와 명령은 유지한다.
+- `SAVE_VERSION = 5`와 A/B·portable 계약은 바꾸지 않는다. focus·in-flight·이미지 상태·완료 notice는 저장하지 않는다. 성공 1회만 revision을 1 올리고 차단 입력·engine 거절·reader 입력은 write하지 않는다. 선택 전후 RNG·mask·overflow·definition version·run은 변하지 않는다.
+- IRPG-506에 `visual.events.pending-three`와 `visual.events.fallback`을 추가한다. 둘 다 stage/highestStage 30, 3-bit mask, 서로 다른 pending 3개, owner `IRPG-412`, capture `.expedition-event-panel`을 사용한다. fallback route는 `events-corrupt`이며 canonical은 40개에서 48개, 3회 반복은 120개에서 144개가 된다.
+- Playwright exact-once 흐름은 고정 clock의 실제 자동 전투·공개 강화 UI로 첫 milestone에 도달한 뒤 pointer/keyboard 선택, rapid double-click, reload를 통과한다. 테스트가 localStorage나 도메인 함수를 직접 호출하지 않으며, 보상·revision·카드 제거가 한 번만 유지되는지 확인한다.
 
 ## Verification
 

@@ -24,7 +24,7 @@ IRPG-503·504·204·304·403·104·505·305는 Done이다. 현재 기준선은 C
 | 5 | IRPG-207 | Done | `boss-milestone-v1` 골드 보상의 저장·중복 방지 계약 |
 | 6 | IRPG-410 | Done | nonmodal 승패 알림과 사용자 요청형 일러스트 상세 화면 |
 | 7 | IRPG-107 | Done | 독립 RNG·versioned pending을 쓰는 원정 선택 이벤트 |
-| 8 | IRPG-412 | Draft | pending 원정 선택 이벤트 일러스트 카드 UI |
+| 8 | IRPG-412 | Ready | pending 원정 선택 이벤트 일러스트 카드 UI |
 | 9 | IRPG-508 | Draft | 별도 7일 deterministic stress 회귀 |
 
 `1A`와 `1B`, `2A`~`2C`, `4A`~`4C`는 선행 조건이 충족되면 병렬로 진행할 수 있다. 다만 한 변경 묶음에서는 Ready 티켓 하나씩 Review → Verify → Test를 통과시킨다. IRPG-408의 3지역 맵, IRPG-409의 장비·스킬 카드, IRPG-411의 전투 로그가 독립 review, Ubuntu canonical baseline 32개, 최종 push·PR 품질 게이트까지 완료되었다.
