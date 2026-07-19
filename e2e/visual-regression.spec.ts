@@ -21,7 +21,13 @@ for (const fixtureId of VISUAL_FIXTURE_IDS) {
       const target = await openVisualFixture(context, page, fixture, variant, testInfo)
 
       await verifyResponsiveVisualSurface(page, target, variant)
-      await fitVisualCaptureTarget(page, target)
+      const captureGeometry = await fitVisualCaptureTarget(page, target)
+      expect(captureGeometry.layoutViewport).toEqual(variant.viewport)
+      expect(captureGeometry.captureViewport.width).toBe(variant.viewport.width)
+      await testInfo.attach('visual-capture-geometry.json', {
+        body: JSON.stringify(captureGeometry, null, 2),
+        contentType: 'application/json',
+      })
       await expect(target).toHaveScreenshot(
         `${fixture.id.replaceAll('.', '-')}-${variant.id}.png`,
       )

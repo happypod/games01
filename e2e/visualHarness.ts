@@ -301,15 +301,17 @@ export async function verifyResponsiveVisualSurface(
 }
 
 export async function fitVisualCaptureTarget(page: Page, target: Locator) {
+  const layoutViewport = page.viewportSize()
+  if (layoutViewport === null) {
+    throw new Error('Visual capture requires a fixed viewport.')
+  }
   const initial = await target.evaluate((element) => ({
     height: element.getBoundingClientRect().height,
     viewportHeight: window.innerHeight,
   }))
   if (initial.height > initial.viewportHeight) {
-    const viewport = page.viewportSize()
-    if (viewport === null) throw new Error('Visual capture requires a fixed viewport.')
     await page.setViewportSize({
-      width: viewport.width,
+      width: layoutViewport.width,
       height: Math.ceil(initial.height) + 2,
     })
   }
@@ -321,4 +323,14 @@ export async function fitVisualCaptureTarget(page: Page, target: Locator) {
   })
   expect(fitted.top).toBeGreaterThanOrEqual(-1)
   expect(fitted.bottom).toBeLessThanOrEqual(fitted.viewportHeight + 1)
+
+  const captureViewport = page.viewportSize()
+  if (captureViewport === null) {
+    throw new Error('Visual capture lost its fixed viewport.')
+  }
+  return {
+    layoutViewport,
+    captureViewport,
+    expanded: captureViewport.height !== layoutViewport.height,
+  } as const
 }

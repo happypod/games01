@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Verify
+- Status: Test
 - Skill tags: ART-2D, FE-GAME, ENG-STATE, UX-FEEDBACK
 - Owner / Reviewer: unassigned / frontend, save, and accessibility reviewers
 
@@ -71,10 +71,14 @@
 - 독립 저장 Review는 성공 revision `+1`, 재선택·reader 무쓰기, write/read-back 실패 시 optimistic state 불변, `SAVE_VERSION = 5` 유지를 확인했고 P0·P1·P2는 0건이다.
 - 독립 React·접근성 Review에서 grid 단위 선행 mount와 1,000 이상 preview 축약을 발견해 카드별 observer와 전체 정수 표시로 수정했다. 재검토 결과 pointer·Enter·Space 중복 차단, 성공·거절·외부 snapshot focus, disabled reason, 360px·200%·reduced motion·fallback의 활성 P0·P1·P2는 0건이다.
 - 이벤트 art 3종은 고유 512×512 RGB WebP 5,832B·6,376B·6,576B로 제작해 고유 SHA-256·project-owned 권리·prompt record를 연결했고 validator가 ready·고유 src/hash·160KiB 상한을 강제한다.
+- 첫 Ubuntu artifact의 긴 모바일 locator가 마지막 lazy-load 스크롤을 상속해 panel 상단 대신 다음 sibling을 캡처하는 P1을 발견해 승인하지 않았다. 기준 360×800·1440×900에서 geometry·overflow·명령·motion을 먼저 검증하고, 그 뒤 폭·DPR·media를 유지한 채 긴 target만 viewport 높이에 완전히 맞춰 full-surface를 캡처하도록 고쳤다. 원래 `layoutViewport`, 실제 `captureViewport`, `expanded`를 별도 artifact metadata로 남긴다.
+- 독립 재검토와 로컬 48/48 생성에서 신규 event 화면, 기존 mobile battle, cards, combat log의 heading부터 target 하단까지 포함하고 sibling을 포함하지 않음을 확인했다. 최종 캡처 구현의 P0·P1은 0건이며 viewport 구분 표기 P2는 metadata·문서 계약으로 해소했다.
 
 ## Test evidence
 
 - 완료: 로컬 `$env:CI='true'; npm run verify` — Vitest 35파일·285/285, 자산 validator 32/32, manifest 27 IDs, production build, 일반 Playwright 37/37, production 자산 Playwright 4/4 통과. canonical 비교는 계약대로 로컬 Windows에서 건너뛰었다.
 - 완료: 공개 자동 전투·강화 UI로 첫 milestone에 도달한 뒤 rapid 두 입력을 보내 보상·revision·카드 제거 1회, reload 유지와 page/console error 0건을 확인했다. 별도 200% 흐름은 카드별 이미지 요청 0→1→2→3, corrupt primary의 `fallback.card`, Enter 선택 뒤 다음 카드 focus를 확인해 신규 Playwright 2/2가 통과했다.
 - 완료: 컴포넌트·hook 회귀에서 pending 0~3, exact saved preview, 1,000 이상 비축약, presentation metadata fallback, pointer 중복 차단, 성공·거절·reader snapshot focus, 성공 revision `+1`, 재선택·reader·save-failed no-write를 검증했다.
-- 대기: 구현 commit의 Ubuntu visual workflow에서 named fixture 12개 × 4 variants = canonical 48/48과 같은 runner 3회 반복 144/144를 통과하고 새 event baseline 8개를 승인·체크인한 뒤 push·PR quality gate 증거를 남긴다.
+- 완료: commit `403f342`의 [Ubuntu visual run 29683912454](https://github.com/happypod/games01/actions/runs/29683912454)에서 named fixture 12개 × 4 variants = canonical 48/48과 같은 runner 3회 반복 144/144가 통과했다. artifact `irpg-506-ubuntu-baselines` ID `8441503083`, ZIP SHA-256 `609b282cbe19692a150d1bc94a238033f0fee0b52c3e4c1a787d6cbd58ca9719`, 13,417,695B, 만료일 2026-08-02를 확인했다.
+- 완료: artifact PNG 48개를 정상 decode하고 저장소 40개와 대조해 24개 byte-identical, 잘못 잘린 mobile battle과 panel 삽입 뒤 cards·combat log 16개 승인 갱신, 신규 event 8개 추가를 확인했다. event의 mobile·desktop × default·reduced 8개는 heading·pending 3개·고유 art 또는 `fallback.card`·두 선택지·panel 하단을 포함하고 sibling·overflow·decode 오류가 없다.
+- 대기: 승인한 48개 기준선을 체크인한 뒤 동일 SHA의 push·PR quality gate에서 생성이 아닌 canonical 비교를 통과한다.

@@ -49,7 +49,7 @@
 | IRPG-409 | 장비·스킬 일러스트 카드 | P2 | Done | 201,202,403,406,506 | ART-2D, FE-GAME, UX-FEEDBACK | 고정 장비·스킬의 효과·비용·잠금·최대 상태가 카드에 표시된다. |
 | IRPG-410 | 보스 승리 보상·패배 결과 화면 | P1 | Done | 106,207,403,406,413,506 | ART-2D, FE-GAME, UX-FEEDBACK | 엔진 보상을 재지급하지 않고 승패 결과를 이벤트당 한 번 표시한다. |
 | IRPG-411 | 전투 이벤트 로그 UI | P2 | Done | 106,108,403,506 | FE-GAME, ENG-STATE, UX-FEEDBACK | 제한된 최근 전투 이벤트를 자동 전투를 막지 않고 표시한다. |
-| IRPG-412 | 원정 선택 이벤트 카드 UI | P2 | Verify | 107,403,406,409,506 | ART-2D, FE-GAME, ENG-STATE, UX-FEEDBACK | pending 선택 카드를 접근 가능하게 표시하고 명령을 한 번 호출한다. |
+| IRPG-412 | 원정 선택 이벤트 카드 UI | P2 | Test | 107,403,406,409,506 | ART-2D, FE-GAME, ENG-STATE, UX-FEEDBACK | pending 선택 카드를 접근 가능하게 표시하고 명령을 한 번 호출한다. |
 | IRPG-413 | 일반 적·보스 일러스트 세트 | P2 | Done | 102,403,406 | ART-2D, FE-GAME, UX-FEEDBACK | 적 5종·보스 3종이 고유 일러스트와 텍스트 fallback으로 표시된다. |
 | IRPG-501 | 엔진·저장·UI 자동 테스트 | P0 | Done | 302,402 | QA-DOMAIN | 전투·명령·저장·오프라인·첫 화면 회귀가 통과한다. |
 | IRPG-502 | 45분 밸런스 스모크 | P0 | Done | 203 | GD-BAL, QA-DOMAIN | 자동 재투자 전략이 45분 내 30스테이지에 도달한다. |
