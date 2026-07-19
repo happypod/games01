@@ -11,6 +11,8 @@ import {
   sep,
 } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createInitialState } from '../src/game/engine'
+import { SAVE_FORMAT_VERSION, SAVE_SLOT_A_KEY } from '../src/game/persistence'
 
 const ORIGIN = 'http://127.0.0.1:4174'
 const BUDGET_BYTES = 600 * 1_024
@@ -720,6 +722,21 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
     viewport: { width: 1_440, height: 900 },
   })
   const page = await context.newPage()
+  const startedAt = new Date('2026-07-19T00:00:00.000Z')
+  await context.clock.setFixedTime(startedAt)
+  const seeded = createInitialState(startedAt.getTime(), 0x415_0001)
+  seeded.player.companion = { id: 'emberFox', rank: 2 }
+  seeded.battle.companionCooldownMs = 2_000
+  const serialized = JSON.stringify({
+    formatVersion: SAVE_FORMAT_VERSION,
+    revision: 1,
+    savedAt: seeded.lastSavedAt,
+    state: seeded,
+  })
+  await page.addInitScript(
+    ({ key, value }) => window.localStorage.setItem(key, value),
+    { key: SAVE_SLOT_A_KEY, value: serialized },
+  )
   const requestedImageFiles = new Set<string>()
   page.on('response', (response) => {
     if (
@@ -748,6 +765,7 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
       ...imageOutputs('region.forgotten-caldera'),
     ])
     const companionOutputs = imageOutputs('companion.ember-fox.default')
+    expect(companionOutputs.size).toBe(1)
     const allTacticalOnlyOutputs = new Set([
       ...activeRegionOutputs,
       ...inactiveRegionOutputs,
@@ -766,6 +784,12 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
     const background = page.locator('.tactical-canvas__background')
     await expect(background).toHaveAttribute('data-asset-id', 'region.ashen-border')
     await expect(background).toHaveAttribute('data-state', 'loaded')
+    const companionAsset = page.locator('.tactical-companion__asset')
+    await expect(companionAsset).toHaveAttribute(
+      'data-asset-id',
+      'companion.ember-fox.default',
+    )
+    await expect(companionAsset).toHaveAttribute('data-state', 'loaded')
 
     const activeRegionRequests = intersection(activeRegionOutputs, requestedImageFiles)
     const inactiveRegionRequests = intersection(inactiveRegionOutputs, requestedImageFiles)
@@ -776,14 +800,14 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
         activeRegionRequests,
         inactiveRegionRequests,
         companionRequests,
-        companionState: 'not-recruited',
+        companionState: 'recruited-rank-2',
       }, null, 2)),
       contentType: 'application/json',
     })
 
     expect(activeRegionRequests).toEqual([...activeRegionOutputs].sort())
     expect(inactiveRegionRequests).toEqual([])
-    expect(companionRequests).toEqual([])
+    expect(companionRequests).toEqual([...companionOutputs].sort())
   } finally {
     await context.close()
   }

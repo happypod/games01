@@ -1241,6 +1241,11 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .tactical-layout { grid-template-columns: 1fr; }
   .tactical-command-dock { grid-template-columns: 1fr; }
   .tactical-canvas { min-height: 720px; }
+  .tactical-companion { bottom: 92px; }
+  .tactical-canvas__status { bottom: 160px; }
+  .tactical-timeline { grid-template-columns: 1fr; }
+  .tactical-timeline__heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .tactical-timeline__nodes { grid-template-columns: repeat(5, minmax(44px, 1fr)); overflow-x: visible; }
 }
 
 @media (max-width: 620px) {
@@ -1263,9 +1268,8 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .tactical-cue { top: 52%; width: 46%; min-height: 92px; padding: 8px; }
   .tactical-cue__skill-art { flex-basis: 44px; width: 44px; }
   .tactical-cue span { font-size: 25px; }
-  .tactical-canvas__status { bottom: 106px; width: calc(100% - 24px); }
-  .tactical-timeline { left: 9px; right: 9px; bottom: 9px; grid-template-columns: 1fr; gap: 7px; padding: 8px; }
-  .tactical-timeline__heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .tactical-canvas__status { width: calc(100% - 24px); }
+  .tactical-timeline { left: 9px; right: 9px; bottom: 9px; gap: 7px; padding: 8px; }
   .tactical-event-overlay { inset: 70px 7px 7px; padding: 7px; }
   .tactical-event-overlay .expedition-event-grid { grid-template-columns: 1fr; }
 }

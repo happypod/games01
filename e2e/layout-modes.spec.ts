@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
+import { getEnemyDefinition } from '../src/game/content'
+import { createInitialState } from '../src/game/engine'
+import { SAVE_FORMAT_VERSION, SAVE_SLOT_A_KEY } from '../src/game/persistence'
 
 const DASHBOARD_OPTION = '유형 1 · 대시보드'
 const TACTICAL_OPTION = '유형 2 · 전술 전장'
@@ -92,6 +95,38 @@ test.describe('IRPG-415 selectable layouts', () => {
     await expect(page.locator('[aria-live="polite"] #tactical-stage-title')).toHaveCount(0)
   })
 
+  test('keeps game, event, notice, and A/B save state unchanged across a layout round trip', async ({ page }) => {
+    await enterDebugSession(page)
+    await applyFixture(page, 'visual.dashboard.tactical-canvas')
+
+    const capture = () => page.evaluate(() => {
+      const root = document.querySelector<HTMLElement>('[data-testid="visual-fixture-root"]')!
+      const storage = Object.fromEntries(
+        Object.entries(localStorage)
+          .filter(([key]) => key !== 'emberwatch.ui.layout.v1')
+          .sort(([left], [right]) => left.localeCompare(right)),
+      )
+      return {
+        stateHash: root.dataset.canonicalStateHash,
+        eventHash: root.dataset.canonicalEventHash,
+        notice: document.querySelector<HTMLElement>('.notice-strip')?.textContent,
+        storage,
+      }
+    })
+    const before = await capture()
+
+    await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
+    await page.getByRole('radio', { name: DASHBOARD_OPTION }).click()
+
+    expect(await capture()).toEqual(before)
+    await expect(page.getByRole('radio', { name: DASHBOARD_OPTION })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    expect(await page.evaluate(() => localStorage.getItem('emberwatch.ui.layout.v1')))
+      .toBe('dashboard')
+  })
+
   for (const viewport of [
     { width: 1_440, height: 900 },
     { width: 1_024, height: 768 },
@@ -170,6 +205,9 @@ test.describe('IRPG-415 selectable layouts', () => {
     const geometry = await page.evaluate(() => {
       const canvas = document.querySelector('.tactical-canvas')?.getBoundingClientRect()
       const dock = document.querySelector('.tactical-command-dock')?.getBoundingClientRect()
+      const status = document.querySelector('.tactical-canvas__status')?.getBoundingClientRect()
+      const timeline = document.querySelector('.tactical-timeline')?.getBoundingClientRect()
+      const companion = document.querySelector('.tactical-companion')?.getBoundingClientRect()
       const cue = document.querySelector('.tactical-cue')
       const cueStyle = cue === null ? null : getComputedStyle(cue)
       return {
@@ -178,6 +216,10 @@ test.describe('IRPG-415 selectable layouts', () => {
         scrollHeight: document.documentElement.scrollHeight,
         canvasBottom: canvas?.bottom ?? 0,
         dockTop: dock?.top ?? 0,
+        statusBottom: status?.bottom ?? 0,
+        statusTop: status?.top ?? 0,
+        timelineTop: timeline?.top ?? 0,
+        companionBottom: companion?.bottom ?? 0,
         cueAnimation: cueStyle?.animationName ?? '',
         cueTransition: cueStyle?.transitionDuration ?? '',
       }
@@ -185,6 +227,8 @@ test.describe('IRPG-415 selectable layouts', () => {
     expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
     expect(geometry.scrollHeight).toBeGreaterThan(800)
     expect(geometry.dockTop).toBeGreaterThanOrEqual(geometry.canvasBottom)
+    expect(geometry.statusBottom).toBeLessThanOrEqual(geometry.timelineTop)
+    expect(geometry.companionBottom).toBeLessThanOrEqual(geometry.statusTop)
     expect(geometry.cueAnimation).toBe('none')
     expect(geometry.cueTransition).toBe('0s')
 
@@ -201,6 +245,70 @@ test.describe('IRPG-415 selectable layouts', () => {
         .map((button) => button.getAttribute('aria-label') ?? button.textContent?.trim()),
     )
     expect(undersized).toEqual([])
+  })
+
+  test('stacks canvas and dock without clipped controls at 200% zoom', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 720, height: 900 })
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await enterDebugSession(page)
+    await applyFixture(page, 'visual.dashboard.tactical-canvas')
+    await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = '2'
+    })
+
+    const audit = await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLElement>('.tactical-canvas')!
+      const dock = document.querySelector<HTMLElement>('.tactical-command-dock')!
+      const status = document.querySelector<HTMLElement>('.tactical-canvas__status')!
+      const timeline = document.querySelector<HTMLElement>('.tactical-timeline')!
+      const companion = document.querySelector<HTMLElement>('.tactical-companion')!
+      const clientWidth = document.documentElement.clientWidth
+      const targets = Array.from(document.querySelectorAll<HTMLElement>(
+        '.layout-mode-selector [role="radio"], .tactical-canvas button, .tactical-command-dock button',
+      ))
+        .filter((element) => {
+          const style = getComputedStyle(element)
+          const rect = element.getBoundingClientRect()
+          return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden'
+        })
+        .map((element) => {
+          const rect = element.getBoundingClientRect()
+          return {
+            label: element.getAttribute('aria-label') ?? element.textContent?.trim() ?? '',
+            left: rect.left,
+            right: rect.right,
+            width: rect.width,
+            height: rect.height,
+          }
+        })
+      return {
+        clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        canvasBottom: canvas.getBoundingClientRect().bottom,
+        dockTop: dock.getBoundingClientRect().top,
+        statusBottom: status.getBoundingClientRect().bottom,
+        statusTop: status.getBoundingClientRect().top,
+        timelineTop: timeline.getBoundingClientRect().top,
+        companionBottom: companion.getBoundingClientRect().bottom,
+        invalidTargets: targets.filter(({ left, right, width, height }) =>
+          left < -0.5 || right > clientWidth + 0.5 || width < 44 || height < 44),
+        cueAnimation: getComputedStyle(
+          document.querySelector<HTMLElement>('.tactical-cue')!,
+        ).animationName,
+      }
+    })
+
+    expect(audit.scrollWidth).toBeLessThanOrEqual(audit.clientWidth)
+    expect(audit.dockTop).toBeGreaterThanOrEqual(audit.canvasBottom - 1)
+    expect(audit.statusBottom).toBeLessThanOrEqual(audit.timelineTop)
+    expect(audit.companionBottom).toBeLessThanOrEqual(audit.statusTop)
+    expect(audit.invalidTargets).toEqual([])
+    expect(audit.cueAnimation).toBe('none')
+    await testInfo.attach('irpg-415-tactical-200-percent.png', {
+      body: await page.getByTestId('tactical-canvas').screenshot({ animations: 'disabled' }),
+      contentType: 'image/png',
+    })
   })
 
   test('renders saved expedition choices over the battlefield and accepts one rapid choice once', async ({ page }) => {
@@ -243,6 +351,64 @@ test.describe('IRPG-415 selectable layouts', () => {
     await expect(cards).toHaveCount(0)
     await expect(page.locator('#tactical-stage-title')).toBeFocused()
     await expect(canvas.locator('.tactical-canvas__base')).not.toHaveAttribute('inert')
+  })
+
+  test('captures a newly arriving writer VFX inside the desktop one-view canvas', async ({ page }, testInfo) => {
+    const startedAt = new Date('2026-07-19T00:00:00.000Z')
+    const seeded = createInitialState(startedAt.getTime(), 0x415_0106)
+    seeded.player.skills.powerStrike = 1
+    seeded.player.companion = { id: 'emberFox', rank: 1 }
+    seeded.battle.stage = 10
+    seeded.battle.highestStage = 11
+    seeded.battle.enemyHp = getEnemyDefinition(10).maxHp
+    seeded.battle.powerStrikeCooldownMs = 0
+    seeded.battle.companionCooldownMs = 0
+    seeded.claimedBossMilestoneMask = 1
+    seeded.expeditionEvents = {
+      ...seeded.expeditionEvents,
+      milestoneMask: 1,
+    }
+    const serialized = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 1,
+      savedAt: seeded.lastSavedAt,
+      state: seeded,
+    })
+
+    await page.setViewportSize({ width: 1_440, height: 900 })
+    await page.clock.setFixedTime(startedAt)
+    await page.addInitScript(
+      ({ key, value }) => window.localStorage.setItem(key, value),
+      { key: SAVE_SLOT_A_KEY, value: serialized },
+    )
+    await expectReady(page)
+    await expect(page.locator('.topbar__stage')).toContainText('STAGE 10')
+    await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
+
+    const canvas = page.getByTestId('tactical-canvas')
+    await expect(canvas).not.toHaveAttribute('data-scene-id', /.+/)
+    await page.clock.setFixedTime(new Date(startedAt.getTime() + 1_000))
+    await expect(canvas).toHaveAttribute('data-scene-id', /.+/)
+    await expect(canvas.locator('.tactical-cue')).toHaveClass(/tactical-cue--active/)
+    await settleImagePaint(page)
+
+    const geometry = await page.evaluate(() => {
+      const canvasRect = document.querySelector<HTMLElement>('.tactical-canvas')!
+        .getBoundingClientRect()
+      const dockRect = document.querySelector<HTMLElement>('.tactical-command-dock')!
+        .getBoundingClientRect()
+      return {
+        viewportHeight: window.innerHeight,
+        canvasBottom: canvasRect.bottom,
+        dockBottom: dockRect.bottom,
+      }
+    })
+    expect(geometry.canvasBottom).toBeLessThanOrEqual(geometry.viewportHeight)
+    expect(geometry.dockBottom).toBeLessThanOrEqual(geometry.viewportHeight)
+    await testInfo.attach('irpg-415-active-tactical-vfx.png', {
+      body: await canvas.screenshot({ animations: 'disabled' }),
+      contentType: 'image/png',
+    })
   })
 
   test('plays only newly arriving combat cues and does not replay them after a layout round trip', async ({ page }) => {
