@@ -207,6 +207,20 @@ export async function openVisualFixture(
   }
   await waitForVisualResources(page, target)
 
+  // Tall locator screenshots otherwise inherit the last lazy-load scroll and can
+  // capture a following sibling instead of the start of the requested surface.
+  await target.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    window.scrollTo({
+      top: window.scrollY + rect.top,
+      left: window.scrollX + rect.left,
+      behavior: 'instant',
+    })
+  })
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  }))
+
   await testInfo.attach('visual-fixture-metadata.json', {
     body: JSON.stringify({
       fixtureId: fixture.id,
@@ -229,13 +243,15 @@ export async function verifyResponsiveVisualSurface(
   target: Locator,
   variant: VisualFixtureVariant,
 ) {
-  const geometry = await page.evaluate(() => ({
+  const geometry = await target.evaluate((element) => ({
     viewportWidth: window.innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
+    targetTop: element.getBoundingClientRect().top,
   }))
   expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
   expect(geometry.clientWidth).toBe(geometry.viewportWidth)
+  expect(geometry.targetTop).toBeGreaterThanOrEqual(-1)
 
   const clippedCommands = await target.getByRole('button').evaluateAll((buttons) =>
     buttons
