@@ -51,6 +51,7 @@
 | IRPG-411 | 전투 이벤트 로그 UI | P2 | Done | 106,108,403,506 | FE-GAME, ENG-STATE, UX-FEEDBACK | 제한된 최근 전투 이벤트를 자동 전투를 막지 않고 표시한다. |
 | IRPG-412 | 원정 선택 이벤트 카드 UI | P2 | Done | 107,403,406,409,506 | ART-2D, FE-GAME, ENG-STATE, UX-FEEDBACK | pending 선택 카드를 접근 가능하게 표시하고 명령을 한 번 호출한다. |
 | IRPG-413 | 일반 적·보스 일러스트 세트 | P2 | Done | 102,403,406 | ART-2D, FE-GAME, UX-FEEDBACK | 적 5종·보스 3종이 고유 일러스트와 텍스트 fallback으로 표시된다. |
+| IRPG-414 | 데스크톱 원 뷰 대시보드 | P1 | Ready | 401,403,407,408,409,410,411,412,506 | FE-GAME, UX-FEEDBACK, QA-E2E | 1024px 이상에서 문서 스크롤 없이 전투·원정·성장을 한 화면에서 조작하고 360px 세로 흐름을 보존한다. |
 | IRPG-501 | 엔진·저장·UI 자동 테스트 | P0 | Done | 302,402 | QA-DOMAIN | 전투·명령·저장·오프라인·첫 화면 회귀가 통과한다. |
 | IRPG-502 | 45분 밸런스 스모크 | P0 | Done | 203 | GD-BAL, QA-DOMAIN | 자동 재투자 전략이 45분 내 30스테이지에 도달한다. |
 | IRPG-503 | CI 릴리스 게이트 | P0 | Done | 003,501 | REL-CI | push와 PR에서 설치·검증·빌드가 통과하고 원격 증거가 남는다. |
