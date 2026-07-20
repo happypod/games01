@@ -278,7 +278,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
   },
   'visual.dashboard.tactical-damaged': {
     id: 'visual.dashboard.tactical-damaged',
-    label: '통합 전술 캔버스 · 월식의 기사 손상',
+    label: '전술 캔버스 · 월식 기사 손상',
     ownerTicket: 'IRPG-416',
     stage: 20,
     seedKey: 'irpg-416:visual.dashboard.tactical-damaged:v1',
@@ -290,7 +290,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
   },
   'visual.dashboard.tactical-severe': {
     id: 'visual.dashboard.tactical-severe',
-    label: '통합 전술 캔버스 · 월식의 기사 심각 손상',
+    label: '전술 캔버스 · 월식 기사 심각 손상',
     ownerTicket: 'IRPG-416',
     stage: 20,
     seedKey: 'irpg-416:visual.dashboard.tactical-severe:v1',
