@@ -64,7 +64,11 @@ async function waitForVisualResources(page: Page, target: Locator) {
 
 async function alignVisualCaptureTarget(page: Page, target: Locator) {
   await target.evaluate((element) => {
-    const rect = element.getBoundingClientRect()
+    // Align through the actual scroll-container chain. The mobile fixture page
+    // uses an `overflow: hidden` app shell, so resizing the viewport can reset
+    // its vertical offset even though the document itself cannot scroll there.
+    element.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' })
+
     // Fixture controls and lazy assets can make an `overflow: hidden` ancestor
     // retain a horizontal scroll offset. Reset the full ancestor chain because
     // window.scrollTo() cannot restore those nested scroll containers.
@@ -73,10 +77,6 @@ async function alignVisualCaptureTarget(page: Page, target: Locator) {
     }
     document.documentElement.scrollLeft = 0
     document.body.scrollLeft = 0
-
-    // Use the numeric overload so CSS `scroll-behavior: smooth` cannot retain a
-    // transient horizontal position while aligning the capture vertically.
-    window.scrollTo(0, window.scrollY + rect.top)
   })
   await page.evaluate(() => new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
