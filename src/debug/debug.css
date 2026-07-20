@@ -77,6 +77,7 @@
 .debug-speed-options label { display: inline-flex; align-items: center; gap: 5px; min-height: 35px; }
 .debug-input-action { margin-top: 8px; }
 .debug-input-action input { flex: 1; min-width: 0; }
+#debug-visual-fixture { flex: 1; min-width: 0; max-width: 100%; }
 .debug-panel input[type='text'] { width: 100%; min-height: 42px; box-sizing: border-box; border: 1px solid rgba(255, 255, 255, .12); background: #171b19; color: #e9dfd3; border-radius: 6px; padding: 8px 10px; font: inherit; }
 .debug-resource-form { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 7px 10px; }
 .debug-resource-form small { grid-column: 1 / -1; color: #8f9d98; font-size: 9px; }

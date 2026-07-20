@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Verify
+- Status: Test
 - Skill tags: FE-GAME, UX-FEEDBACK, QA-E2E
 - Owner / Reviewer: Codex / independent UX and accessibility review
 
@@ -53,7 +53,7 @@
 - Given 월식의 기사 HP가 70% 이상, 30% 이상 70% 미만, 30% 미만일 때, when 유형 1 또는 유형 2를 보면, then 각각 `갑옷 온전`, `갑옷 균열`, `갑옷 붕괴 직전`이 해당 초상과 함께 표시된다.
 - Given 비대상 적 또는 잘못된 HP 값일 때, when 전투 화면을 렌더하면, then 갑옷 손상 문구를 추가하지 않고 기존 기본 초상과 전투를 유지한다.
 - Given 360×800, 1440×900, 200% 확대 또는 모션 감소 환경, when 접힌 상태와 열린 상태를 오가면, then 토글·주요 HUD·선택 카드가 잘리거나 가로 overflow가 생기지 않는다.
-- Given IRPG-506 canonical 68개 기준선을 실행할 때, when 변경을 비교하면, then pending 전장이 기본 노출되는 `visual.events.tactical-overlay` 4개만 의도적으로 갱신되고 나머지 64개는 유지된다.
+- Given IRPG-506 canonical 68개 기준선을 실행할 때, when 변경을 비교하면, then 접힌 전장 4개와 Damaged·Severe 설명 8개가 의미상 갱신되고, 하네스의 중첩 스크롤 보정으로 재정렬된 기존 mobile 10개는 콘텐츠·크기 변화가 없는 1px capture-phase 교정임을 별도 증명하며 나머지 46개는 byte-identical로 유지된다.
 
 ## Design
 
@@ -72,9 +72,12 @@
 
 ## Test evidence
 
-- 일반 Playwright 55/55와 production cold-load 5/5가 통과했다. 저장 pending 전장 노출→3건 열기→rapid exact-once 선택→전장 복귀, 유형 1·2 damage label, 360×800 44px 토글·페이지 overflow를 포함한다.
+- 로컬 Windows/Chromium `npm run verify`에서 일반 Playwright 55/55와 production cold-load 5/5가 통과했다. 저장 pending 전장 노출→3건 열기→rapid exact-once 선택→전장 복귀, 유형 1·2 damage label, 360×800 44px 토글·페이지 overflow를 포함한다.
 - 실제 저장 화면에서 접힌 상태의 영웅·동료·적·VFX·`갑옷 균열`·`원정 이벤트 2건 보기`를 확인했고, 열기/닫기 시 overlay 1→0, base inert on→off, 선택 미실행을 확인했다.
-- Ubuntu canonical 68개 비교와 의도된 `visual.events.tactical-overlay` 4개 baseline 교체는 GitHub Actions artifact 수용 후 Test 단계에서 기록한다.
+- `c573003` acceptance artifact를 생성한 Ubuntu canonical run `29720587090`에서 68개 생성과 같은 runner 3회 반복 204개가 통과했다. artifact `8452362203`은 21,774,807 bytes, SHA-256 `c223a46f01c91537e0bf7828533a66dd45c5db9818f81c840aa53f85b69e6235`로 검증했다.
+- artifact와 tracked baseline 해시 비교는 추가·누락 0개, byte-identical 46개, 교체 22개다. 의미 변화는 `visual.events.tactical-overlay` 4개와 `visual.dashboard.tactical-{damaged,severe}` 8개이고, 기존 mobile 전투·로그·이벤트 10개는 수정된 중첩 스크롤 정렬에 따른 1px capture-phase 교정으로 크기·콘텐츠·레이아웃이 같다.
 - 최초 Ubuntu run `29718845176`은 기존 mobile fixture를 수평 정렬하며 `← 이전`을 -10px로 이동시킨 visual harness 결함을 발견했다. artifact `8451554924`의 SHA-256 `2d4634eeabee6689fed80ec54595ecabcb8a7f09922bc7799ea456e8bb02eea3`을 검증한 뒤, 캡처 정렬을 세로 전용으로 제한해 실제 page-level 무-overflow 좌표를 보존했다.
+- 후속 run `29720234034`의 artifact `8452091477`에서 `.app-shell.scrollLeft`가 fixture 적용 후 남는 원인과 viewport 높이 확장 시 중첩 `scrollTop`이 초기화되는 원인을 분리했다. 최종 하네스는 실제 scroll-container chain으로 target을 상단 정렬한 뒤 모든 상위 horizontal offset을 0으로 복원하고 해당 좌표를 assertion한다.
+- `c573003` PR quality run `29720589182`는 긴 fixture 이름이 200% 확대에서 적용 버튼을 덮어 4개 흐름이 실패했다. 개발자용 `#debug-visual-fixture`에만 flex 축소 경계를 추가한 뒤 해당 4개와 최종 55/55를 로컬에서 통과했으며 제품 UI에는 영향을 주지 않는다.
 
-- 자동·브라우저·canonical screenshot 결과는 Test 단계에서 기록한다.
+- 최종 baseline commit의 push quality·PR quality·Ubuntu visual과 새 artifact 해시가 모두 통과하면 해당 run ID를 기록하고 Done으로 전환한다.
