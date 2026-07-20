@@ -36,7 +36,7 @@ const success = {
   reason: 'committed',
 } as const
 
-describe('IRPG-415/416 TacticalStage', () => {
+describe('IRPG-415/416/417 TacticalStage', () => {
   it('maps the current region, hero, boss, companion and ten-stage timeline', () => {
     const state = createVisualFixtureState('visual.dashboard.tactical-canvas')
     const onChooseStage = vi.fn()
@@ -125,6 +125,8 @@ describe('IRPG-415/416 TacticalStage', () => {
       'data-enemy-asset-id',
       'boss.eclipse-knight.severe',
     )
+    expect(canvas).toHaveAttribute('data-enemy-damage-state', 'severe')
+    expect(within(canvas).getByText('갑옷 붕괴 직전')).toBeVisible()
     expect(within(canvas).getByRole('heading', { name: /스테이지 20/ })).toBeVisible()
     expect(within(canvas).getByRole('progressbar', { name: '영웅 체력' }))
       .toHaveAttribute('aria-valuenow', '77')
@@ -194,7 +196,7 @@ describe('IRPG-415/416 TacticalStage', () => {
     expect(JSON.stringify(state)).toBe(stateBefore)
   })
 
-  it('consumes scenes behind a pending expedition overlay without replaying them', () => {
+  it('keeps new combat scenes visible while saved expedition events stay collapsed', () => {
     const pendingState = createVisualFixtureState('visual.events.tactical-overlay')
     const emptyBatch = { nextCursor: '0', totalEvents: 0, events: [] } as const
     const eventBatch = createVisualFixtureCombatEventBatch(
@@ -211,6 +213,13 @@ describe('IRPG-415/416 TacticalStage', () => {
       />,
     )
 
+    const canvas = screen.getByTestId('tactical-canvas')
+    expect(canvas).toHaveAttribute('data-event-overlay-state', 'closed')
+    expect(canvas.querySelector('.tactical-canvas__base')).not.toHaveAttribute('inert')
+    expect(within(canvas).getByRole('button', { name: '원정 이벤트 3건 보기' }))
+      .toHaveAttribute('aria-expanded', 'false')
+    expect(canvas.querySelector('.tactical-event-overlay')).toBeNull()
+
     view.rerender(
       <TacticalStage
         state={pendingState}
@@ -221,9 +230,95 @@ describe('IRPG-415/416 TacticalStage', () => {
         onChooseExpeditionEvent={vi.fn(() => success)}
       />,
     )
-    expect(screen.getByTestId('tactical-canvas')).not.toHaveAttribute(
-      'data-scene-id',
+    expect(canvas).toHaveAttribute('data-scene-id')
+    expect(within(canvas).getByTestId('tactical-damage-layer')).toBeInTheDocument()
+    expect(canvas).toHaveAttribute('data-event-overlay-state', 'closed')
+  })
+
+  it('announces newly pending events without opening the overlay or stealing focus', () => {
+    const pendingState = createVisualFixtureState('visual.events.tactical-overlay')
+    const emptyState = {
+      ...pendingState,
+      expeditionEvents: { ...pendingState.expeditionEvents, pending: [] },
+    }
+    const emptyBatch = { nextCursor: '0', totalEvents: 0, events: [] } as const
+    const view = render(
+      <TacticalStage
+        state={emptyState}
+        batch={emptyBatch}
+        streamGeneration={12}
+        notice="live"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={vi.fn(() => success)}
+      />,
     )
+    const heading = screen.getByRole('heading', { name: /스테이지 30/ })
+    heading.focus()
+
+    view.rerender(
+      <TacticalStage
+        state={pendingState}
+        batch={emptyBatch}
+        streamGeneration={12}
+        notice="event ready"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={vi.fn(() => success)}
+      />,
+    )
+
+    const canvas = screen.getByTestId('tactical-canvas')
+    expect(canvas).toHaveAttribute('data-event-overlay-state', 'closed')
+    expect(within(canvas).getByRole('button', { name: '원정 이벤트 3건 보기' }))
+      .toBeVisible()
+    expect(within(canvas).getByTestId('tactical-event-count-status'))
+      .toHaveTextContent('원정 이벤트 3건 대기 중')
+    expect(canvas.querySelector('.tactical-event-overlay')).toBeNull()
+    expect(heading).toHaveFocus()
+  })
+
+  it('consumes scenes while the user-opened expedition overlay is visible without replaying them', () => {
+    const pendingState = createVisualFixtureState('visual.events.tactical-overlay')
+    const emptyBatch = { nextCursor: '0', totalEvents: 0, events: [] } as const
+    const eventBatch = createVisualFixtureCombatEventBatch(
+      'visual.dashboard.tactical-canvas',
+    )
+    const view = render(
+      <TacticalStage
+        state={pendingState}
+        batch={emptyBatch}
+        streamGeneration={8}
+        notice="pending"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={vi.fn(() => success)}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '원정 이벤트 3건 보기' }))
+    const canvas = screen.getByTestId('tactical-canvas')
+    expect(canvas).toHaveAttribute('data-event-overlay-state', 'open')
+    expect(canvas.querySelector('.tactical-canvas__base')).toHaveAttribute('inert')
+    expect(within(canvas).getAllByRole('button', { name: /최대 \+/ })[0])
+      .toHaveFocus()
+
+    view.rerender(
+      <TacticalStage
+        state={pendingState}
+        batch={eventBatch}
+        streamGeneration={8}
+        notice="pending"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={vi.fn(() => success)}
+      />,
+    )
+    expect(canvas).not.toHaveAttribute('data-scene-id')
+
+    fireEvent.keyDown(canvas.querySelector('.tactical-event-overlay')!, {
+      key: 'Escape',
+    })
+    expect(canvas).toHaveAttribute('data-event-overlay-state', 'closed')
+    expect(screen.getByRole('button', { name: '원정 이벤트 3건 보기' }))
+      .toHaveFocus()
+    expect(canvas).not.toHaveAttribute('data-scene-id')
 
     view.rerender(
       <TacticalStage
@@ -245,7 +340,137 @@ describe('IRPG-415/416 TacticalStage', () => {
     expect(screen.queryByTestId('tactical-ultimate-flash')).not.toBeInTheDocument()
   })
 
-  it('renders three saved events as an inert battlefield overlay and guards rapid duplicate input', () => {
+  it('keeps a reader-opened overlay and its focus across combat stream resets', () => {
+    const state = createVisualFixtureState('visual.events.tactical-overlay')
+    const batch = createVisualFixtureCombatEventBatch('visual.events.tactical-overlay')
+    const view = render(
+      <TacticalStage
+        state={state}
+        batch={batch}
+        streamGeneration={20}
+        notice="reader"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={vi.fn(() => success)}
+        disabled
+        disabledReason="read only"
+      />,
+    )
+
+    const canvas = screen.getByTestId('tactical-canvas')
+    fireEvent.click(canvas.querySelector<HTMLButtonElement>('.tactical-event-toggle')!)
+    const eventHeading = within(canvas).getByRole('heading', { name: /원정 선택/ })
+    expect(eventHeading).toHaveFocus()
+
+    view.rerender(
+      <TacticalStage
+        state={state}
+        batch={{ nextCursor: '0', totalEvents: 0, events: [] }}
+        streamGeneration={21}
+        notice="reader retry"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={vi.fn(() => success)}
+        disabled
+        disabledReason="read only"
+      />,
+    )
+
+    expect(canvas).toHaveAttribute('data-event-overlay-state', 'open')
+    expect(eventHeading).toHaveFocus()
+    expect(canvas.querySelectorAll('.expedition-event-card')).toHaveLength(3)
+  })
+
+  it('keeps a newly appended event open and restores focus after the prior card resolves', () => {
+    const source = createVisualFixtureState('visual.events.tactical-overlay')
+    const firstEvent = source.expeditionEvents.pending[0]!
+    const nextEvent = source.expeditionEvents.pending[1]!
+    const withFirst = {
+      ...source,
+      expeditionEvents: { ...source.expeditionEvents, pending: [firstEvent] },
+    }
+    const withBoth = {
+      ...source,
+      expeditionEvents: { ...source.expeditionEvents, pending: [firstEvent, nextEvent] },
+    }
+    const withNext = {
+      ...source,
+      expeditionEvents: { ...source.expeditionEvents, pending: [nextEvent] },
+    }
+    const onChoose = vi.fn(() => success)
+    const batch = createVisualFixtureCombatEventBatch('visual.events.tactical-overlay')
+    const view = render(
+      <TacticalStage
+        state={withFirst}
+        batch={batch}
+        streamGeneration={30}
+        notice="one pending"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={onChoose}
+      />,
+    )
+
+    const canvas = screen.getByTestId('tactical-canvas')
+    fireEvent.click(canvas.querySelector<HTMLButtonElement>('.tactical-event-toggle')!)
+    const firstChoice = canvas.querySelector<HTMLButtonElement>(
+      '.expedition-event-card__choices button',
+    )!
+    expect(firstChoice).toHaveFocus()
+
+    view.rerender(
+      <TacticalStage
+        state={withBoth}
+        batch={batch}
+        streamGeneration={30}
+        notice="two pending"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={onChoose}
+      />,
+    )
+    expect(canvas.querySelectorAll('.expedition-event-card')).toHaveLength(2)
+    const toggle = canvas.querySelector<HTMLButtonElement>('.tactical-event-toggle')!
+    toggle.focus()
+
+    const withThird = {
+      ...source,
+      expeditionEvents: {
+        ...source.expeditionEvents,
+        pending: source.expeditionEvents.pending.slice(0, 3),
+      },
+    }
+    view.rerender(
+      <TacticalStage
+        state={withThird}
+        batch={batch}
+        streamGeneration={30}
+        notice="three pending"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={onChoose}
+      />,
+    )
+    expect(toggle).toHaveFocus()
+
+    firstChoice.focus()
+    fireEvent.click(firstChoice)
+
+    view.rerender(
+      <TacticalStage
+        state={withNext}
+        batch={batch}
+        streamGeneration={30}
+        notice="next pending"
+        onChooseStage={vi.fn()}
+        onChooseExpeditionEvent={onChoose}
+      />,
+    )
+
+    expect(onChoose).toHaveBeenCalledWith(firstEvent.eventId, 'gold')
+    expect(canvas).toHaveAttribute('data-event-overlay-state', 'open')
+    expect(canvas.querySelectorAll('.expedition-event-card')).toHaveLength(1)
+    expect(canvas.querySelector<HTMLButtonElement>(
+      '.expedition-event-card__choices button',
+    )).toHaveFocus()
+  })
+
+  it('opens three saved events on demand and guards rapid duplicate input', () => {
     const state = createVisualFixtureState('visual.events.tactical-overlay')
     const onChoose = vi.fn(() => success)
     render(
@@ -260,6 +485,11 @@ describe('IRPG-415/416 TacticalStage', () => {
     )
 
     const canvas = screen.getByTestId('tactical-canvas')
+    expect(canvas.querySelector('.tactical-canvas__base')).not.toHaveAttribute('inert')
+    expect(canvas.querySelectorAll('.expedition-event-card')).toHaveLength(0)
+    fireEvent.click(within(canvas).getByRole('button', {
+      name: '원정 이벤트 3건 보기',
+    }))
     expect(canvas.querySelector('.tactical-canvas__base')).toHaveAttribute('inert')
     const cards = canvas.querySelectorAll('.expedition-event-card')
     expect(cards).toHaveLength(3)
@@ -289,6 +519,7 @@ describe('IRPG-415/416 TacticalStage', () => {
       />,
     )
 
+    fireEvent.click(screen.getByRole('button', { name: '원정 이벤트 1건 보기' }))
     const choice = screen.getByTestId('tactical-canvas')
       .querySelector<HTMLButtonElement>('.expedition-event-card__choices button')
     expect(choice).not.toBeNull()

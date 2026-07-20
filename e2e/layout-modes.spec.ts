@@ -41,7 +41,7 @@ async function settleImagePaint(page: Page) {
   )
 }
 
-test.describe('IRPG-415/416 selectable layouts and tactical motion', () => {
+test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
   for (const damageFixture of [
     {
       id: 'visual.dashboard.tactical-damaged',
@@ -58,12 +58,28 @@ test.describe('IRPG-415/416 selectable layouts and tactical motion', () => {
 
       const root = page.getByTestId('visual-fixture-root')
       const dashboardAsset = page.locator('.enemy-portrait__asset')
+      const expectedDamageState = damageFixture.id.endsWith('damaged')
+        ? 'damaged'
+        : 'severe'
+      const expectedDamageLabel = damageFixture.id.endsWith('damaged')
+        ? '갑옷 균열'
+        : '갑옷 붕괴 직전'
       await expect(dashboardAsset).toHaveAttribute('data-asset-id', damageFixture.assetId)
       await expect(dashboardAsset).toHaveAttribute('data-state', 'loaded')
+      await expect(page.locator('.battle')).toHaveAttribute(
+        'data-enemy-damage-state',
+        expectedDamageState,
+      )
+      await expect(page.locator('.battle').getByText(expectedDamageLabel)).toBeVisible()
 
       await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
       const canvas = page.getByTestId('tactical-canvas')
       await expect(canvas).toHaveAttribute('data-enemy-asset-id', damageFixture.assetId)
+      await expect(canvas).toHaveAttribute(
+        'data-enemy-damage-state',
+        expectedDamageState,
+      )
+      await expect(canvas.getByText(expectedDamageLabel)).toBeVisible()
       await expect(canvas.locator('.tactical-actor__asset--enemy'))
         .toHaveAttribute('data-asset-id', damageFixture.assetId)
       await expect(canvas.locator('.tactical-actor__asset--enemy'))
@@ -352,16 +368,49 @@ test.describe('IRPG-415/416 selectable layouts and tactical motion', () => {
     })
   })
 
-  test('renders saved expedition choices over the battlefield and accepts one rapid choice once', async ({ page }) => {
+  test('keeps the battlefield visible until saved expedition choices are opened and accepts one rapid choice once', async ({ page }) => {
     await page.setViewportSize({ width: 1_440, height: 900 })
     await enterDebugSession(page)
     await applyFixture(page, 'visual.events.tactical-overlay')
     await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
 
     const canvas = page.getByTestId('tactical-canvas')
+    const base = canvas.locator('.tactical-canvas__base')
+    const fixtureRoot = page.getByTestId('visual-fixture-root')
+    const stateHash = await fixtureRoot.getAttribute('data-canonical-state-hash')
+    await expect(canvas).toHaveAttribute('data-event-overlay-state', 'closed')
+    await expect(base).not.toHaveAttribute('inert')
+    await expect(canvas.locator('.tactical-actor__asset--hero')).toBeVisible()
+    await expect(canvas.locator('.tactical-actor__asset--enemy')).toBeVisible()
+    await expect(canvas.locator('.tactical-event-overlay')).toHaveCount(0)
+    const eventToggle = canvas.getByRole('button', {
+      name: '원정 이벤트 3건 보기',
+    })
+    await expect(eventToggle).toBeVisible()
+    await expect(eventToggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(eventToggle).toHaveAttribute('aria-controls', 'tactical-event-overlay')
+    await expect(canvas.getByTestId('tactical-event-count-status'))
+      .toHaveText('원정 이벤트 3건 대기 중')
+    await settleImagePaint(page)
+    await canvas.screenshot({
+      path: 'tmp/irpg-417-tactical-pending-collapsed-1440.png',
+      animations: 'disabled',
+    })
+    await eventToggle.click()
+    await expect(canvas).toHaveAttribute('data-event-overlay-state', 'open')
+    await expect(base).toHaveAttribute('inert')
+    await expect(canvas.getByRole('button', { name: '전투 화면 보기' }))
+      .toHaveAttribute('aria-expanded', 'true')
+
     const cards = canvas.locator('.expedition-event-card')
     await expect(cards).toHaveCount(3)
     await expect(canvas.locator('.expedition-event-card__choices button')).toHaveCount(6)
+    await expect(canvas.locator('.expedition-event-card__choices button').first())
+      .toBeFocused()
+    await expect(fixtureRoot).toHaveAttribute(
+      'data-canonical-state-hash',
+      stateHash ?? '',
+    )
     for (const assetId of [
       'event.ember-shrine',
       'event.wandering-smith',
@@ -391,6 +440,73 @@ test.describe('IRPG-415/416 selectable layouts and tactical motion', () => {
     await canvas.locator('.expedition-event-card__choices button').first().click()
     await expect(cards).toHaveCount(0)
     await expect(page.locator('#tactical-stage-title')).toBeFocused()
+    await expect(base).not.toHaveAttribute('inert')
+    await expect(canvas).toHaveAttribute('data-event-overlay-state', 'none')
+    await expect(canvas.locator('.tactical-event-toggle')).toHaveCount(0)
+  })
+
+  test('keeps the pending-event control usable without covering the 360px battlefield', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 })
+    await enterDebugSession(page)
+    await applyFixture(page, 'visual.events.tactical-overlay')
+    await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
+
+    const canvas = page.getByTestId('tactical-canvas')
+    const toggle = canvas.getByRole('button', { name: '원정 이벤트 3건 보기' })
+    await expect(canvas).toHaveAttribute('data-event-overlay-state', 'closed')
+    await expect(canvas.locator('.tactical-actor__asset--hero')).toBeVisible()
+    await expect(canvas.locator('.tactical-actor__asset--enemy')).toBeVisible()
+    const collapsedGeometry = await canvas.evaluate((element) => {
+      const toggleElement = element.querySelector<HTMLElement>('.tactical-event-toggle')
+      if (toggleElement === null) throw new Error('event toggle missing')
+      const canvasRect = element.getBoundingClientRect()
+      const toggleRect = toggleElement.getBoundingClientRect()
+      return {
+        clientWidth: element.clientWidth,
+        toggleWidth: toggleRect.width,
+        toggleHeight: toggleRect.height,
+        toggleLeft: toggleRect.left - canvasRect.left,
+        toggleRight: toggleRect.right - canvasRect.left,
+      }
+    })
+    const pageGeometry = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }))
+    expect(pageGeometry.scrollWidth).toBeLessThanOrEqual(pageGeometry.clientWidth)
+    expect(collapsedGeometry.toggleWidth).toBeGreaterThanOrEqual(44)
+    expect(collapsedGeometry.toggleHeight).toBeGreaterThanOrEqual(44)
+    expect(collapsedGeometry.toggleLeft).toBeGreaterThanOrEqual(0)
+    expect(collapsedGeometry.toggleRight).toBeLessThanOrEqual(
+      collapsedGeometry.clientWidth,
+    )
+    await settleImagePaint(page)
+    await canvas.screenshot({
+      path: 'tmp/irpg-417-tactical-pending-collapsed-360.png',
+      animations: 'disabled',
+    })
+
+    await toggle.click()
+    const overlay = canvas.locator('.tactical-event-overlay')
+    await expect(overlay).toBeVisible()
+    await expect(canvas.locator('.tactical-canvas__base')).toHaveAttribute('inert')
+    const choiceButtons = overlay.locator('.expedition-event-card__choices button')
+    await expect(choiceButtons).toHaveCount(6)
+    const expandedGeometry = await overlay.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+      choiceHeights: [...element.querySelectorAll<HTMLElement>(
+        '.expedition-event-card__choices button',
+      )].map((button) => button.getBoundingClientRect().height),
+    }))
+    expect(expandedGeometry.scrollWidth).toBeLessThanOrEqual(
+      expandedGeometry.clientWidth,
+    )
+    expect(expandedGeometry.choiceHeights.every((height) => height >= 44)).toBe(true)
+
+    await choiceButtons.first().press('Escape')
+    await expect(canvas).toHaveAttribute('data-event-overlay-state', 'closed')
+    await expect(toggle).toBeFocused()
     await expect(canvas.locator('.tactical-canvas__base')).not.toHaveAttribute('inert')
   })
 

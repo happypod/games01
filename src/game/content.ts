@@ -232,6 +232,8 @@ const ECLIPSE_KNIGHT_DAMAGE_ASSET_IDS = {
   severe: 'boss.eclipse-knight.severe',
 } as const
 
+export type EnemyPresentationDamageState = 'normal' | 'damaged' | 'severe'
+
 const bounded = (value: number, maximum: number) =>
   Math.min(maximum, Math.max(1, Math.round(value)))
 
@@ -280,7 +282,22 @@ export function getEnemyPresentationAssetId(
   currentHp: number,
   maximumHp: number,
 ): EnemyPresentationAssetId {
-  if (assetId !== 'boss.eclipse-knight') return assetId
+  const damageState = getEnemyPresentationDamageState(
+    assetId,
+    currentHp,
+    maximumHp,
+  )
+  if (damageState === 'severe') return ECLIPSE_KNIGHT_DAMAGE_ASSET_IDS.severe
+  if (damageState === 'damaged') return ECLIPSE_KNIGHT_DAMAGE_ASSET_IDS.damaged
+  return assetId
+}
+
+export function getEnemyPresentationDamageState(
+  assetId: EnemyAssetId,
+  currentHp: number,
+  maximumHp: number,
+): EnemyPresentationDamageState | null {
+  if (assetId !== 'boss.eclipse-knight') return null
   if (
     !Number.isFinite(currentHp) ||
     !Number.isFinite(maximumHp) ||
@@ -288,11 +305,11 @@ export function getEnemyPresentationAssetId(
     currentHp < 0 ||
     currentHp > maximumHp
   ) {
-    return assetId
+    return null
   }
 
   const hpRatio = currentHp / maximumHp
-  if (hpRatio < 0.3) return ECLIPSE_KNIGHT_DAMAGE_ASSET_IDS.severe
-  if (hpRatio < 0.7) return ECLIPSE_KNIGHT_DAMAGE_ASSET_IDS.damaged
-  return assetId
+  if (hpRatio < 0.3) return 'severe'
+  if (hpRatio < 0.7) return 'damaged'
+  return 'normal'
 }

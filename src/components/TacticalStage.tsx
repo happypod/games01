@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import {
   COMPANION_ATTACK_INTERVAL_MS,
   COMPANION_DEFINITIONS,
   getEnemyDefinition,
+  getEnemyPresentationDamageState,
   getEnemyPresentationAssetId,
 } from '../game/content'
 import { getCompanionDamage, getHeroStats } from '../game/formulas'
@@ -28,6 +29,7 @@ import {
   projectTacticalScenePresentation,
   TACTICAL_DAMAGE_POPUP_DURATION_MS,
 } from './tacticalScenePresentation'
+import { getEnemyDamageStateLabel } from './enemyDamagePresentation'
 
 interface TacticalStageProps {
   state: GameState
@@ -73,7 +75,21 @@ export function TacticalStage({
   disabledReason,
 }: TacticalStageProps) {
   const hasPendingEvent = state.expeditionEvents.pending.length > 0
-  const effects = useTacticalStageEffects(batch, streamGeneration, !hasPendingEvent)
+  const [openedEventOverlay, setOpenedEventOverlay] = useState<{
+    eventIds: readonly string[]
+  } | null>(null)
+  const isEventOverlayVisible = openedEventOverlay !== null &&
+    state.expeditionEvents.pending.some(
+      ({ eventId }) => openedEventOverlay.eventIds.includes(eventId),
+    )
+  const pendingEventIdentity = state.expeditionEvents.pending
+    .map(({ eventId }) => eventId)
+    .join('\u001f')
+  const effects = useTacticalStageEffects(
+    batch,
+    streamGeneration,
+    !isEventOverlayVisible,
+  )
   const presentation = effects.scene?.snapshot ?? null
   const presentedStage = presentation?.stage ?? state.battle.stage
   const enemy = getEnemyDefinition(presentedStage)
@@ -83,6 +99,12 @@ export function TacticalStage({
     presentedEnemyHp,
     enemy.maxHp,
   )
+  const enemyDamageState = getEnemyPresentationDamageState(
+    enemy.assetId,
+    presentedEnemyHp,
+    enemy.maxHp,
+  )
+  const enemyDamageLabel = getEnemyDamageStateLabel(enemyDamageState)
   const hero = getHeroStats(state)
   const region = getStageRegionForStage(presentedStage)
   const liveRegion = getStageRegionForStage(state.battle.stage)
@@ -121,6 +143,9 @@ export function TacticalStage({
       ? 'tactical-motion--companion-assist'
       : null
   const stageHeadingRef = useRef<HTMLHeadingElement>(null)
+  const eventToggleRef = useRef<HTMLButtonElement>(null)
+  const eventOverlayRef = useRef<HTMLElement>(null)
+  const previousEventOverlayVisibleRef = useRef(false)
   const heroAssetRef = useRef<HTMLDivElement>(null)
   const enemyAssetRef = useRef<HTMLDivElement>(null)
   const companionAssetRef = useRef<HTMLDivElement>(null)
@@ -145,6 +170,27 @@ export function TacticalStage({
       stageHeadingRef.current?.focus()
     }
   }, [state.expeditionEvents.pending.length])
+  useLayoutEffect(() => {
+    const wasEventOverlayVisible = previousEventOverlayVisibleRef.current
+    previousEventOverlayVisibleRef.current = isEventOverlayVisible
+    if (!isEventOverlayVisible) return
+    if (eventOverlayRef.current?.contains(document.activeElement)) return
+    if (
+      wasEventOverlayVisible &&
+      document.activeElement !== document.body &&
+      document.activeElement !== null
+    ) {
+      return
+    }
+    const firstChoice = eventOverlayRef.current?.querySelector<HTMLButtonElement>(
+      '.expedition-event-card__choices button:not(:disabled)',
+    )
+    const heading = eventOverlayRef.current?.querySelector<HTMLElement>(
+      '#expedition-event-title',
+    )
+    const focusTarget = firstChoice ?? heading
+    focusTarget?.focus()
+  }, [isEventOverlayVisible, pendingEventIdentity])
   const cooldownPercent = companion === null
     ? 0
     : Math.min(
@@ -155,10 +201,26 @@ export function TacticalStage({
           COMPANION_ATTACK_INTERVAL_MS) * 100,
       ),
     )
+  const chooseExpeditionEvent = (
+    eventId: string,
+    choiceId: ExpeditionChoiceId,
+  ): GameCommandFeedback => {
+    const result = onChooseExpeditionEvent(eventId, choiceId)
+    if (result.success) {
+      setOpenedEventOverlay((current) => {
+        if (current === null) return null
+        const eventIds = state.expeditionEvents.pending
+          .map((pendingEvent) => pendingEvent.eventId)
+          .filter((pendingEventId) => pendingEventId !== eventId)
+        return eventIds.length === 0 ? null : { eventIds }
+      })
+    }
+    return result
+  }
 
   return (
     <section
-      className={`tactical-canvas ${hasPendingEvent ? 'tactical-canvas--event' : ''}`}
+      className={`tactical-canvas ${hasPendingEvent ? 'tactical-canvas--event' : ''} ${isEventOverlayVisible ? 'tactical-canvas--event-open' : ''}`}
       aria-labelledby="tactical-stage-title"
       data-testid="tactical-canvas"
       data-region-id={region.id}
@@ -166,6 +228,8 @@ export function TacticalStage({
       data-live-stage={state.battle.stage}
       data-scene-id={effects.scene?.id}
       data-enemy-asset-id={enemyAssetId}
+      data-enemy-damage-state={enemyDamageState ?? undefined}
+      data-event-overlay-state={isEventOverlayVisible ? 'open' : hasPendingEvent ? 'closed' : 'none'}
     >
       <GameAsset
         assetId={region.assetId}
@@ -179,7 +243,7 @@ export function TacticalStage({
 
       <div
         className="tactical-canvas__base"
-        inert={hasPendingEvent || undefined}
+        inert={isEventOverlayVisible || undefined}
       >
         {scenePresentation.ultimateFlash && effects.scene && (
           <div
@@ -262,6 +326,14 @@ export function TacticalStage({
             <div className="tactical-actor__copy">
               <span>{enemy.isBoss ? '지역 수호자' : '야생의 위협'}</span>
               <h3>{enemy.name}</h3>
+              {enemyDamageLabel && (
+                <p
+                  className="tactical-actor__damage-state"
+                  data-damage-state={enemyDamageState ?? undefined}
+                >
+                  {enemyDamageLabel}
+                </p>
+              )}
               <StatBar
                 label="적 체력"
                 value={presentedEnemyHp}
@@ -373,14 +445,65 @@ export function TacticalStage({
       </div>
 
       {hasPendingEvent && (
-        <div className="tactical-event-overlay" aria-label="전장 위 원정 선택">
+        <>
+          <button
+            ref={eventToggleRef}
+            type="button"
+            className="tactical-event-toggle"
+            aria-expanded={isEventOverlayVisible}
+            aria-controls="tactical-event-overlay"
+            onClick={() => {
+              if (isEventOverlayVisible) {
+                setOpenedEventOverlay(null)
+                return
+              }
+              const eventIds = state.expeditionEvents.pending.map(
+                ({ eventId }) => eventId,
+              )
+              if (eventIds.length > 0) {
+                setOpenedEventOverlay({ eventIds })
+              }
+            }}
+          >
+            {isEventOverlayVisible
+              ? '전투 화면 보기'
+              : `원정 이벤트 ${state.expeditionEvents.pending.length}건 보기`}
+          </button>
+          <span
+            className="sr-only"
+            role="status"
+            aria-live="polite"
+            data-testid="tactical-event-count-status"
+          >
+            원정 이벤트 {state.expeditionEvents.pending.length}건 대기 중
+          </span>
+        </>
+      )}
+
+      {isEventOverlayVisible && (
+        <aside
+          ref={eventOverlayRef}
+          id="tactical-event-overlay"
+          className="tactical-event-overlay"
+          aria-label="전장 위 원정 선택"
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            setOpenedEventOverlay(null)
+            eventToggleRef.current?.focus()
+          }}
+        >
           <ExpeditionEventPanel
             pending={state.expeditionEvents.pending}
-            onChoose={onChooseExpeditionEvent}
+            onChoose={chooseExpeditionEvent}
             disabled={disabled}
             {...(disabledReason ? { disabledReason } : {})}
           />
-        </div>
+        </aside>
+      )}
+
+      {hasPendingEvent && !isEventOverlayVisible && (
+        <span id="tactical-event-overlay" hidden />
       )}
 
       {effects.skippedSceneCount > 0 && (

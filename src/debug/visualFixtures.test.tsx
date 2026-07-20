@@ -161,11 +161,12 @@ describe('IRPG-506 named visual fixtures', () => {
 
       expect(definition).toMatchObject({
         id,
-        ownerTicket: id === 'visual.dashboard.tactical-damaged' ||
+        ownerTicket: id === 'visual.events.tactical-overlay'
+          ? 'IRPG-417'
+          : id === 'visual.dashboard.tactical-damaged' ||
           id === 'visual.dashboard.tactical-severe'
           ? 'IRPG-416'
-          : id === 'visual.dashboard.tactical-canvas' ||
-          id === 'visual.events.tactical-overlay'
+          : id === 'visual.dashboard.tactical-canvas'
           ? 'IRPG-415'
           : id === 'visual.dashboard.one-view'
           ? 'IRPG-414'
@@ -313,7 +314,7 @@ describe('IRPG-506 named visual fixtures', () => {
       'visual.events.tactical-overlay',
     )
     expect(tacticalOverlayDefinition).toMatchObject({
-      ownerTicket: 'IRPG-415',
+      ownerTicket: 'IRPG-417',
       captureTarget: '.tactical-canvas',
       setupAction: 'select-tactical-layout',
       canonicalEventHash: 'fnv1a32-v1:15091bd6',

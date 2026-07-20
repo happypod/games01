@@ -5,6 +5,7 @@ import {
   SKILL_DEFINITIONS,
   UPGRADE_DEFINITIONS,
   getEnemyDefinition,
+  getEnemyPresentationDamageState,
   getEnemyPresentationAssetId,
 } from '../../game/content'
 import manifestJson from './manifest.json'
@@ -64,6 +65,19 @@ describe('IRPG-416 eclipse knight damage presentation', () => {
   })
 
   it.each([
+    [100, 100, 'normal'],
+    [70, 100, 'normal'],
+    [69.999, 100, 'damaged'],
+    [30, 100, 'damaged'],
+    [29.999, 100, 'severe'],
+    [0, 100, 'severe'],
+  ] as const)('describes %s/%s HP as %s', (currentHp, maximumHp, expected) => {
+    expect(
+      getEnemyPresentationDamageState('boss.eclipse-knight', currentHp, maximumHp),
+    ).toBe(expected)
+  })
+
+  it.each([
     [Number.NaN, 100],
     [50, Number.NaN],
     [50, 0],
@@ -80,6 +94,10 @@ describe('IRPG-416 eclipse knight damage presentation', () => {
     expect(getEnemyPresentationAssetId('enemy.twilight-wolf', 1, 100)).toBe(
       'enemy.twilight-wolf',
     )
+    expect(getEnemyPresentationDamageState('boss.ash-giant', 1, 100)).toBeNull()
+    expect(
+      getEnemyPresentationDamageState('boss.eclipse-knight', Number.NaN, 100),
+    ).toBeNull()
   })
 
   it('declares unique production-ready assets for both safe damage tiers', () => {

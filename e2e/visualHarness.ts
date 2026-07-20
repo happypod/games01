@@ -200,6 +200,13 @@ export async function openVisualFixture(
 
   const target = page.locator(fixture.captureTarget)
   await expect(target).toBeVisible()
+  if (fixture.id === 'visual.events.tactical-overlay') {
+    await expect(target).toHaveAttribute('data-event-overlay-state', 'closed')
+    await expect(target.locator('.tactical-canvas__base')).not.toHaveAttribute('inert')
+    await expect(target.locator('.tactical-event-overlay')).toHaveCount(0)
+    await expect(target.getByRole('button', { name: '원정 이벤트 3건 보기' }))
+      .toHaveAttribute('aria-expanded', 'false')
+  }
   if (fixture.failureRoute === 'hero-and-enemy-corrupt') {
     for (const selector of ['.hero-portrait', '.enemy-portrait__asset']) {
       await expect(page.locator(selector)).toHaveAttribute('data-state', 'fallback')

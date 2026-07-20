@@ -108,3 +108,33 @@
 - Manual combined-image review of the source states and final Ubuntu desktop/mobile captures found no remaining P0/P1/P2 visual defect.
 
 final result: passed
+
+## IRPG-417 Design QA
+
+### Comparison set
+
+- Source: the actual saved Type 2 screen after dismissing the offline report, where two pending expedition cards covered the complete battlefield at 1112×720.
+- Implementation: the same live save and viewport after the disclosure change, plus deterministic 1440×900 and 360×800 pending-event captures.
+- Canonical target: keep 17 fixtures and 68 variants while replacing only the four `visual.events.tactical-overlay` images with the default-collapsed battlefield state.
+
+### Full-view review
+
+- Pending expedition choices now appear as a counted, above-fold action while hero, enemy, companion, HP, combat cue, status, and stage strip remain visible.
+- The existing Emberwatch palette, border radius, typography, and compact pill controls are reused; no new visual asset or alternate design language is introduced.
+- The 360px view keeps the 44px control inside the canvas, preserves both combatants and the 5×2 stage strip, and adds no page-level horizontal overflow.
+
+### Focused-region review
+
+- The disclosure remains outside the inert battlefield base, exposes `aria-expanded` and `aria-controls`, focuses the first enabled choice on open, returns to the trigger on Escape, and restores the stage heading after the final choice.
+- A polite count status reports pending changes without opening the overlay or moving focus. Only an explicitly open overlay pauses VFX presentation; hidden scenes are consumed rather than replayed later.
+- Eclipse Knight damage portraits now include visible `갑옷 온전`, `갑옷 균열`, or `갑옷 붕괴 직전` text in both layout types without changing HP thresholds or save state.
+
+### Defects resolved during review
+
+- P1 core-surface blocker: removed automatic full-canvas coverage from saved and newly arriving pending events.
+- P1 semantic conflict: aligned the “automatic battle continues” copy with an active visible battlefield instead of disabling VFX for every pending event.
+- P1 reader lifecycle: removed the combat-generation dependency that closed an open disclosure on every read-only lock retry.
+- P1 pending transition: merged newly arrived pending IDs after a successful choice and limited automatic focus movement to initial open or genuine removed-card recovery.
+- P2 discoverability: added a persistent count action and textual armor-state label so the IRPG-416 work is visible without a debug fixture.
+- P2 mobile geometry: verified the control boundary at 360×800 and retained intentional clipped actor art without page-level horizontal overflow.
+- Desktop geometry follow-up measured `body/html scrollWidth === clientWidth === 1280`; the apparent right-edge crop in the combined review image was screenshot presentation, not application overflow.

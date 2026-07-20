@@ -58,7 +58,7 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414' | 'IRPG-415' | 'IRPG-416'
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414' | 'IRPG-415' | 'IRPG-416' | 'IRPG-417'
   readonly stage: 1 | 3 | 5 | 10 | 20 | 30 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
@@ -302,8 +302,8 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
   },
   'visual.events.tactical-overlay': {
     id: 'visual.events.tactical-overlay',
-    label: '통합 전술 원정 오버레이 · 대기 3종',
-    ownerTicket: 'IRPG-415',
+    label: '통합 전술 원정 대기 · 전장 우선 노출',
+    ownerTicket: 'IRPG-417',
     stage: 30,
     seedKey: 'irpg-415:visual.events.tactical-overlay:v1',
     canonicalHash: 'fnv1a32-v1:64bf7fd5',

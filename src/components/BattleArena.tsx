@@ -2,10 +2,12 @@ import {
   COMPANION_ATTACK_INTERVAL_MS,
   COMPANION_DEFINITIONS,
   getEnemyDefinition,
+  getEnemyPresentationDamageState,
   getEnemyPresentationAssetId,
 } from '../game/content'
 import { getCompanionDamage, getHeroStats, isCompanionUnlocked } from '../game/formulas'
 import type { GameState } from '../game/types'
+import { getEnemyDamageStateLabel } from './enemyDamagePresentation'
 import { GameAsset } from './GameAsset'
 import { StatBar } from './StatBar'
 
@@ -22,6 +24,12 @@ export function BattleArena({ state, onChooseStage, disabled = false }: BattleAr
     state.battle.enemyHp,
     enemy.maxHp,
   )
+  const enemyDamageState = getEnemyPresentationDamageState(
+    enemy.assetId,
+    state.battle.enemyHp,
+    enemy.maxHp,
+  )
+  const enemyDamageLabel = getEnemyDamageStateLabel(enemyDamageState)
   const hero = getHeroStats(state)
   const cooldownReady = state.battle.powerStrikeCooldownMs === 0
   const cooldownProgress = cooldownReady
@@ -39,7 +47,11 @@ export function BattleArena({ state, onChooseStage, disabled = false }: BattleAr
       : Math.max(0, COMPANION_ATTACK_INTERVAL_MS - state.battle.companionCooldownMs)
 
   return (
-    <section className="panel battle" aria-labelledby="battle-title">
+    <section
+      className="panel battle"
+      aria-labelledby="battle-title"
+      data-enemy-damage-state={enemyDamageState ?? undefined}
+    >
       <div className="panel__header">
         <div>
           <p className="eyebrow">현재 원정</p>
@@ -70,6 +82,9 @@ export function BattleArena({ state, onChooseStage, disabled = false }: BattleAr
       <div className="enemy-name">
         <span>{enemy.isBoss ? '지역 수호자' : '야생의 위협'}</span>
         <strong>{enemy.name}</strong>
+        {enemyDamageLabel && (
+          <small className="enemy-damage-state">{enemyDamageLabel}</small>
+        )}
       </div>
 
       <StatBar label="적 체력" value={state.battle.enemyHp} maximum={enemy.maxHp} tone="enemy" />

@@ -47,5 +47,23 @@ describe('IRPG-416 Type 1 damage portrait integration', () => {
       'data-asset-id',
       'boss.eclipse-knight.damaged',
     )
+    expect(container.querySelector('.battle')).toHaveAttribute(
+      'data-enemy-damage-state',
+      'damaged',
+    )
+    expect(screen.getByText('갑옷 균열')).toBeVisible()
+  })
+
+  it('does not add an armor-state label to enemies without damage portraits', () => {
+    const state = createInitialState(1_000)
+
+    const { container } = render(
+      <BattleArena state={state} onChooseStage={vi.fn()} />,
+    )
+
+    expect(container.querySelector('.battle')).not.toHaveAttribute(
+      'data-enemy-damage-state',
+    )
+    expect(container.querySelector('.enemy-damage-state')).toBeNull()
   })
 })

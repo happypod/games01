@@ -160,6 +160,10 @@ npm run test:e2e:visual
 
 IRPG-416 Test 게이트는 기존 15개 fixture·60개 기준선을 그대로 보존하고 `visual.dashboard.tactical-damaged`와 `visual.dashboard.tactical-severe`의 4개 variant씩을 추가해 17개 fixture·68개 canonical screenshot, 같은 runner 3회 반복 204개를 요구한다. 단위 검사는 HP 70%·30% 경계와 잘못된 HP fail-safe, skill·critical 단일 primary popup, companion 별도 popup, boss/rank 필살기 조건, 실제 `advanceGame` kill·bossVictory snapshot의 다음 적 target 격리, popup 종료의 900ms scene 경계, scene 재생 중 저장 상태 불변을 고정한다. 일반 Playwright는 유형 1·2 damage asset 일치, 새 writer event의 공격·피격·협공·popup·flash, 360px reduced-motion 정적 수치와 overflow, effective 360px/200%에서 Damaged 초상과 정적 popup의 동시 배치를 검사한다. production 자산 Playwright는 stage 1 cold load에서 damage variant 요청이 0개인지 확인한다.
 
+IRPG-417 Test 게이트는 canonical 개수를 17개 fixture·68개 screenshot으로 유지하되 `visual.events.tactical-overlay`의 mobile/desktop × default/reduced 4개만 저장 pending이 접힌 전장 우선 상태로 교체하고 나머지 64개 hash를 보존한다. 단위 검사는 최초·신규 pending의 기본 접힘, 토글 `aria-expanded`·`aria-controls`, 열린 base만 inert, 열기 첫 선택 focus·Escape 복귀·마지막 선택 전장 focus, rapid exact-once, 접힌 상태의 VFX 재생과 열린 동안 소비한 scene 비재생을 고정한다. 일반 Playwright는 실제 fixture에서 전장 노출→원정 3건 열기→연속 선택→전장 복귀와 유형 1·2 갑옷 손상 문구를 확인하고, 360×800에서 44px 토글·페이지 overflow·선택 버튼 geometry를 검사한다.
+
+IRPG-417 단위 게이트에는 reader의 동일 pending + combat generation 증가 시 열린 overlay·focus 유지, `[A] → [A,B] → [B]` 합류·선택 전이, overlay 밖으로 이동한 focus를 신규 pending이 빼앗지 않는 경우를 포함한다.
+
 ## 8. 현재 브라우저 증거
 
 - [데스크톱 전체 화면](../artifacts/desktop.png): 주요 패널, 보스 전투, 성장 버튼 렌더링 확인
