@@ -65,8 +65,17 @@ async function waitForVisualResources(page: Page, target: Locator) {
 async function alignVisualCaptureTarget(page: Page, target: Locator) {
   await target.evaluate((element) => {
     const rect = element.getBoundingClientRect()
-    // Use the numeric overload so CSS `scroll-behavior: smooth` cannot retain
-    // a transient horizontal position inherited from lazy asset activation.
+    // Fixture controls and lazy assets can make an `overflow: hidden` ancestor
+    // retain a horizontal scroll offset. Reset the full ancestor chain because
+    // window.scrollTo() cannot restore those nested scroll containers.
+    for (let ancestor = element.parentElement; ancestor !== null; ancestor = ancestor.parentElement) {
+      ancestor.scrollLeft = 0
+    }
+    document.documentElement.scrollLeft = 0
+    document.body.scrollLeft = 0
+
+    // Use the numeric overload so CSS `scroll-behavior: smooth` cannot retain a
+    // transient horizontal position while aligning the capture vertically.
     window.scrollTo(0, window.scrollY + rect.top)
   })
   await page.evaluate(() => new Promise<void>((resolve) => {
@@ -268,11 +277,32 @@ export async function verifyResponsiveVisualSurface(
     viewportWidth: window.innerWidth,
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
-    targetTop: element.getBoundingClientRect().top,
+    targetRect: (() => {
+      const rect = element.getBoundingClientRect()
+      return { top: rect.top, left: rect.left, right: rect.right }
+    })(),
+    windowScrollX: window.scrollX,
+    ancestorScrollLeft: (() => {
+      const offsets: Array<{ tag: string; className: string; scrollLeft: number }> = []
+      for (let ancestor = element.parentElement; ancestor !== null; ancestor = ancestor.parentElement) {
+        if (ancestor.scrollLeft !== 0) {
+          offsets.push({
+            tag: ancestor.tagName,
+            className: ancestor.className,
+            scrollLeft: ancestor.scrollLeft,
+          })
+        }
+      }
+      return offsets
+    })(),
   }))
   expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
   expect(geometry.clientWidth).toBe(geometry.viewportWidth)
-  expect(geometry.targetTop).toBeGreaterThanOrEqual(-1)
+  expect(geometry.targetRect.top).toBeGreaterThanOrEqual(-1)
+  expect(geometry.targetRect.left).toBeGreaterThanOrEqual(-1)
+  expect(geometry.targetRect.right).toBeLessThanOrEqual(geometry.viewportWidth + 1)
+  expect(geometry.windowScrollX).toBe(0)
+  expect(geometry.ancestorScrollLeft).toEqual([])
 
   const clippedCommands = await target.getByRole('button').evaluateAll((buttons) =>
     buttons
