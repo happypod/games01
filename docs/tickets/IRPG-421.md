@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P2
-- Status: Test
+- Status: Done
 - Skill tags: ENG-DATA, ENG-STATE, ENG-SAVE, NARRATIVE, FE-GAME, QA-DOMAIN
 - Owner / Reviewer: Codex / independent consent, economy and accessibility review
 
@@ -65,10 +65,10 @@
 
 - Review: IRPG-420 검증 뒤 독립 consent·economy·accessibility 리뷰를 완료했고 성인 NPC·구조/계약 분리·보류 가능 문구, 명령 전 상인 갱신, terminal cycle single/split 동치를 보강했다.
 - Verify: 30분 fixed cycle, 3-bit exact-once 구매, 구조→별도 자발적 계약→신뢰, 전투 동료 불변과 저장 계보 보존을 수용 기준에 매핑했다.
-- Test: 로컬 code·browser gate는 통과했고 Ubuntu canonical과 최종 GitHub quality gate를 기다린다.
+- Test: IRPG-420 Done 뒤 로컬 code·browser gate와 baseline commit `6c80e98`의 최종 GitHub 게이트를 통과했다.
 
 ## Test evidence
 
 - `src/game/campMerchant.test.ts`: 30분 경계·분할 동치·RNG 불변, 비용-1·정확 일치·중복 구매, 구조/계약 분리, 신뢰 비용·할인 상한, reload·offline·portable·환생 원장 보존을 고정한다.
 - 전체 로컬 증거: Vitest 47 files·395 tests, 일반 Playwright 60 tests, production cold-load 5 tests, lint·typecheck·build·asset gate 통과. 브라우저에서 구조 지원, 별도 자발적 상점 조언 계약, 신뢰 할인과 reload 보존을 검증했다.
-- canonical screenshot과 최종 CI는 pending이다. 전체 게이트 통과 전에는 Done으로 옮기지 않는다.
+- canonical/CI 증거: push quality `29743295721`, PR quality `29743299219`, visual `29743295715` 성공. 전체 18 fixture·72 screenshot과 3회 반복 216개가 통과했고 artifact `8461530261`은 체크인 기준선과 72/72 byte-identical이다.

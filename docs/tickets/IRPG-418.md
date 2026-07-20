@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Test
+- Status: Done
 - Skill tags: ENG-STATE, ENG-SAVE, FE-GAME, QA-DOMAIN, QA-E2E
 - Owner / Reviewer: Codex / independent domain and accessibility review
 
@@ -63,7 +63,7 @@ schema6의 `camp`는 IRPG-419~421에서 사용할 finite ID record를 미리 안
 - 코드에 `SAVE_VERSION = 6`, `createInitialCampState`, `switchGameMode`, `advanceOfflineGame`, camp decoder/future fence와 전투·캠프 단일 surface가 존재하는지 확인했다.
 - Review: 독립 domain·save·accessibility 리뷰를 완료했고 malformed resident status, 훈련 상한, 명령 전 elapsed 정산, keyboard roving focus 지적을 반영했다.
 - Verify: schema5→6 무소급 migration, camp future fence, 전경 전투 정지, CAMP offline exact-once와 mode 복원, 360px·200%·reduced-motion 수용 기준을 코드·문서·테스트에 매핑했다.
-- Test: 로컬 code·browser gate는 통과했고 Ubuntu canonical 4종과 같은 최종 SHA의 push·PR quality gate를 기다린다.
+- Test: 로컬 전체 게이트와 baseline commit `6c80e98`의 push·PR quality 및 Ubuntu visual gate가 모두 통과했다.
 
 ## Test evidence
 
@@ -71,4 +71,4 @@ schema6의 `camp`는 IRPG-419~421에서 사용할 finite ID record를 미리 안
 - 작성된 저장 증거: `src/game/campPersistence.test.ts` — schema5→6 무소급 migration, reader 무쓰기·writer revision checkpoint, 캠프 offline exact-once, future camp definition 분류.
 - 작성된 브라우저 증거: `e2e/camp.spec.ts` — 캠프 6초 전경 정지, 페이지 종료 후 1분 offline 정산, 같은 시각 reload 무중복, 전투 복귀, 360×800 키보드·44px·overflow·reduced-motion.
 - 로컬 증거: Vitest 47 files·395 tests, ESLint, TypeScript, production build, manifest 33 tests·30 IDs, 일반 Playwright 60 tests, production cold-load 5 tests를 통과했다. 시간 경계 수정 뒤 캠프 수용 흐름은 CI와 같은 단일 worker에서 5/5 재통과했다.
-- CI 결과: Ubuntu canonical과 최종 quality gate가 pending이므로 아직 Done 처리하지 않는다.
+- CI 결과: [push quality `29743295721`](https://github.com/happypod/games01/actions/runs/29743295721), [PR quality `29743299219`](https://github.com/happypod/games01/actions/runs/29743299219), [visual `29743295715`](https://github.com/happypod/games01/actions/runs/29743295715)이 성공했다. visual artifact `8461530261`의 digest는 `sha256:6800d82922f9cc19905c63e9826ee6f7b0cc90d61a31300e5c752a646084af49`이며 다운로드한 72개 PNG가 체크인 기준선과 72/72 byte-identical이다.

@@ -154,3 +154,41 @@ final result: passed
 - Manual combined-image review covered the actual saved screen, fixed live screen, disclosure-open state, and representative desktop/mobile canonical captures; no P0/P1 visual defect remains.
 
 final result: passed
+
+## IRPG-418–421 Camp Design QA
+
+### Comparison set
+
+- Source: the existing Emberwatch one-view dashboard, its established dark-fantasy palette, typography, compact controls, hero portrait, and the approved camp-management brief.
+- Implementation: `visual.camp.resting` at 1440×900 and 360×800, each in default and reduced-motion modes, plus the live facility→training→crafting→merchant→rescue→voluntary-contract browser flow.
+- Scope boundary: the adult scout is rescued into a safe camp and may later accept a separate optional shop-advice contract; coercive ownership, sexual training, and sexual reward presentation are not part of this implementation.
+
+### Full-view review
+
+- Desktop keeps the established three-column one-view hierarchy: resting party, camp overview, and camp command. Facility, merchant, resident, training, crafting, and supply states remain visible without overlapping controls.
+- Mobile reflows those regions into a readable vertical document flow. Headings, prices, disabled reasons, HP, facility effects, and contract copy remain legible without horizontal overflow.
+- Existing production art is reused for the resting hero, camp landscape, tent, workbench, and training ground; no placeholder drawing or alternate visual language was introduced.
+- Default and reduced-motion captures are intentionally pixel-identical because the resting fixture has no required continuous motion.
+
+### Focused-region review
+
+- Battle↔camp uses one active surface and keyboard roving focus. Camp foreground pulses preserve HP, enemy HP, cooldown, RNG, rewards, and combat logs while crafting and merchant elapsed timers continue.
+- Disabled facility, training, recipe, and merchant commands expose a concrete reason. Craft completion and merchant refresh use one-time polite announcements without reading a live countdown every second.
+- The rescue offer does not create a combat companion or contract. The voluntary contract remains separately actionable, can be deferred, and preserves the existing single combat-companion state.
+- The 360px and effective-200% layouts retain 44px commands and reveal the primary headings without clipped text or page-level horizontal overflow.
+
+### Defects resolved during review
+
+- Reconciled elapsed time immediately before every command so a craft cannot complete early and an expired merchant offer cannot be purchased.
+- Bounded persisted craft duration to the immutable recipe duration and bound focus tonic only to the current active boss stage.
+- Normalized the terminal merchant cycle so single and split elapsed calculations remain identical at `Number.MAX_SAFE_INTEGER`.
+- Added one-time accessible completion/refresh notices and explicit non-coercive adult NPC, rescue, deferral, and voluntary-contract copy.
+
+### Verification
+
+- Local `npm run verify`: lint, strict TypeScript, 47 Vitest files / 395 tests, manifest validator 33/33, 30 asset IDs, production build, 60/60 general Playwright, and 5/5 production cold-load tests passed.
+- Baseline commit `6c80e98`: push quality run `29743295721`, PR quality run `29743299219`, and visual run `29743295715` passed.
+- Ubuntu visual run generated 72/72 canonical screenshots and passed 216/216 repeated comparisons. Artifact `8461530261` is 24,562,655 bytes with digest `sha256:6800d82922f9cc19905c63e9826ee6f7b0cc90d61a31300e5c752a646084af49`.
+- The downloaded artifact and tracked baselines are 72/72 byte-identical with zero changed, unexpected, or missing files. Manual desktop/mobile and reduced-motion review found no remaining P0/P1/P2 visual defect.
+
+final result: passed

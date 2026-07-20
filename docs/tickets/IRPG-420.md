@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Test
+- Status: Done
 - Skill tags: ENG-DATA, ENG-STATE, ENG-SAVE, GD-BAL, FE-GAME, QA-DOMAIN
 - Owner / Reviewer: Codex / independent economy and deterministic review
 
@@ -57,11 +57,11 @@
 
 - Review: IRPG-419 검증 뒤 독립 economy·determinism 리뷰를 완료했고 조작된 제작 시간 상한, bound 보스 stage 인과성, 명령 전 elapsed 정산과 1회성 완료 공지를 보강했다.
 - Verify: 재료/RNG 불변, 제작 원자성·시간 snapshot·exact-once 완료, 황금 스튜 1,800-round, 집중 물약 bind·승패 종료를 수용 기준에 매핑했다.
-- Test: 로컬 code·browser gate는 통과했고 Ubuntu canonical과 최종 GitHub quality gate를 기다린다.
+- Test: IRPG-419 Done 뒤 로컬 code·browser gate와 baseline commit `6c80e98`의 최종 GitHub 게이트를 통과했다.
 
 ## Test evidence
 
 - `src/game/campCrafting.test.ts` 포함 targeted Vitest — 8 files·51 tests 통과
 - 고정 재료와 RNG 불변, 레시피 비용·단일 job·시작 시간 snapshot, 999+1ms 단일 완료, 1,800-round 황금 스튜, 동일 RNG draw의 다음 보스 15→35% 집중 효과를 포함한다.
 - 전체 로컬 증거: Vitest 47 files·395 tests, 일반 Playwright 60 tests, production cold-load 5 tests, lint·typecheck·build·asset gate 통과. 앱 종료 중 저장된 제작 job 완료와 reload 무중복 흐름을 브라우저에서 검증했다.
-- canonical screenshot과 최종 CI — pending
+- canonical/CI 증거: push quality `29743295721`, PR quality `29743299219`, visual `29743295715` 성공. 전체 18 fixture·72 screenshot과 3회 반복 216개가 통과했고 artifact `8461530261`은 체크인 기준선과 72/72 byte-identical이다.

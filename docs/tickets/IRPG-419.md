@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Test
+- Status: Done
 - Skill tags: GD-BAL, ENG-STATE, ENG-SAVE, FE-GAME, QA-DOMAIN
 - Owner / Reviewer: Codex / independent balance and domain review
 
@@ -55,11 +55,11 @@
 
 - Review: 독립 balance·domain 리뷰를 완료했고 debug offline도 실제 텐트 상한과 같은 engine path를 사용하도록 통일했으며 A/B·portable·환생 보존과 비용/잠금/MAX 문구를 대조했다.
 - Verify: 고정 비용·효과 selector, 캠프 전용 원자 거래, 파생 능력치 마지막 flat 항, 텐트별 offline clamp와 시작 당시 작업대 시간 snapshot을 수용 기준에 매핑했다.
-- Test: 로컬 code·browser gate는 통과했고 Ubuntu canonical과 최종 GitHub quality gate를 기다린다.
+- Test: IRPG-418 Done 뒤 로컬 code·browser gate와 baseline commit `6c80e98`의 최종 GitHub 게이트를 통과했다.
 
 ## Test evidence
 
 - `npm run typecheck` — 통과
 - `node node_modules/vitest/vitest.mjs run src/game/campFacilities.test.ts src/game/campPersistence.test.ts src/components/GameScreen.test.tsx src/hooks/useGame.test.tsx` — 4 files·24 tests 통과
 - 전체 로컬 증거: Vitest 47 files·395 tests, 일반 Playwright 60 tests, production cold-load 5 tests, lint·typecheck·build·asset gate 통과. 통합 브라우저에서 텐트 Lv.4→5, 공격 훈련, 비용·MAX 문구와 저장 복원을 조작했다.
-- canonical screenshot과 최종 CI — pending
+- canonical/CI 증거: push quality `29743295721`, PR quality `29743299219`, visual `29743295715` 성공. 전체 18 fixture·72 screenshot과 3회 반복 216개가 통과했고 artifact `8461530261`은 체크인 기준선과 72/72 byte-identical이다.
