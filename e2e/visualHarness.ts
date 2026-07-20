@@ -65,11 +65,9 @@ async function waitForVisualResources(page: Page, target: Locator) {
 async function alignVisualCaptureTarget(page: Page, target: Locator) {
   await target.evaluate((element) => {
     const rect = element.getBoundingClientRect()
-    window.scrollTo({
-      top: window.scrollY + rect.top,
-      left: window.scrollX + rect.left,
-      behavior: 'instant',
-    })
+    // Use the numeric overload so CSS `scroll-behavior: smooth` cannot retain
+    // a transient horizontal position inherited from lazy asset activation.
+    window.scrollTo(0, window.scrollY + rect.top)
   })
   await page.evaluate(() => new Promise<void>((resolve) => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()))

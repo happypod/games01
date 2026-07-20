@@ -75,5 +75,6 @@
 - 일반 Playwright 55/55와 production cold-load 5/5가 통과했다. 저장 pending 전장 노출→3건 열기→rapid exact-once 선택→전장 복귀, 유형 1·2 damage label, 360×800 44px 토글·페이지 overflow를 포함한다.
 - 실제 저장 화면에서 접힌 상태의 영웅·동료·적·VFX·`갑옷 균열`·`원정 이벤트 2건 보기`를 확인했고, 열기/닫기 시 overlay 1→0, base inert on→off, 선택 미실행을 확인했다.
 - Ubuntu canonical 68개 비교와 의도된 `visual.events.tactical-overlay` 4개 baseline 교체는 GitHub Actions artifact 수용 후 Test 단계에서 기록한다.
+- 최초 Ubuntu run `29718845176`은 기존 mobile fixture를 수평 정렬하며 `← 이전`을 -10px로 이동시킨 visual harness 결함을 발견했다. artifact `8451554924`의 SHA-256 `2d4634eeabee6689fed80ec54595ecabcb8a7f09922bc7799ea456e8bb02eea3`을 검증한 뒤, 캡처 정렬을 세로 전용으로 제한해 실제 page-level 무-overflow 좌표를 보존했다.
 
 - 자동·브라우저·canonical screenshot 결과는 Test 단계에서 기록한다.

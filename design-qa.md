@@ -138,3 +138,4 @@ final result: passed
 - P2 discoverability: added a persistent count action and textual armor-state label so the IRPG-416 work is visible without a debug fixture.
 - P2 mobile geometry: verified the control boundary at 360×800 and retained intentional clipped actor art without page-level horizontal overflow.
 - Desktop geometry follow-up measured `body/html scrollWidth === clientWidth === 1280`; the apparent right-edge crop in the combined review image was screenshot presentation, not application overflow.
+- Ubuntu artifact review found the visual harness itself could horizontally scroll a mobile capture target and manufacture a -10px clipped command despite zero document overflow. Capture alignment now resets `scrollX` to zero and adjusts only the vertical position.
