@@ -765,11 +765,16 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
       ...imageOutputs('region.forgotten-caldera'),
     ])
     const companionOutputs = imageOutputs('companion.ember-fox.default')
+    const eclipseDamageOutputs = new Set([
+      ...imageOutputs('boss.eclipse-knight.damaged'),
+      ...imageOutputs('boss.eclipse-knight.severe'),
+    ])
     expect(companionOutputs.size).toBe(1)
     const allTacticalOnlyOutputs = new Set([
       ...activeRegionOutputs,
       ...inactiveRegionOutputs,
       ...companionOutputs,
+      ...eclipseDamageOutputs,
     ])
 
     await page.goto('/', { waitUntil: 'networkidle' })
@@ -794,12 +799,17 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
     const activeRegionRequests = intersection(activeRegionOutputs, requestedImageFiles)
     const inactiveRegionRequests = intersection(inactiveRegionOutputs, requestedImageFiles)
     const companionRequests = intersection(companionOutputs, requestedImageFiles)
+    const eclipseDamageRequests = intersection(
+      eclipseDamageOutputs,
+      requestedImageFiles,
+    )
     await testInfo.attach('irpg-415-tactical-lazy-load.json', {
       body: Buffer.from(JSON.stringify({
         initialTacticalRequests,
         activeRegionRequests,
         inactiveRegionRequests,
         companionRequests,
+        eclipseDamageRequests,
         companionState: 'recruited-rank-2',
       }, null, 2)),
       contentType: 'application/json',
@@ -808,6 +818,7 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
     expect(activeRegionRequests).toEqual([...activeRegionOutputs].sort())
     expect(inactiveRegionRequests).toEqual([])
     expect(companionRequests).toEqual([...companionOutputs].sort())
+    expect(eclipseDamageRequests).toEqual([])
   } finally {
     await context.close()
   }

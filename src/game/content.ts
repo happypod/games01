@@ -3,6 +3,7 @@ import type {
   CompanionId,
   EnemyAssetId,
   EnemyDefinition,
+  EnemyPresentationAssetId,
   ExpeditionChoiceId,
   ExpeditionDefinitionId,
   ExpeditionDefinitionIdV1,
@@ -226,6 +227,11 @@ const BOSS_ASSET_IDS = [
   'boss.forgotten-dragon',
 ] as const satisfies readonly EnemyAssetId[]
 
+const ECLIPSE_KNIGHT_DAMAGE_ASSET_IDS = {
+  damaged: 'boss.eclipse-knight.damaged',
+  severe: 'boss.eclipse-knight.severe',
+} as const
+
 const bounded = (value: number, maximum: number) =>
   Math.min(maximum, Math.max(1, Math.round(value)))
 
@@ -267,4 +273,26 @@ export function getEnemyDefinition(rawStage: number): EnemyDefinition {
     goldReward: bounded(9 * 1.115 ** (stage - 1) * (isBoss ? 4 : 1), Number.MAX_SAFE_INTEGER),
     xpReward: bounded(7 * 1.1 ** (stage - 1) * (isBoss ? 3 : 1), Number.MAX_SAFE_INTEGER),
   }
+}
+
+export function getEnemyPresentationAssetId(
+  assetId: EnemyAssetId,
+  currentHp: number,
+  maximumHp: number,
+): EnemyPresentationAssetId {
+  if (assetId !== 'boss.eclipse-knight') return assetId
+  if (
+    !Number.isFinite(currentHp) ||
+    !Number.isFinite(maximumHp) ||
+    maximumHp <= 0 ||
+    currentHp < 0 ||
+    currentHp > maximumHp
+  ) {
+    return assetId
+  }
+
+  const hpRatio = currentHp / maximumHp
+  if (hpRatio < 0.3) return ECLIPSE_KNIGHT_DAMAGE_ASSET_IDS.severe
+  if (hpRatio < 0.7) return ECLIPSE_KNIGHT_DAMAGE_ASSET_IDS.damaged
+  return assetId
 }

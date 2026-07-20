@@ -89,6 +89,16 @@ const EXPECTED_FIXTURES = {
     hash: 'fnv1a32-v1:42de094f',
     seed: 878861757,
   },
+  'visual.dashboard.tactical-damaged': {
+    stage: 20,
+    hash: 'fnv1a32-v1:dc28bc92',
+    seed: 863484587,
+  },
+  'visual.dashboard.tactical-severe': {
+    stage: 20,
+    hash: 'fnv1a32-v1:3b1c62d2',
+    seed: 1109974916,
+  },
   'visual.events.tactical-overlay': {
     stage: 30,
     hash: 'fnv1a32-v1:64bf7fd5',
@@ -111,8 +121,8 @@ describe('IRPG-506 named visual fixtures', () => {
   it('pins the fixture states and their canonical metadata', () => {
     expect(VISUAL_FIXTURE_IDS).toEqual(Object.keys(EXPECTED_FIXTURES))
     expect(VISUAL_FIXTURE_NOW).toBe(1_767_225_600_000)
-    expect(VISUAL_FIXTURE_IDS).toHaveLength(15)
-    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(60)
+    expect(VISUAL_FIXTURE_IDS).toHaveLength(17)
+    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(68)
     expect(VISUAL_FIXTURE_VARIANTS).toEqual([
       {
         id: 'mobile-default',
@@ -151,7 +161,10 @@ describe('IRPG-506 named visual fixtures', () => {
 
       expect(definition).toMatchObject({
         id,
-        ownerTicket: id === 'visual.dashboard.tactical-canvas' ||
+        ownerTicket: id === 'visual.dashboard.tactical-damaged' ||
+          id === 'visual.dashboard.tactical-severe'
+          ? 'IRPG-416'
+          : id === 'visual.dashboard.tactical-canvas' ||
           id === 'visual.events.tactical-overlay'
           ? 'IRPG-415'
           : id === 'visual.dashboard.one-view'
@@ -168,7 +181,10 @@ describe('IRPG-506 named visual fixtures', () => {
               ? 'IRPG-411'
             : 'IRPG-506',
         stage: expected.stage,
-        seedKey: id === 'visual.dashboard.tactical-canvas'
+        seedKey: id === 'visual.dashboard.tactical-damaged' ||
+          id === 'visual.dashboard.tactical-severe'
+          ? `irpg-416:${id}:v1`
+          : id === 'visual.dashboard.tactical-canvas'
           ? 'irpg-415:visual.dashboard.tactical-canvas:v1'
           : id === 'visual.events.tactical-overlay'
             ? 'irpg-415:visual.events.tactical-overlay:v1'
@@ -191,7 +207,11 @@ describe('IRPG-506 named visual fixtures', () => {
             id === 'visual.dashboard.tactical-canvas'
             ? 11
             : expected.stage,
-          enemyHp: getEnemyDefinition(expected.stage).maxHp,
+          enemyHp: id === 'visual.dashboard.tactical-damaged'
+            ? Math.floor(getEnemyDefinition(expected.stage).maxHp * 0.5)
+            : id === 'visual.dashboard.tactical-severe'
+              ? Math.floor(getEnemyDefinition(expected.stage).maxHp * 0.15)
+              : getEnemyDefinition(expected.stage).maxHp,
           roundRemainderMs: 0,
         },
       })
@@ -426,6 +446,21 @@ describe('IRPG-506 named visual fixtures', () => {
     })
     expect(tacticalState.player.currentHp)
       .toBe(Math.floor(getHeroStats(tacticalState).maxHp * 0.82))
+
+    const damagedState = createVisualFixtureState(
+      'visual.dashboard.tactical-damaged',
+    )
+    const severeState = createVisualFixtureState(
+      'visual.dashboard.tactical-severe',
+    )
+    expect(damagedState.battle).toMatchObject({ stage: 20, highestStage: 20 })
+    expect(severeState.battle).toMatchObject({ stage: 20, highestStage: 20 })
+    expect(damagedState.battle.enemyHp).toBe(
+      Math.floor(getEnemyDefinition(20).maxHp * 0.5),
+    )
+    expect(severeState.battle.enemyHp).toBe(
+      Math.floor(getEnemyDefinition(20).maxHp * 0.15),
+    )
   })
 
   it('sorts every object level before hashing and returns fresh states', () => {

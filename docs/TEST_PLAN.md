@@ -158,6 +158,8 @@ npm run test:e2e:visual
 
 로컬 전체 게이트는 `npm run verify`다. 브라우저 제외 게이트는 `npm run verify:code`다. canonical screenshot 비교는 Ubuntu GitHub Actions 전용이며 로컬에서는 건너뛴다. IRPG-415 Test 게이트는 기존 13개 fixture·52개 기준선을 수정하지 않고 `visual.dashboard.tactical-canvas`와 `visual.events.tactical-overlay`의 4개 variant씩을 추가해 15개 fixture·60개 canonical screenshot, 같은 runner 3회 반복 180개를 목표로 한다. 각 variant는 먼저 정확한 360×800·1440×900에서 geometry·overflow·명령·motion을 검증하고, target이 viewport보다 길면 폭·DPR·media를 유지한 `captureViewport`로 높이만 늘려 full-surface를 캡처한다. artifact metadata는 `layoutViewport`·`captureViewport`·`expanded`를 구분한다. CI는 Chromium과 시스템 의존성을 설치한 뒤 worker 1개로 실행하며, 실패한 Playwright trace·screenshot·video와 HTML report를 artifact로 보존한다. 티켓을 Done으로 옮길 때 명령, 통과 결과, 필요한 수동 증거를 `Test evidence`에 남긴다.
 
+IRPG-416 Test 게이트는 기존 15개 fixture·60개 기준선을 그대로 보존하고 `visual.dashboard.tactical-damaged`와 `visual.dashboard.tactical-severe`의 4개 variant씩을 추가해 17개 fixture·68개 canonical screenshot, 같은 runner 3회 반복 204개를 요구한다. 단위 검사는 HP 70%·30% 경계와 잘못된 HP fail-safe, skill·critical 단일 primary popup, companion 별도 popup, boss/rank 필살기 조건, 실제 `advanceGame` kill·bossVictory snapshot의 다음 적 target 격리, popup 종료의 900ms scene 경계, scene 재생 중 저장 상태 불변을 고정한다. 일반 Playwright는 유형 1·2 damage asset 일치, 새 writer event의 공격·피격·협공·popup·flash, 360px reduced-motion 정적 수치와 overflow, effective 360px/200%에서 Damaged 초상과 정적 popup의 동시 배치를 검사한다. production 자산 Playwright는 stage 1 cold load에서 damage variant 요청이 0개인지 확인한다.
+
 ## 8. 현재 브라우저 증거
 
 - [데스크톱 전체 화면](../artifacts/desktop.png): 주요 패널, 보스 전투, 성장 버튼 렌더링 확인

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { setDebugStage } from '../src/debug/debugSession'
 import { getEnemyDefinition } from '../src/game/content'
 import { createInitialState } from '../src/game/engine'
 import { SAVE_FORMAT_VERSION, SAVE_SLOT_A_KEY } from '../src/game/persistence'
@@ -24,7 +25,7 @@ async function applyFixture(page: Page, id: string) {
   const fixtureSelect = panel.getByLabel('시각 회귀 fixture')
   await fixtureSelect.selectOption(id)
   await expect(fixtureSelect).toHaveValue(id)
-  await panel.getByRole('button', { name: 'fixture 적용' }).click()
+  await panel.getByRole('button', { name: 'fixture 적용' }).press('Enter')
   await expect(page.getByTestId('visual-fixture-root')).toHaveAttribute(
     'data-visual-fixture-id',
     id,
@@ -40,7 +41,42 @@ async function settleImagePaint(page: Page) {
   )
 }
 
-test.describe('IRPG-415 selectable layouts', () => {
+test.describe('IRPG-415/416 selectable layouts and tactical motion', () => {
+  for (const damageFixture of [
+    {
+      id: 'visual.dashboard.tactical-damaged',
+      assetId: 'boss.eclipse-knight.damaged',
+    },
+    {
+      id: 'visual.dashboard.tactical-severe',
+      assetId: 'boss.eclipse-knight.severe',
+    },
+  ] as const) {
+    test(`uses ${damageFixture.assetId} in both layout types`, async ({ page }) => {
+      await enterDebugSession(page)
+      await applyFixture(page, damageFixture.id)
+
+      const root = page.getByTestId('visual-fixture-root')
+      const dashboardAsset = page.locator('.enemy-portrait__asset')
+      await expect(dashboardAsset).toHaveAttribute('data-asset-id', damageFixture.assetId)
+      await expect(dashboardAsset).toHaveAttribute('data-state', 'loaded')
+
+      await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
+      const canvas = page.getByTestId('tactical-canvas')
+      await expect(canvas).toHaveAttribute('data-enemy-asset-id', damageFixture.assetId)
+      await expect(canvas.locator('.tactical-actor__asset--enemy'))
+        .toHaveAttribute('data-asset-id', damageFixture.assetId)
+      await expect(canvas.locator('.tactical-actor__asset--enemy'))
+        .toHaveAttribute('data-state', 'loaded')
+      await expect(root).toHaveAttribute(
+        'data-canonical-state-hash',
+        damageFixture.id.endsWith('damaged')
+          ? 'fnv1a32-v1:dc28bc92'
+          : 'fnv1a32-v1:3b1c62d2',
+      )
+    })
+  }
+
   test('defaults safely to type 1 and restores only a valid type 2 preference', async ({ page }) => {
     await expectReady(page)
 
@@ -395,6 +431,20 @@ test.describe('IRPG-415 selectable layouts', () => {
     await page.clock.setFixedTime(new Date(startedAt.getTime() + 1_000))
     await expect(canvas).toHaveAttribute('data-scene-id', /.+/)
     await expect(canvas.locator('.tactical-cue')).toHaveClass(/tactical-cue--active/)
+    await expect(canvas.locator('.tactical-actor__asset--hero'))
+      .toHaveClass(/tactical-motion--hero-attack/)
+    await expect(canvas.locator('.tactical-actor__asset--enemy'))
+      .toHaveClass(/tactical-motion--enemy-hit/)
+    await expect(canvas.locator('.tactical-companion__asset'))
+      .toHaveClass(/tactical-motion--companion-assist/)
+    const damageLayer = canvas.getByTestId('tactical-damage-layer')
+    await expect(damageLayer).toHaveAttribute('aria-hidden', 'true')
+    await expect(damageLayer.locator('.tactical-damage-popup')).toHaveCount(2)
+    await expect(damageLayer.locator('[data-popup-source="hero"]')).toHaveCount(1)
+    await expect(damageLayer.locator('[data-popup-source="companion"]')).toHaveCount(1)
+    await expect(damageLayer.locator('[aria-live], [role="status"]')).toHaveCount(0)
+    await expect(canvas.getByTestId('tactical-ultimate-flash'))
+      .toHaveAttribute('aria-hidden', 'true')
     await settleImagePaint(page)
 
     const geometry = await page.evaluate(() => {
@@ -411,6 +461,94 @@ test.describe('IRPG-415 selectable layouts', () => {
     expect(geometry.canvasBottom).toBeLessThanOrEqual(geometry.viewportHeight)
     expect(geometry.dockBottom).toBeLessThanOrEqual(geometry.viewportHeight)
     await testInfo.attach('irpg-415-active-tactical-vfx.png', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    })
+  })
+
+  test('keeps a damaged portrait and active cues static at effective 360px and 200% zoom', async ({ page }, testInfo) => {
+    const startedAt = new Date('2026-07-19T01:00:00.000Z')
+    const seeded = setDebugStage(
+      createInitialState(startedAt.getTime(), 0x416_0403),
+      20,
+    )
+    seeded.player.skills.powerStrike = 1
+    seeded.player.companion = { id: 'emberFox', rank: 1 }
+    seeded.battle.enemyHp = Math.floor(getEnemyDefinition(20).maxHp * 0.5)
+    seeded.battle.powerStrikeCooldownMs = 0
+    seeded.battle.companionCooldownMs = 0
+    seeded.claimedBossMilestoneMask = 1
+    const serialized = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 1,
+      savedAt: seeded.lastSavedAt,
+      state: seeded,
+    })
+
+    await page.setViewportSize({ width: 720, height: 900 })
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.clock.setFixedTime(startedAt)
+    await page.addInitScript(
+      ({ key, value }) => window.localStorage.setItem(key, value),
+      { key: SAVE_SLOT_A_KEY, value: serialized },
+    )
+    await expectReady(page)
+    await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
+    await page.evaluate(() => {
+      document.documentElement.style.zoom = '2'
+    })
+
+    const canvas = page.getByTestId('tactical-canvas')
+    await page.clock.setFixedTime(new Date(startedAt.getTime() + 1_000))
+    await expect(canvas).toHaveAttribute('data-scene-id', /.+/)
+    await expect(canvas).toHaveAttribute(
+      'data-enemy-asset-id',
+      'boss.eclipse-knight.damaged',
+    )
+    const damageLayer = canvas.getByTestId('tactical-damage-layer')
+    await expect(damageLayer.locator('.tactical-damage-popup')).toHaveCount(2)
+    const audit = await page.evaluate(() => {
+      const canvasElement = document.querySelector<HTMLElement>('.tactical-canvas')!
+      const canvasRect = canvasElement.getBoundingClientRect()
+      const popupRects = [...document.querySelectorAll<HTMLElement>('.tactical-damage-popup')]
+        .map((popup) => {
+          const style = getComputedStyle(popup)
+          const rect = popup.getBoundingClientRect()
+          return {
+            left: rect.left,
+            right: rect.right,
+            opacity: style.opacity,
+            animationName: style.animationName,
+          }
+        })
+      const heroStyle = getComputedStyle(
+        document.querySelector<HTMLElement>('.tactical-actor__asset--hero')!,
+      )
+      const flashStyle = getComputedStyle(
+        document.querySelector<HTMLElement>('.tactical-ultimate-flash')!,
+      )
+      return {
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        canvasLeft: canvasRect.left,
+        canvasRight: canvasRect.right,
+        popupRects,
+        heroAnimationName: heroStyle.animationName,
+        flashDisplay: flashStyle.display,
+      }
+    })
+
+    expect(audit.scrollWidth).toBeLessThanOrEqual(audit.clientWidth)
+    expect(audit.heroAnimationName).toBe('none')
+    expect(audit.flashDisplay).toBe('none')
+    expect(audit.popupRects).toHaveLength(2)
+    for (const popup of audit.popupRects) {
+      expect(popup.animationName).toBe('none')
+      expect(popup.opacity).toBe('1')
+      expect(popup.left).toBeGreaterThanOrEqual(audit.canvasLeft - 1)
+      expect(popup.right).toBeLessThanOrEqual(audit.canvasRight + 1)
+    }
+    await testInfo.attach('irpg-416-damaged-vfx-200-percent.png', {
       body: await canvas.screenshot({ animations: 'disabled' }),
       contentType: 'image/png',
     })

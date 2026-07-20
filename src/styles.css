@@ -1002,10 +1002,30 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   border-radius: 48% 48% 14% 14%;
   box-shadow: 0 25px 55px rgba(0,0,0,.42);
   mask-image: radial-gradient(ellipse 69% 64% at 50% 49%, #000 51%, rgba(0,0,0,.92) 67%, transparent 94%);
+  transform-origin: 50% 82%;
+  will-change: transform, filter, opacity;
 }
-.tactical-actor__asset--hero { left: 3%; }
-.tactical-actor__asset--enemy { right: 3%; }
+.tactical-actor__asset--hero {
+  left: 3%;
+  animation: tactical-hero-idle 3.2s ease-in-out infinite;
+}
+.tactical-actor__asset--enemy {
+  right: 3%;
+  animation: tactical-enemy-idle 2.8s ease-in-out -1.1s infinite;
+}
 .tactical-actor--enemy .tactical-actor__asset { border-color: rgba(217,93,84,.12); }
+.tactical-motion--hero-attack {
+  animation: tactical-hero-attack .62s cubic-bezier(.2,.78,.22,1) both !important;
+}
+.tactical-motion--hero-hit {
+  animation: tactical-hero-hit .65s ease-out both !important;
+}
+.tactical-motion--enemy-hit {
+  animation: tactical-enemy-hit .62s ease-out both !important;
+}
+.tactical-motion--enemy-defeated {
+  animation: tactical-enemy-defeated .9s ease-out both !important;
+}
 .tactical-actor__copy {
   position: absolute;
   z-index: 2;
@@ -1045,12 +1065,155 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
 }
 .tactical-companion--assist { transform: translateX(30px); border-color: rgba(104,201,180,.7); }
 .tactical-companion__asset { width: 72px; border-radius: 8px; }
+.tactical-companion__asset.tactical-motion--companion-assist {
+  animation: tactical-companion-assist .65s cubic-bezier(.18,.82,.2,1) both !important;
+}
 .tactical-companion span,
 .tactical-companion strong { display: block; overflow-wrap: anywhere; }
 .tactical-companion span { color: #aee3d7; font-size: 8px; line-height: 1.35; }
 .tactical-companion strong { margin-top: 4px; color: #e4eee9; font-size: 10px; }
 .tactical-companion .mini-track { margin-top: 7px; }
 .tactical-companion .mini-track span { background: var(--teal); }
+
+.tactical-ultimate-flash {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 43% 48%, rgba(238,125,61,.24), transparent 23%),
+    linear-gradient(rgba(5,4,4,.58), rgba(9,6,5,.34));
+  animation: tactical-ultimate-flash .9s ease-out both;
+}
+.tactical-ultimate-flash::after {
+  content: '';
+  position: absolute;
+  width: min(54vw, 620px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(255,172,99,.28);
+  border-radius: 50%;
+  box-shadow: 0 0 80px rgba(238,125,61,.26), inset 0 0 80px rgba(238,125,61,.15);
+}
+.tactical-ultimate-flash__art {
+  position: absolute !important;
+  left: 29%;
+  top: 47%;
+  translate: -50% -50%;
+  width: clamp(88px, 10vw, 142px);
+  border: 1px solid rgba(255,188,116,.46);
+  border-radius: 50%;
+  opacity: .84;
+  filter: saturate(1.2) drop-shadow(0 0 34px rgba(238,125,61,.52));
+}
+.tactical-ultimate-flash > span {
+  position: absolute;
+  left: 29%;
+  top: calc(47% + clamp(58px, 7vw, 88px));
+  translate: -50% 0;
+  color: #ffd6a4;
+  font-size: clamp(10px, 1.1vw, 14px);
+  font-weight: 800;
+  letter-spacing: .22em;
+  text-shadow: 0 0 20px rgba(238,125,61,.72);
+}
+
+.tactical-damage-layer {
+  position: absolute;
+  z-index: 7;
+  inset: 86px 22px 116px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tactical-damage-popup {
+  position: absolute;
+  top: 37%;
+  right: 20%;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  color: #ffd6a4;
+  font: 900 clamp(25px, 3.2vw, 46px)/1 'Emberwatch Sans', sans-serif;
+  letter-spacing: -.035em;
+  text-shadow: 0 2px 0 #6e291a, 0 0 20px rgba(238,125,61,.72);
+  filter: drop-shadow(0 8px 14px rgba(0,0,0,.44));
+  opacity: 0;
+  animation-name: tactical-damage-rise;
+  animation-duration: .6s;
+  animation-timing-function: cubic-bezier(.16,.76,.22,1);
+  animation-delay: .06s;
+  animation-fill-mode: both;
+}
+.tactical-damage-popup small {
+  color: #ffb75e;
+  font-size: .34em;
+  letter-spacing: .12em;
+}
+.tactical-damage-popup--critical {
+  color: #ffe493;
+  font-size: clamp(34px, 4.3vw, 62px);
+  text-shadow: 0 2px 0 #7f2d16, 0 0 28px rgba(255,166,65,.86);
+}
+.tactical-damage-popup--companionAssist {
+  top: 54%;
+  right: 27%;
+  color: #aee3d7;
+  font-size: clamp(19px, 2.2vw, 31px);
+  text-shadow: 0 2px 0 #17483f, 0 0 19px rgba(104,201,180,.62);
+}
+
+@keyframes tactical-hero-idle {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.008); }
+}
+@keyframes tactical-enemy-idle {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.006); }
+}
+@keyframes tactical-hero-attack {
+  0%, 100% { transform: translateX(0) translateY(0) scale(1); filter: brightness(1); }
+  20% { transform: translateX(-8px) translateY(2px) scale(.99); }
+  48% { transform: translateX(clamp(28px, 4vw, 58px)) translateY(-3px) scale(1.045); filter: brightness(1.16); }
+  68% { transform: translateX(clamp(18px, 2.5vw, 38px)) translateY(0) scale(1.018); }
+}
+@keyframes tactical-hero-hit {
+  0%, 100% { transform: translateX(0) scale(1); filter: brightness(1); }
+  18% { transform: translateX(-11px) rotate(-1.3deg) scale(.99); filter: brightness(1.28) saturate(.7); }
+  34% { transform: translateX(8px) rotate(.8deg); }
+  48% { transform: translateX(-5px) rotate(-.4deg); }
+}
+@keyframes tactical-enemy-hit {
+  0%, 100% { transform: translateX(0) scale(1); filter: brightness(1); }
+  16% { transform: translateX(13px) rotate(1.4deg) scale(.985); filter: brightness(1.38) saturate(.72); }
+  29% { transform: translateX(-9px) rotate(-1deg); }
+  43% { transform: translateX(6px) rotate(.6deg); }
+  57% { transform: translateX(-3px); }
+}
+@keyframes tactical-enemy-defeated {
+  0% { transform: translateY(0) scale(1); opacity: 1; filter: brightness(1); }
+  24% { transform: translateX(9px) rotate(1.2deg) scale(.99); filter: brightness(1.2); }
+  100% { transform: translateY(13px) rotate(1.8deg) scale(.96); opacity: .56; filter: brightness(.68) saturate(.72); }
+}
+@keyframes tactical-companion-assist {
+  0%, 100% { transform: translateX(0) scale(1); filter: brightness(1); }
+  44% { transform: translateX(34px) translateY(-5px) scale(1.08); filter: brightness(1.24); }
+  67% { transform: translateX(20px) translateY(-2px) scale(1.03); }
+}
+@keyframes tactical-ultimate-flash {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  48% { opacity: .92; }
+  100% { opacity: 0; }
+}
+@keyframes tactical-damage-rise {
+  0% { opacity: 0; transform: translateY(18px) scale(.78); }
+  18% { opacity: 1; transform: translateY(0) scale(1.08); }
+  68% { opacity: 1; transform: translateY(-28px) scale(1); }
+  100% { opacity: 0; transform: translateY(-52px) scale(.94); }
+}
 
 .tactical-cue {
   position: absolute;
@@ -1215,15 +1378,19 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
 [data-visual-fixture-id='visual.dashboard.one-view'] .dashboard-alerts,
 [data-visual-fixture-id='visual.dashboard.tactical-canvas'] .debug-panel,
 [data-visual-fixture-id='visual.dashboard.tactical-canvas'] .dashboard-alerts,
+[data-visual-fixture-id='visual.dashboard.tactical-damaged'] .debug-panel,
+[data-visual-fixture-id='visual.dashboard.tactical-damaged'] .dashboard-alerts,
+[data-visual-fixture-id='visual.dashboard.tactical-severe'] .debug-panel,
+[data-visual-fixture-id='visual.dashboard.tactical-severe'] .dashboard-alerts,
 [data-visual-fixture-id='visual.events.tactical-overlay'] .debug-panel,
 [data-visual-fixture-id='visual.events.tactical-overlay'] .dashboard-alerts {
   display: none !important;
 }
 
 /* Keep the pre-IRPG-415 component fixtures on their original page geometry.
-   The two tactical fixtures exercise the selector itself; established fixtures
+   Tactical fixtures exercise the selector and damage states; established fixtures
    continue to isolate their existing capture targets and baseline crop phase. */
-[data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.tactical-canvas']):not([data-visual-fixture-id='visual.events.tactical-overlay']) .topbar__layout {
+[data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.tactical-canvas']):not([data-visual-fixture-id='visual.dashboard.tactical-damaged']):not([data-visual-fixture-id='visual.dashboard.tactical-severe']):not([data-visual-fixture-id='visual.events.tactical-overlay']) .topbar__layout {
   display: none;
 }
 
@@ -1231,6 +1398,12 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   html:has([data-visual-fixture-id='visual.dashboard.tactical-canvas']),
   body:has([data-visual-fixture-id='visual.dashboard.tactical-canvas']),
   #root:has([data-visual-fixture-id='visual.dashboard.tactical-canvas']),
+  html:has([data-visual-fixture-id='visual.dashboard.tactical-damaged']),
+  body:has([data-visual-fixture-id='visual.dashboard.tactical-damaged']),
+  #root:has([data-visual-fixture-id='visual.dashboard.tactical-damaged']),
+  html:has([data-visual-fixture-id='visual.dashboard.tactical-severe']),
+  body:has([data-visual-fixture-id='visual.dashboard.tactical-severe']),
+  #root:has([data-visual-fixture-id='visual.dashboard.tactical-severe']),
   html:has([data-visual-fixture-id='visual.events.tactical-overlay']),
   body:has([data-visual-fixture-id='visual.events.tactical-overlay']),
   #root:has([data-visual-fixture-id='visual.events.tactical-overlay']) {
@@ -1238,12 +1411,16 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
     overflow: hidden !important;
   }
   [data-visual-fixture-id='visual.dashboard.tactical-canvas'] .app-shell,
+  [data-visual-fixture-id='visual.dashboard.tactical-damaged'] .app-shell,
+  [data-visual-fixture-id='visual.dashboard.tactical-severe'] .app-shell,
   [data-visual-fixture-id='visual.events.tactical-overlay'] .app-shell {
     height: 100dvh !important;
     min-height: 0 !important;
     overflow: hidden !important;
   }
   [data-visual-fixture-id='visual.dashboard.tactical-canvas'] .game-main,
+  [data-visual-fixture-id='visual.dashboard.tactical-damaged'] .game-main,
+  [data-visual-fixture-id='visual.dashboard.tactical-severe'] .game-main,
   [data-visual-fixture-id='visual.events.tactical-overlay'] .game-main {
     height: auto !important;
     overflow: hidden !important;
@@ -1265,7 +1442,7 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .topbar__layout { grid-column: 1 / -1; grid-row: 3; width: 100%; }
   .layout-mode-selector__option { min-width: 0; }
   .topbar__campaign { grid-row: 4; }
-  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.tactical-canvas']):not([data-visual-fixture-id='visual.events.tactical-overlay']) .topbar__campaign {
+  [data-visual-fixture-id]:not([data-visual-fixture-id='visual.dashboard.tactical-canvas']):not([data-visual-fixture-id='visual.dashboard.tactical-damaged']):not([data-visual-fixture-id='visual.dashboard.tactical-severe']):not([data-visual-fixture-id='visual.events.tactical-overlay']) .topbar__campaign {
     grid-row: 3;
   }
   .tactical-canvas { min-height: 760px; }
@@ -1284,6 +1461,11 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   .tactical-cue { top: 52%; width: 46%; min-height: 92px; padding: 8px; }
   .tactical-cue__skill-art { flex-basis: 44px; width: 44px; }
   .tactical-cue span { font-size: 25px; }
+  .tactical-damage-layer { inset: 80px 10px 132px; }
+  .tactical-damage-popup { top: 41%; right: 9%; }
+  .tactical-damage-popup--companionAssist { top: 55%; right: 19%; }
+  .tactical-ultimate-flash__art { left: 27%; top: 50%; width: 82px; }
+  .tactical-ultimate-flash > span { left: 27%; top: calc(50% + 56px); }
   .tactical-canvas__status { width: calc(100% - 24px); }
   .tactical-timeline { left: 9px; right: 9px; bottom: 9px; gap: 7px; padding: 8px; }
   .tactical-event-overlay { inset: 70px 7px 7px; padding: 7px; }
@@ -1292,4 +1474,19 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+  .tactical-motion--hero-attack,
+  .tactical-motion--hero-hit,
+  .tactical-motion--enemy-hit,
+  .tactical-motion--enemy-defeated,
+  .tactical-companion__asset.tactical-motion--companion-assist {
+    animation: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .tactical-ultimate-flash { display: none !important; }
+  .tactical-damage-popup {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
 }

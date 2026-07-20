@@ -27,13 +27,14 @@ Raster illustrations ship as WebP. SVG is limited to reviewed fallback or interf
 - The manifest is the only metadata source. Its declared dimensions and byte count must match the actual file header and file size.
 - Initial combat may request only the manifest runtime, fallbacks when needed, the current hero, and the current enemy. Regions, cards, results, and events load on first use.
 - A failed or missing image never blocks combat, saving, or navigation. The component retains the Korean text name and selects the matching `fallback.character`, `fallback.region`, `fallback.card`, or `fallback.result` visual.
+- HP damage variants are optional presentation-only IDs derived from the current stage and valid HP ratio; base enemy definitions and saves retain the normal portrait ID. Damage remains non-explicit: dented or fractured outer armor, soot, scratches, and weakened magic are allowed, while exposed body, sexualization, blood, gore, and dismemberment are not.
 
 ## Accessibility and motion
 
 - Meaningful images receive concise Korean alternative text from game content, not filenames. Decorative ambient layers use empty alternative text or `aria-hidden`.
 - Color is never the only distinction between hero, enemy, boss, locked, victory, and defeat states.
 - Essential labels remain visible at 200% zoom and 360 px width. Art crops with `object-fit: cover`; focal subjects stay within the safe areas above.
-- Placeholder and final assets are static. Later animation must honor `prefers-reduced-motion` and preserve the same still fallback.
+- Static assets may receive UI-only breathing, attack, hit, and floating-number transforms. Motion must honor `prefers-reduced-motion`, preserve a readable still cue, and never become the only carrier of combat meaning.
 
 ## Rights record
 

@@ -1,4 +1,5 @@
 import { createInitialState } from '../game/engine'
+import { getEnemyDefinition } from '../game/content'
 import { createExpeditionPendingEvent } from '../game/expedition'
 import { getHeroStats } from '../game/formulas'
 import { seedFromText } from '../game/rng'
@@ -27,6 +28,8 @@ export const VISUAL_FIXTURE_IDS = [
   'visual.result.defeat',
   'visual.dashboard.one-view',
   'visual.dashboard.tactical-canvas',
+  'visual.dashboard.tactical-damaged',
+  'visual.dashboard.tactical-severe',
   'visual.events.tactical-overlay',
 ] as const
 
@@ -55,8 +58,8 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414' | 'IRPG-415'
-  readonly stage: 1 | 3 | 5 | 10 | 30 | 105
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414' | 'IRPG-415' | 'IRPG-416'
+  readonly stage: 1 | 3 | 5 | 10 | 20 | 30 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
   readonly canonicalEventHash?: `fnv1a32-v1:${string}`
@@ -268,6 +271,30 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     seedKey: 'irpg-415:visual.dashboard.tactical-canvas:v1',
     canonicalHash: 'fnv1a32-v1:42de094f',
     canonicalEventHash: 'fnv1a32-v1:c306eb11',
+    captureTarget: '.tactical-canvas',
+    failureRoute: 'none',
+    setupAction: 'select-tactical-layout',
+    variants: VISUAL_VARIANT_IDS,
+  },
+  'visual.dashboard.tactical-damaged': {
+    id: 'visual.dashboard.tactical-damaged',
+    label: '통합 전술 캔버스 · 월식의 기사 손상',
+    ownerTicket: 'IRPG-416',
+    stage: 20,
+    seedKey: 'irpg-416:visual.dashboard.tactical-damaged:v1',
+    canonicalHash: 'fnv1a32-v1:dc28bc92',
+    captureTarget: '.tactical-canvas',
+    failureRoute: 'none',
+    setupAction: 'select-tactical-layout',
+    variants: VISUAL_VARIANT_IDS,
+  },
+  'visual.dashboard.tactical-severe': {
+    id: 'visual.dashboard.tactical-severe',
+    label: '통합 전술 캔버스 · 월식의 기사 심각 손상',
+    ownerTicket: 'IRPG-416',
+    stage: 20,
+    seedKey: 'irpg-416:visual.dashboard.tactical-severe:v1',
+    canonicalHash: 'fnv1a32-v1:3b1c62d2',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
     setupAction: 'select-tactical-layout',
@@ -515,7 +542,14 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
       },
     }
   }
-  if (id === 'visual.dashboard.one-view' || id === 'visual.dashboard.tactical-canvas') {
+  const isTacticalDamageFixture =
+    id === 'visual.dashboard.tactical-damaged' ||
+    id === 'visual.dashboard.tactical-severe'
+  if (
+    id === 'visual.dashboard.one-view' ||
+    id === 'visual.dashboard.tactical-canvas' ||
+    isTacticalDamageFixture
+  ) {
     state = {
       ...state,
       claimedBossMilestoneMask: 1,
@@ -532,7 +566,7 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
       },
       battle: {
         ...state.battle,
-        highestStage: 11,
+        highestStage: isTacticalDamageFixture ? 20 : 11,
         powerStrikeCooldownMs: 1_000,
         companionCooldownMs: 2_000,
         kills: 18,
@@ -563,6 +597,18 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
           )]
           : [],
         overflowCount: 0,
+      },
+    }
+  }
+  if (isTacticalDamageFixture) {
+    const enemy = getEnemyDefinition(state.battle.stage)
+    state = {
+      ...state,
+      battle: {
+        ...state.battle,
+        enemyHp: Math.floor(
+          enemy.maxHp * (id === 'visual.dashboard.tactical-damaged' ? 0.5 : 0.15),
+        ),
       },
     }
   }

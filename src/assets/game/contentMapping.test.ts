@@ -5,6 +5,7 @@ import {
   SKILL_DEFINITIONS,
   UPGRADE_DEFINITIONS,
   getEnemyDefinition,
+  getEnemyPresentationAssetId,
 } from '../../game/content'
 import manifestJson from './manifest.json'
 
@@ -45,6 +46,69 @@ describe('combat visual asset mapping', () => {
     }
 
     expect(portraitSources.size).toBe(expectedByStage.length)
+  })
+})
+
+describe('IRPG-416 eclipse knight damage presentation', () => {
+  it.each([
+    [100, 100, 'boss.eclipse-knight'],
+    [70, 100, 'boss.eclipse-knight'],
+    [69.999, 100, 'boss.eclipse-knight.damaged'],
+    [30, 100, 'boss.eclipse-knight.damaged'],
+    [29.999, 100, 'boss.eclipse-knight.severe'],
+    [0, 100, 'boss.eclipse-knight.severe'],
+  ] as const)('maps %s/%s HP to %s', (currentHp, maximumHp, expected) => {
+    expect(
+      getEnemyPresentationAssetId('boss.eclipse-knight', currentHp, maximumHp),
+    ).toBe(expected)
+  })
+
+  it.each([
+    [Number.NaN, 100],
+    [50, Number.NaN],
+    [50, 0],
+    [-1, 100],
+    [101, 100],
+  ] as const)('falls back to the base portrait for invalid HP %s/%s', (currentHp, maximumHp) => {
+    expect(
+      getEnemyPresentationAssetId('boss.eclipse-knight', currentHp, maximumHp),
+    ).toBe('boss.eclipse-knight')
+  })
+
+  it('leaves every other enemy and boss portrait unchanged', () => {
+    expect(getEnemyPresentationAssetId('boss.ash-giant', 1, 100)).toBe('boss.ash-giant')
+    expect(getEnemyPresentationAssetId('enemy.twilight-wolf', 1, 100)).toBe(
+      'enemy.twilight-wolf',
+    )
+  })
+
+  it('declares unique production-ready assets for both safe damage tiers', () => {
+    const expected = [
+      'boss.eclipse-knight.damaged',
+      'boss.eclipse-knight.severe',
+    ] as const
+    const sources = new Set<string>()
+    const hashes = new Set<string>()
+
+    for (const assetId of expected) {
+      const asset = manifestJson.assets.find((entry) => entry.id === assetId)
+      expect(asset).toMatchObject({
+        id: assetId,
+        kind: 'boss',
+        status: 'ready',
+        format: 'webp',
+        width: 768,
+        height: 768,
+        promptRecord: 'docs/assets/prompts/eclipse-knight-damage-states.md',
+      })
+      expect(asset?.bytes).toBeLessThanOrEqual(250 * 1024)
+      expect(asset?.sha256).toMatch(/^[a-f0-9]{64}$/)
+      sources.add(asset?.src ?? '')
+      hashes.add(asset?.sha256 ?? '')
+    }
+
+    expect(sources.size).toBe(expected.length)
+    expect(hashes.size).toBe(expected.length)
   })
 })
 

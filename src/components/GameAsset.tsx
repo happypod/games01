@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties, type SyntheticEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type Ref,
+  type SyntheticEvent,
+} from 'react'
 import {
   getAssetEntry,
   getFallbackId,
@@ -17,6 +24,7 @@ interface GameAssetProps {
   fit?: 'contain' | 'cover'
   loading?: 'eager' | 'lazy'
   style?: CSSProperties
+  containerRef?: Ref<HTMLDivElement>
 }
 
 interface AssetRenderState {
@@ -39,6 +47,7 @@ export function GameAsset({
   fit = 'cover',
   loading = 'lazy',
   style,
+  containerRef,
 }: GameAssetProps) {
   const requestedEntry = getAssetEntry(assetId)
   const fallbackId = getFallbackId(purpose ?? assetId)
@@ -137,6 +146,7 @@ export function GameAsset({
 
   return (
     <div
+      ref={containerRef}
       className={wrapperClassName}
       role={exposesMeaning ? 'img' : undefined}
       aria-label={exposesMeaning ? accessibleLabel : undefined}

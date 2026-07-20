@@ -70,6 +70,12 @@ export type EnemyAssetId =
   | 'boss.eclipse-knight'
   | 'boss.forgotten-dragon'
 
+export type EnemyDamageAssetId =
+  | 'boss.eclipse-knight.damaged'
+  | 'boss.eclipse-knight.severe'
+
+export type EnemyPresentationAssetId = EnemyAssetId | EnemyDamageAssetId
+
 export type UpgradeLevels = Record<UpgradeId, number>
 export type SkillRanks = Record<SkillId, number>
 

@@ -13,6 +13,8 @@ export const REQUIRED_ASSET_IDS = Object.freeze([
   'enemy.abyss-sentinel',
   'boss.ash-giant',
   'boss.eclipse-knight',
+  'boss.eclipse-knight.damaged',
+  'boss.eclipse-knight.severe',
   'boss.forgotten-dragon',
   'region.ashen-border',
   'region.moonfall-pass',
@@ -111,6 +113,8 @@ const ALLOWED_FIELDS = new Set([...REQUIRED_FIELDS, ...OPTIONAL_FIELDS])
 
 const FINAL_CONTENT_ASSET_IDS = new Set([
   'companion.ember-fox.default',
+  'boss.eclipse-knight.damaged',
+  'boss.eclipse-knight.severe',
   'region.ashen-border',
   'region.moonfall-pass',
   'region.forgotten-caldera',
@@ -129,6 +133,8 @@ const FINAL_CONTENT_ASSET_IDS = new Set([
 
 const REQUIRED_PROMPT_RECORD_BY_ASSET_ID = new Map([
   ['companion.ember-fox.default', 'docs/assets/prompts/companion-ember-fox.md'],
+  ['boss.eclipse-knight.damaged', 'docs/assets/prompts/eclipse-knight-damage-states.md'],
+  ['boss.eclipse-knight.severe', 'docs/assets/prompts/eclipse-knight-damage-states.md'],
   ['result.boss-victory', 'docs/assets/prompts/battle-results.md'],
   ['result.defeat', 'docs/assets/prompts/battle-results.md'],
   ['event.ember-shrine', 'docs/assets/prompts/expedition-event-cards.md'],

@@ -3,6 +3,7 @@ import {
   COMPANION_ATTACK_INTERVAL_MS,
   COMPANION_DEFINITIONS,
   getEnemyDefinition,
+  getEnemyPresentationAssetId,
 } from '../game/content'
 import { getCompanionDamage, getHeroStats } from '../game/formulas'
 import {
@@ -16,9 +17,17 @@ import type {
 } from '../game/types'
 import type { GameCommandFeedback } from '../hooks/useGame'
 import { useTacticalStageEffects } from '../hooks/useTacticalStageEffects'
+import {
+  useTacticalMotionTriggers,
+  type TacticalMotionClass,
+} from '../hooks/useTacticalMotionTriggers'
 import { ExpeditionEventPanel } from './ExpeditionEventPanel'
 import { GameAsset } from './GameAsset'
 import { StatBar } from './StatBar'
+import {
+  projectTacticalScenePresentation,
+  TACTICAL_DAMAGE_POPUP_DURATION_MS,
+} from './tacticalScenePresentation'
 
 interface TacticalStageProps {
   state: GameState
@@ -63,10 +72,17 @@ export function TacticalStage({
   disabled = false,
   disabledReason,
 }: TacticalStageProps) {
-  const effects = useTacticalStageEffects(batch, streamGeneration, true)
+  const hasPendingEvent = state.expeditionEvents.pending.length > 0
+  const effects = useTacticalStageEffects(batch, streamGeneration, !hasPendingEvent)
   const presentation = effects.scene?.snapshot ?? null
   const presentedStage = presentation?.stage ?? state.battle.stage
   const enemy = getEnemyDefinition(presentedStage)
+  const presentedEnemyHp = presentation?.enemyHp ?? state.battle.enemyHp
+  const enemyAssetId = getEnemyPresentationAssetId(
+    enemy.assetId,
+    presentedEnemyHp,
+    enemy.maxHp,
+  )
   const hero = getHeroStats(state)
   const region = getStageRegionForStage(presentedStage)
   const liveRegion = getStageRegionForStage(state.battle.stage)
@@ -86,9 +102,38 @@ export function TacticalStage({
   const assist = effects.scene?.events.find((event) => event.type === 'companionAssist')
   const kill = effects.scene?.events.find((event) => event.type === 'kill')
   const outcome = effects.scene?.priorityOutcome ?? null
-  const hasPendingEvent = state.expeditionEvents.pending.length > 0
+  const scenePresentation = projectTacticalScenePresentation(
+    effects.scene,
+    state.player.skills.powerStrike,
+  )
+  const heroMotionClass: TacticalMotionClass | null = scenePresentation.hero.hit
+    ? 'tactical-motion--hero-hit'
+    : scenePresentation.hero.attacking
+      ? 'tactical-motion--hero-attack'
+      : null
+  const enemyMotionClass: TacticalMotionClass | null = scenePresentation.enemy.defeated
+    ? 'tactical-motion--enemy-defeated'
+    : scenePresentation.enemy.hit
+      ? 'tactical-motion--enemy-hit'
+      : null
+  const companionMotionClass: TacticalMotionClass | null =
+    scenePresentation.companion.assisting
+      ? 'tactical-motion--companion-assist'
+      : null
   const stageHeadingRef = useRef<HTMLHeadingElement>(null)
+  const heroAssetRef = useRef<HTMLDivElement>(null)
+  const enemyAssetRef = useRef<HTMLDivElement>(null)
+  const companionAssetRef = useRef<HTMLDivElement>(null)
   const previousPendingCountRef = useRef(state.expeditionEvents.pending.length)
+  useTacticalMotionTriggers(
+    effects.scene?.id ?? null,
+    heroAssetRef,
+    heroMotionClass,
+    enemyAssetRef,
+    enemyMotionClass,
+    companionAssetRef,
+    companionMotionClass,
+  )
   useLayoutEffect(() => {
     const previousPendingCount = previousPendingCountRef.current
     previousPendingCountRef.current = state.expeditionEvents.pending.length
@@ -120,6 +165,7 @@ export function TacticalStage({
       data-presented-stage={presentedStage}
       data-live-stage={state.battle.stage}
       data-scene-id={effects.scene?.id}
+      data-enemy-asset-id={enemyAssetId}
     >
       <GameAsset
         assetId={region.assetId}
@@ -135,6 +181,25 @@ export function TacticalStage({
         className="tactical-canvas__base"
         inert={hasPendingEvent || undefined}
       >
+        {scenePresentation.ultimateFlash && effects.scene && (
+          <div
+            key={`${effects.scene.id}:ultimate`}
+            className="tactical-ultimate-flash"
+            data-testid="tactical-ultimate-flash"
+            aria-hidden="true"
+          >
+            <GameAsset
+              assetId="skill.power-strike"
+              purpose="card"
+              className="tactical-ultimate-flash__art"
+              fallbackLabel="화염 강타"
+              fit="cover"
+              decorative
+            />
+            <span>불씨 각성</span>
+          </div>
+        )}
+
         <header className="tactical-canvas__header">
           <div>
             <p className="eyebrow">{region.name} · {region.landmark}</p>
@@ -168,11 +233,12 @@ export function TacticalStage({
               fit="cover"
               loading="eager"
               decorative
+              containerRef={heroAssetRef}
             />
           </article>
 
           {companion && (
-            <article className={`tactical-companion ${assist ? 'tactical-companion--assist' : ''}`}>
+            <article className="tactical-companion">
               <GameAsset
                 assetId={companion.assetId}
                 purpose="character"
@@ -180,6 +246,7 @@ export function TacticalStage({
                 fallbackLabel="루미"
                 fit="cover"
                 decorative
+                containerRef={companionAssetRef}
               />
               <div>
                 <span>{companion.name} · Rank {state.player.companion.rank}</span>
@@ -197,23 +264,49 @@ export function TacticalStage({
               <h3>{enemy.name}</h3>
               <StatBar
                 label="적 체력"
-                value={presentation?.enemyHp ?? state.battle.enemyHp}
+                value={presentedEnemyHp}
                 maximum={enemy.maxHp}
                 tone="enemy"
               />
               <small>공격력 {enemy.attack.toLocaleString('ko-KR')}</small>
             </div>
             <GameAsset
-              assetId={enemy.assetId}
+              assetId={enemyAssetId}
               purpose="character"
               className="tactical-actor__asset tactical-actor__asset--enemy"
               fallbackLabel={enemy.name}
               fit="cover"
               loading="eager"
               decorative
+              containerRef={enemyAssetRef}
             />
           </article>
         </div>
+
+        {scenePresentation.damagePopups.length > 0 && effects.scene && (
+          <div
+            key={`${effects.scene.id}:damage`}
+            className="tactical-damage-layer"
+            data-testid="tactical-damage-layer"
+            aria-hidden="true"
+          >
+            {scenePresentation.damagePopups.map((popup) => (
+              <span
+                key={popup.id}
+                className={`tactical-damage-popup tactical-damage-popup--${popup.kind}`}
+                data-popup-kind={popup.kind}
+                data-popup-source={popup.source}
+                style={{
+                  animationDuration: `${TACTICAL_DAMAGE_POPUP_DURATION_MS}ms`,
+                  animationDelay: `${popup.delayMs}ms`,
+                }}
+              >
+                {popup.kind === 'critical' && <small>CRIT</small>}
+                {popup.damage.toLocaleString('ko-KR')}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div
           className={`tactical-cue ${effects.scene ? 'tactical-cue--active' : ''}`}
@@ -231,12 +324,7 @@ export function TacticalStage({
           )}
           <div>
             {critical ? <strong>치명타!</strong> : skill ? <strong>화염 강타</strong> : assist ? <strong>루미 협공</strong> : null}
-            {(critical || skill || assist) && (
-              <span>
-                {(critical?.damage ?? skill?.damage ?? assist?.damage ?? 0).toLocaleString('ko-KR')}
-              </span>
-            )}
-            {assist && <small>동료 협공 +{assist.damage.toLocaleString('ko-KR')}</small>}
+            {assist && <small>동료 협공</small>}
             {outcome
               ? <em>{getOutcomeCopy(outcome.type)}</em>
               : kill

@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { createInitialState } from '../game/engine'
+import { getEnemyDefinition } from '../game/content'
 import { BattleArena } from './BattleArena'
 
 describe('BattleArena companion contribution', () => {
@@ -27,5 +28,24 @@ describe('BattleArena companion contribution', () => {
     expect(screen.getByText('Rank 1 · 협공 피해 2')).toBeInTheDocument()
     expect(screen.getByText('2초', { exact: true })).toBeInTheDocument()
     expect(container.querySelector('.companion-cycle')).not.toHaveAttribute('aria-live')
+  })
+})
+
+describe('IRPG-416 Type 1 damage portrait integration', () => {
+  it('selects the damaged eclipse knight portrait from the current live HP', () => {
+    const state = createInitialState(1_000)
+    const enemy = getEnemyDefinition(20)
+    state.battle.stage = 20
+    state.battle.highestStage = 20
+    state.battle.enemyHp = Math.floor(enemy.maxHp * 0.5)
+
+    const { container } = render(
+      <BattleArena state={state} onChooseStage={vi.fn()} />,
+    )
+
+    expect(container.querySelector('.enemy-portrait__asset')).toHaveAttribute(
+      'data-asset-id',
+      'boss.eclipse-knight.damaged',
+    )
   })
 })

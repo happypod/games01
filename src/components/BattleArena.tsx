@@ -2,6 +2,7 @@ import {
   COMPANION_ATTACK_INTERVAL_MS,
   COMPANION_DEFINITIONS,
   getEnemyDefinition,
+  getEnemyPresentationAssetId,
 } from '../game/content'
 import { getCompanionDamage, getHeroStats, isCompanionUnlocked } from '../game/formulas'
 import type { GameState } from '../game/types'
@@ -16,6 +17,11 @@ interface BattleArenaProps {
 
 export function BattleArena({ state, onChooseStage, disabled = false }: BattleArenaProps) {
   const enemy = getEnemyDefinition(state.battle.stage)
+  const enemyAssetId = getEnemyPresentationAssetId(
+    enemy.assetId,
+    state.battle.enemyHp,
+    enemy.maxHp,
+  )
   const hero = getHeroStats(state)
   const cooldownReady = state.battle.powerStrikeCooldownMs === 0
   const cooldownProgress = cooldownReady
@@ -51,7 +57,7 @@ export function BattleArena({ state, onChooseStage, disabled = false }: BattleAr
       >
         <div className="enemy-portrait__aura" />
         <GameAsset
-          assetId={enemy.assetId}
+          assetId={enemyAssetId}
           purpose="character"
           className="enemy-portrait__asset"
           fallbackLabel={enemy.isBoss ? '♛' : '◆'}

@@ -44,7 +44,7 @@ async function runFixture(mutate) {
 
 test('checked-in manifest contains the exact inventory and validates', async () => {
   const result = await validateManifest({ repoRoot: REPO_ROOT })
-  assert.equal(REQUIRED_ASSET_IDS.length, 28)
+  assert.equal(REQUIRED_ASSET_IDS.length, 30)
   assert.deepEqual(result.errors, [])
   assert.equal(result.valid, true)
 })
@@ -149,6 +149,18 @@ test('requires final content art to be ready with a content hash', async () => {
   })
   assert.equal(hasError(result, ERROR_CODES.INVALID_STATUS, 'region.ashen-border'), true)
   assert.equal(hasError(result, ERROR_CODES.HASH_REQUIRED, 'region.ashen-border'), true)
+})
+
+test('requires eclipse knight damage art to be ready, hashed, and tied to its generation record', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    const entry = findEntry(manifest, 'boss.eclipse-knight.damaged')
+    entry.status = 'placeholder'
+    entry.promptRecord = 'docs/assets/prompts/enemy-boss-portraits.md'
+    delete entry.sha256
+  })
+  assert.equal(hasError(result, ERROR_CODES.INVALID_STATUS, 'boss.eclipse-knight.damaged'), true)
+  assert.equal(hasError(result, ERROR_CODES.HASH_REQUIRED, 'boss.eclipse-knight.damaged'), true)
+  assert.equal(hasError(result, ERROR_CODES.RIGHTS_METADATA, 'boss.eclipse-knight.damaged'), true)
 })
 
 test('requires final progression cards to be ready with a content hash', async () => {
