@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Test
+- Status: Done
 - Skill tags: ART-2D, FE-GAME, UX-FEEDBACK, QA-E2E
 - Owner / Reviewer: Codex / independent code, art direction, accessibility review
 
@@ -81,3 +81,4 @@ Tailwind를 새로 도입하지 않고 기존 `src/styles.css`의 dark-fantasy t
 - Local visual (2026-07-20): 신규 `visual.dashboard.tactical-damaged`와 `visual.dashboard.tactical-severe`가 각각 4/4 통과했고 기존 tracked 60 PNG 변경·누락 0, 신규 8 PNG만 추가되었다.
 - Ubuntu visual (2026-07-20): [run 29714484979](https://github.com/happypod/games01/actions/runs/29714484979)이 canonical 68/68 생성과 같은 runner 3회 반복 204/204를 통과했다. artifact `8450148807`의 digest는 `sha256:7e041d91195b2758518edc30b117af1cc2023b659e36dff3c58377eefbc664c6`이며 내려받은 ZIP hash와 일치한다.
 - Baseline acceptance (2026-07-20): artifact와 tracked PNG를 SHA-256으로 비교해 기존 60개 변경·누락 0, 신규 Damaged·Severe 8개만 차이남을 확인하고 그 8개만 Ubuntu canonical로 교체했다. 최종 baseline push/PR quality gate를 확인한 뒤 Done으로 전환한다.
+- Final gates (2026-07-20): baseline commit `2ffbe64`의 [push quality 29714972850](https://github.com/happypod/games01/actions/runs/29714972850)와 [PR quality 29714975078](https://github.com/happypod/games01/actions/runs/29714975078)이 전체 통과했다. [final visual run 29714972818](https://github.com/happypod/games01/actions/runs/29714972818)도 68/68·204/204를 재확인했고 artifact `8450337243` digest는 `sha256:4bfc12b25aae9e0116f0030e3077fc36203a2f9f7c1d2db4bb73a78e661e3602`다.
