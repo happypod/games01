@@ -150,6 +150,7 @@ final result: passed
 - `npm run verify`: lint, strict TypeScript, 42 Vitest files / 353 tests, manifest validator 33/33, 30 asset IDs, production build, 55/55 general Playwright, and 5/5 production cold-load tests passed.
 - Ubuntu acceptance run `29720587090`: 68/68 baselines generated and 204/204 repeated comparisons passed; artifact `8452362203` has digest `sha256:c223a46f01c91537e0bf7828533a66dd45c5db9818f81c840aa53f85b69e6235`.
 - Artifact comparison found zero additions or omissions, 46 byte-identical baselines, 12 intentional semantic changes, and ten same-size mobile images changed only by the reviewed 1px capture phase correction.
+- Baseline commit `20c4baf`: push quality `29725622587`, PR quality `29725625067`, and visual run `29725622560` passed. Final artifact `8454287692` has digest `sha256:38fb377a654c5aad46f4bf1f430b84bf4f03b27596ca9286be0365556b1145f4`, and all 68 downloaded PNGs are byte-identical to the tracked baselines.
 - Manual combined-image review covered the actual saved screen, fixed live screen, disclosure-open state, and representative desktop/mobile canonical captures; no P0/P1 visual defect remains.
 
 final result: passed

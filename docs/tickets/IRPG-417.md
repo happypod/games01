@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Test
+- Status: Done
 - Skill tags: FE-GAME, UX-FEEDBACK, QA-E2E
 - Owner / Reviewer: Codex / independent UX and accessibility review
 
@@ -80,4 +80,4 @@
 - 후속 run `29720234034`의 artifact `8452091477`에서 `.app-shell.scrollLeft`가 fixture 적용 후 남는 원인과 viewport 높이 확장 시 중첩 `scrollTop`이 초기화되는 원인을 분리했다. 최종 하네스는 실제 scroll-container chain으로 target을 상단 정렬한 뒤 모든 상위 horizontal offset을 0으로 복원하고 해당 좌표를 assertion한다.
 - `c573003` PR quality run `29720589182`는 긴 fixture 이름이 200% 확대에서 적용 버튼을 덮어 4개 흐름이 실패했다. 개발자용 `#debug-visual-fixture`에만 flex 축소 경계를 추가한 뒤 해당 4개와 최종 55/55를 로컬에서 통과했으며 제품 UI에는 영향을 주지 않는다.
 
-- 최종 baseline commit의 push quality·PR quality·Ubuntu visual과 새 artifact 해시가 모두 통과하면 해당 run ID를 기록하고 Done으로 전환한다.
+- 최종 baseline commit `20c4baf`의 push quality `29725622587`, PR quality `29725625067`, Ubuntu visual `29725622560`이 모두 통과했다. visual run은 68/68 생성과 204/204 반복 비교를 통과했고 artifact `8454287692`는 21,776,723 bytes, SHA-256 `38fb377a654c5aad46f4bf1f430b84bf4f03b27596ca9286be0365556b1145f4`다. 다운로드한 68개 PNG는 tracked baseline과 68/68 byte-identical이며 추가·누락이 없다.
