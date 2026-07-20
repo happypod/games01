@@ -12,6 +12,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:soak": "vitest run src/game/debugSimulator.test.ts",
+    "test:soak:update": "npx --yes tsx@4.20.6 tools/update-debug-soak.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",

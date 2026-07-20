@@ -45,6 +45,7 @@ describe('IRPG-507 debug session adapter', () => {
     clone.player.companion.rank = 1
     clone.battle.kills = 3
     clone.stats.enemiesDefeated = 3
+    clone.camp.materials.ashShard = 9
 
     expect(input).toEqual(createInitialState(1_000, 0x1234_5678))
   })
@@ -67,6 +68,8 @@ describe('IRPG-507 debug session adapter', () => {
     expect(scaleDebugElapsedMs(10, 250)).toBe(2_500)
     expect(scaleDebugElapsedMs(100, 250)).toBe(25_000)
     expect(scaleDebugElapsedMs(100, Number.MAX_SAFE_INTEGER)).toBe(MAX_OFFLINE_MS)
+    expect(scaleDebugElapsedMs(100, Number.MAX_SAFE_INTEGER, 12 * 60 * 60 * 1_000))
+      .toBe(12 * 60 * 60 * 1_000)
 
     for (const invalid of [-1, 0.5, Number.NaN, Infinity, '250']) {
       expect(() => scaleDebugElapsedMs(10, invalid)).toThrow(RangeError)
@@ -136,11 +139,11 @@ describe('IRPG-507 debug session adapter', () => {
     expect(input).toEqual(inputCopy)
   })
 
-  it('applies zero through eight hours offline through the deterministic simulator', () => {
+  it('applies the state-derived tent cap through the offline engine even from camp mode', () => {
     const input = createInitialState(0, 0x1234_5678)
     const inputCopy = structuredClone(input)
     const zero = applyDebugOfflineMinutes(input, 0)
-    const maximum = applyDebugOfflineMinutes(input, MAX_DEBUG_OFFLINE_MINUTES)
+    const maximum = applyDebugOfflineMinutes(input, 480)
 
     expect(input).toEqual(inputCopy)
     expect(zero.elapsedMs).toBe(0)
@@ -148,6 +151,14 @@ describe('IRPG-507 debug session adapter', () => {
     expect(maximum.elapsedMs).toBe(8 * 60 * 60 * 1_000)
     expect(maximum.state.rng.draws).toBe(input.rng.draws + 28_800)
     expect(maximum.state).not.toBe(input)
+
+    const expandedCamp = createInitialState(0, 0x1234_5678)
+    expandedCamp.currentMode = 'CAMP'
+    expandedCamp.camp.structures.tent = 5
+    const expanded = applyDebugOfflineMinutes(expandedCamp, MAX_DEBUG_OFFLINE_MINUTES)
+    expect(expanded.elapsedMs).toBe(12 * 60 * 60 * 1_000)
+    expect(expanded.state.currentMode).toBe('CAMP')
+    expect(expanded.state.rng.draws).toBe(expandedCamp.rng.draws + 43_200)
   })
 
   it('rejects malformed offline minutes without mutation', () => {
@@ -157,6 +168,7 @@ describe('IRPG-507 debug session adapter', () => {
     for (const invalid of [
       -1,
       0.5,
+      481,
       MAX_DEBUG_OFFLINE_MINUTES + 1,
       Number.NaN,
       Infinity,

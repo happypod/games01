@@ -87,8 +87,8 @@ test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
       await expect(root).toHaveAttribute(
         'data-canonical-state-hash',
         damageFixture.id.endsWith('damaged')
-          ? 'fnv1a32-v1:dc28bc92'
-          : 'fnv1a32-v1:3b1c62d2',
+          ? 'fnv1a32-v1:8ab5609d'
+          : 'fnv1a32-v1:007bd4fd',
       )
     })
   }

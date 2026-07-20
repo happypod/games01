@@ -923,6 +923,17 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   border-radius: 8px;
   background: rgba(8, 7, 6, .5);
 }
+.layout-mode-selector[data-option-count='3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.layout-mode-selector[data-option-count='3'] .layout-mode-selector__option {
+  min-width: 76px;
+  padding-inline: 8px;
+}
+.layout-mode-selector__option[aria-disabled='true'] {
+  opacity: .45;
+  cursor: not-allowed;
+}
 .layout-mode-selector__option {
   min-width: 112px;
   min-height: 44px;
@@ -941,6 +952,323 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
   background: linear-gradient(180deg, rgba(230,184,93,.15), rgba(171,99,36,.1));
   color: #f0ca81;
   box-shadow: inset 0 -2px rgba(238,125,61,.42), 0 4px 16px rgba(0,0,0,.18);
+}
+
+/* IRPG-418 · persisted battle/camp activity surface */
+.camp-dashboard {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+}
+.camp-rest,
+.camp-overview,
+.camp-command {
+  min-width: 0;
+  padding: 20px;
+}
+.camp-rest {
+  min-height: 520px;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-color: rgba(230,184,93,.2);
+}
+.camp-rest__background {
+  z-index: -3;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto !important;
+  filter: saturate(.72) brightness(.56) contrast(1.08);
+}
+.camp-rest__shade {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(12,9,7,.82), rgba(12,9,7,.12) 35%, rgba(12,9,7,.9)),
+    radial-gradient(circle at 50% 64%, rgba(238,125,61,.22), transparent 32%);
+}
+.camp-rest__header,
+.camp-section-header {
+  position: relative;
+  z-index: 1;
+}
+.camp-rest__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.camp-pause-badge {
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border: 1px solid rgba(104,201,180,.32);
+  border-radius: 999px;
+  background: rgba(35,92,81,.24);
+  color: #9ddccd;
+  font-size: 9px;
+  font-weight: 700;
+}
+.camp-rest__hero {
+  align-self: center;
+  width: min(92%, 340px);
+  margin: auto auto -2px;
+  border-radius: 12px;
+  background: transparent !important;
+}
+.camp-rest__hero .game-asset__fallback { opacity: .45; }
+.camp-rest__status {
+  position: relative;
+  z-index: 1;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 9px;
+  background: rgba(14,11,9,.78);
+  backdrop-filter: blur(10px);
+}
+.camp-rest__status > strong,
+.camp-rest__status > span { display: block; }
+.camp-rest__status > strong { font-size: 16px; }
+.camp-rest__status > span { margin-top: 4px; color: #cdb184; font-size: 9px; }
+.camp-rest__status > p {
+  margin: 12px 0 0;
+  color: #b7ada4;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.camp-overview,
+.camp-command { align-content: start; }
+.camp-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.camp-section-header > span { color: #8f857d; font-size: 9px; }
+.camp-facility-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+.camp-facility-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 10px;
+  background: rgba(255,255,255,.025);
+}
+.camp-facility-card__art {
+  grid-row: 1 / span 2;
+  width: 92px;
+  border-radius: 8px;
+}
+.camp-facility-card h3 { margin: 4px 0 0; font-size: 14px; }
+.camp-facility-card div > span { color: #e6b85d; font-size: 9px; font-weight: 700; }
+.camp-facility-card p { margin: 7px 0 0; color: #aaa097; font-size: 10px; line-height: 1.5; }
+.camp-facility-card button {
+  min-width: 0;
+  border: 1px solid rgba(230,184,93,.18);
+  border-radius: 6px;
+  background: rgba(230,184,93,.06);
+  color: #c9ac75;
+  font-size: 10px;
+}
+.camp-facility-card button:disabled { opacity: .48; }
+.camp-facility-card > small {
+  grid-column: 1 / -1;
+  color: #7f7771;
+  font-size: 8px;
+}
+.camp-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 18px 0 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line);
+}
+.camp-summary div { padding: 12px; background: rgba(20,17,15,.96); }
+.camp-summary dt { color: #958b83; font-size: 9px; }
+.camp-summary dd { margin: 5px 0 0; color: #edc77d; font-size: 15px; font-weight: 700; }
+.camp-training { margin-top: 14px; }
+.camp-training__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.camp-training__heading h3 { margin: 2px 0 0; font-size: 13px; }
+.camp-training__heading > span { color: #9f9388; font-size: 9px; }
+.camp-training-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(230,184,93,.12);
+  background: rgba(255,255,255,.025);
+}
+.camp-training-card + .camp-training-card { border-top: 0; }
+.camp-training-card > div { display: grid; gap: 3px; min-width: 0; }
+.camp-training-card strong { color: #e2d6c8; font-size: 10px; }
+.camp-training-card span,
+.camp-training-card small { color: #91867d; font-size: 8px; }
+.camp-training-card button {
+  min-width: 86px;
+  min-height: 44px;
+  border: 1px solid rgba(230,184,93,.24);
+  border-radius: 6px;
+  background: rgba(230,184,93,.07);
+  color: #e4bd72;
+  font-size: 9px;
+}
+.camp-training-card button:disabled { opacity: .46; }
+.camp-crafting,
+.camp-supplies { margin-top: 16px; }
+.camp-materials {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 8px;
+  padding: 1px;
+  background: var(--line);
+}
+.camp-materials div { padding: 8px; background: rgba(20,17,15,.96); }
+.camp-materials dt { color: #8f867e; font-size: 8px; }
+.camp-materials dd { margin: 3px 0 0; color: #dfbd7b; font-size: 12px; font-weight: 700; }
+.camp-craft-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid rgba(104,201,180,.2);
+  background: rgba(35,92,81,.1);
+  color: #a7d7cc;
+  font-size: 8px;
+}
+.camp-recipe-list { margin-top: 8px; }
+.camp-recipe-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid rgba(255,255,255,.07);
+}
+.camp-recipe-card + .camp-recipe-card { border-top: 0; }
+.camp-recipe-card > div { display: grid; gap: 3px; }
+.camp-recipe-card strong { font-size: 10px; }
+.camp-recipe-card small,
+.camp-recipe-card span { color: #90867e; font-size: 8px; }
+.camp-recipe-card button,
+.camp-supply-grid button {
+  min-height: 44px;
+  border: 1px solid rgba(230,184,93,.22);
+  border-radius: 6px;
+  background: rgba(230,184,93,.07);
+  color: #e3bd75;
+}
+.camp-recipe-card button { min-width: 58px; font-size: 9px; }
+.camp-supply-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.camp-supply-grid button { display: grid; gap: 4px; padding: 9px; text-align: left; }
+.camp-supply-grid strong { font-size: 9px; }
+.camp-supply-grid small { color: #958b83; font-size: 8px; }
+.camp-recipe-card button:disabled,
+.camp-supply-grid button:disabled { opacity: .46; }
+.camp-merchant { margin-top: 18px; }
+.camp-merchant__discount {
+  margin: -2px 0 8px;
+  color: #9ddccd;
+  font-size: 9px;
+}
+.camp-offer-list { display: grid; gap: 6px; }
+.camp-offer-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.07);
+  background: rgba(255,255,255,.02);
+}
+.camp-offer-card > div { display: grid; gap: 4px; }
+.camp-offer-card strong { color: #e1d6ca; font-size: 10px; }
+.camp-offer-card small { color: #91877f; font-size: 8px; line-height: 1.45; }
+.camp-offer-card button,
+.camp-resident button {
+  min-height: 44px;
+  border: 1px solid rgba(230,184,93,.22);
+  border-radius: 6px;
+  background: rgba(230,184,93,.07);
+  color: #e4bd72;
+  font-size: 9px;
+}
+.camp-offer-card button { min-width: 70px; }
+.camp-offer-card button:disabled,
+.camp-resident button:disabled { opacity: .46; }
+.camp-resident {
+  position: relative;
+  min-height: 126px;
+  margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(104,201,180,.16);
+  border-radius: 9px;
+  background: #161411;
+}
+.camp-resident__art { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .2; }
+.camp-resident__body { position: relative; z-index: 1; padding: 13px; }
+.camp-resident h3 { margin: 3px 0 0; font-size: 13px; }
+.camp-resident p:not(.eyebrow) { max-width: 54ch; margin: 8px 0; color: #aaa097; font-size: 9px; line-height: 1.55; }
+.camp-resident button { padding: 0 12px; }
+.camp-command__note {
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid rgba(104,201,180,.18);
+  border-radius: 8px;
+  background: rgba(35,92,81,.09);
+}
+.camp-command__note strong { color: #9ddccd; font-size: 11px; }
+.camp-command__note p { margin: 7px 0 0; color: #aaa097; font-size: 10px; line-height: 1.55; }
+.camp-command > .notice-strip { margin-top: 14px; }
+
+@media (min-width: 1024px) {
+  .camp-dashboard {
+    flex: 1;
+    min-height: 0;
+    grid-template-columns: minmax(280px, 34fr) minmax(360px, 42fr) minmax(250px, 24fr);
+    overflow: hidden;
+  }
+  .camp-rest,
+  .camp-overview,
+  .camp-command {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+  .camp-rest { min-height: 0; }
+}
+
+@media (max-width: 620px) {
+  .layout-mode-selector[data-option-count='3'] .layout-mode-selector__option {
+    min-width: 0;
+    padding-inline: 3px;
+    font-size: 9px;
+  }
+  .camp-rest,
+  .camp-overview,
+  .camp-command { padding: 17px; }
+  .camp-rest { min-height: 610px; }
+  .camp-rest__header { flex-direction: column; }
+  .camp-facility-card { grid-template-columns: 72px minmax(0, 1fr); }
+  .camp-facility-card__art { width: 72px; }
+  .camp-facility-card button { grid-column: 1 / -1; }
 }
 
 .tactical-layout { min-width: 0; display: grid; gap: 14px; }

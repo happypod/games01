@@ -1,4 +1,4 @@
-﻿{
+{
   "contractVersion": 1,
   "seed": 439041101,
   "durationMs": 86400000,
@@ -7,8 +7,46 @@
     {
       "elapsedMs": 28800000,
       "state": {
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "lastSavedAt": 0,
+        "currentMode": "BATTLE",
+        "camp": {
+          "definitionVersion": 1,
+          "structures": {
+            "tent": 1,
+            "workbench": 1,
+            "trainingGround": 1
+          },
+          "training": {
+            "attack": 0,
+            "vitality": 0
+          },
+          "materials": {
+            "ashShard": 1298,
+            "beastHide": 41,
+            "emberCore": 1
+          },
+          "consumables": {
+            "goldStew": 0,
+            "focusTonic": 0
+          },
+          "craftJob": null,
+          "buffs": {
+            "goldBoostRounds": 0,
+            "bossFocusStage": null
+          },
+          "merchant": {
+            "cycle": 16,
+            "refreshRemainingMs": 1800000,
+            "purchasedOfferMask": 0
+          },
+          "residents": {
+            "sera": {
+              "status": "unmet",
+              "trust": 0
+            }
+          }
+        },
         "claimedBossMilestoneMask": 1,
         "expeditionEvents": {
           "definitionVersion": 1,
@@ -127,8 +165,46 @@
     {
       "elapsedMs": 57600000,
       "state": {
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "lastSavedAt": 0,
+        "currentMode": "BATTLE",
+        "camp": {
+          "definitionVersion": 1,
+          "structures": {
+            "tent": 1,
+            "workbench": 1,
+            "trainingGround": 1
+          },
+          "training": {
+            "attack": 0,
+            "vitality": 0
+          },
+          "materials": {
+            "ashShard": 2319,
+            "beastHide": 148,
+            "emberCore": 2
+          },
+          "consumables": {
+            "goldStew": 0,
+            "focusTonic": 0
+          },
+          "craftJob": null,
+          "buffs": {
+            "goldBoostRounds": 0,
+            "bossFocusStage": null
+          },
+          "merchant": {
+            "cycle": 32,
+            "refreshRemainingMs": 1800000,
+            "purchasedOfferMask": 0
+          },
+          "residents": {
+            "sera": {
+              "status": "unmet",
+              "trust": 0
+            }
+          }
+        },
         "claimedBossMilestoneMask": 3,
         "expeditionEvents": {
           "definitionVersion": 1,
@@ -247,8 +323,46 @@
     {
       "elapsedMs": 86400000,
       "state": {
-        "schemaVersion": 5,
+        "schemaVersion": 6,
         "lastSavedAt": 0,
+        "currentMode": "BATTLE",
+        "camp": {
+          "definitionVersion": 1,
+          "structures": {
+            "tent": 1,
+            "workbench": 1,
+            "trainingGround": 1
+          },
+          "training": {
+            "attack": 0,
+            "vitality": 0
+          },
+          "materials": {
+            "ashShard": 3307,
+            "beastHide": 479,
+            "emberCore": 2
+          },
+          "consumables": {
+            "goldStew": 0,
+            "focusTonic": 0
+          },
+          "craftJob": null,
+          "buffs": {
+            "goldBoostRounds": 0,
+            "bossFocusStage": null
+          },
+          "merchant": {
+            "cycle": 48,
+            "refreshRemainingMs": 1800000,
+            "purchasedOfferMask": 0
+          },
+          "residents": {
+            "sera": {
+              "status": "unmet",
+              "trust": 0
+            }
+          }
+        },
         "claimedBossMilestoneMask": 3,
         "expeditionEvents": {
           "definitionVersion": 1,

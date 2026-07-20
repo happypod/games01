@@ -1,11 +1,11 @@
+import { getCampOfflineCapMs } from '../game/camp'
 import { MAX_OFFLINE_MS, MAX_STAGE } from '../game/content'
 import {
   DEBUG_SPEEDS,
-  runDebugSimulation,
   type DebugSimulationResult,
   type DebugSpeed,
 } from '../game/debugSimulator'
-import { selectStage } from '../game/engine'
+import { advanceOfflineGame, selectStage } from '../game/engine'
 import { deriveLegacyExpeditionMilestoneMask } from '../game/expedition'
 import type { GameState } from '../game/types'
 
@@ -15,7 +15,7 @@ export type { DebugSpeed }
 export const DEBUG_RESOURCE_IDS = ['gold', 'skillPoints', 'essence'] as const
 export type DebugResourceId = (typeof DEBUG_RESOURCE_IDS)[number]
 
-export const MAX_DEBUG_OFFLINE_MINUTES = MAX_OFFLINE_MS / 60_000
+export const MAX_DEBUG_OFFLINE_MINUTES = 12 * 60
 
 function assertIntegerInRange(
   value: unknown,
@@ -31,6 +31,17 @@ function assertIntegerInRange(
 export function cloneDebugState(input: GameState): GameState {
   return {
     ...input,
+    camp: {
+      ...input.camp,
+      structures: { ...input.camp.structures },
+      training: { ...input.camp.training },
+      materials: { ...input.camp.materials },
+      consumables: { ...input.camp.consumables },
+      craftJob: input.camp.craftJob === null ? null : { ...input.camp.craftJob },
+      buffs: { ...input.camp.buffs },
+      merchant: { ...input.camp.merchant },
+      residents: { sera: { ...input.camp.residents.sera } },
+    },
     expeditionEvents: {
       ...input.expeditionEvents,
       pending: input.expeditionEvents.pending.map((event) => ({
@@ -64,12 +75,17 @@ export function requireDebugSpeed(value: unknown): DebugSpeed {
   return value
 }
 
-export function scaleDebugElapsedMs(speed: unknown, realElapsedMs: unknown): number {
+export function scaleDebugElapsedMs(
+  speed: unknown,
+  realElapsedMs: unknown,
+  elapsedCapMs = MAX_OFFLINE_MS,
+): number {
   const validatedSpeed = requireDebugSpeed(speed)
   assertIntegerInRange(realElapsedMs, 0, Number.MAX_SAFE_INTEGER, 'real elapsed milliseconds')
+  assertIntegerInRange(elapsedCapMs, 1, 12 * 60 * 60 * 1_000, 'elapsed cap milliseconds')
   const cappedRealElapsedMs = Math.min(
     realElapsedMs,
-    Math.floor(MAX_OFFLINE_MS / validatedSpeed),
+    Math.floor(elapsedCapMs / validatedSpeed),
   )
   return cappedRealElapsedMs * validatedSpeed
 }
@@ -121,10 +137,21 @@ export function applyDebugOfflineMinutes(
   input: GameState,
   minutes: unknown,
 ): DebugSimulationResult {
-  assertIntegerInRange(minutes, 0, MAX_DEBUG_OFFLINE_MINUTES, 'offline minutes')
-
-  return runDebugSimulation(cloneDebugState(input), {
+  const maximumMinutes = getCampOfflineCapMs(input.camp) / 60_000
+  assertIntegerInRange(minutes, 0, maximumMinutes, 'offline minutes')
+  const elapsedMs = minutes * 60_000
+  const advanced = advanceOfflineGame(cloneDebugState(input), elapsedMs)
+  return {
     speed: 100,
-    durationMs: minutes * 60_000,
-  })
+    elapsedMs: advanced.report.elapsedMs,
+    state: cloneDebugState(advanced.state),
+    report: { ...advanced.report },
+    snapshots: elapsedMs === 0
+      ? []
+      : [{
+          elapsedMs: advanced.report.elapsedMs,
+          state: cloneDebugState(advanced.state),
+          report: { ...advanced.report },
+        }],
+  }
 }

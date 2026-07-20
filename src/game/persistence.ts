@@ -3,13 +3,18 @@ import {
   COMPANION_DEFINITIONS,
   EXPEDITION_DEFINITION_VERSION,
   EXPEDITION_MILESTONE_COUNT,
-  MAX_OFFLINE_MS,
   MAX_STAGE,
   SKILL_DEFINITIONS,
   UPGRADE_DEFINITIONS,
   getEnemyDefinition,
 } from './content'
-import { advanceGame, createInitialState } from './engine'
+import { advanceOfflineGame, createInitialState } from './engine'
+import {
+  CAMP_DEFINITION_VERSION,
+  CAMP_MERCHANT_REFRESH_MS,
+  CAMP_RECIPE_DEFINITIONS,
+  createInitialCampState,
+} from './camp'
 import { getHeroStats } from './formulas'
 import {
   deriveLegacyBossMilestoneMask,
@@ -22,6 +27,11 @@ import {
 import { MAX_UINT32, createRngState, seedFromText } from './rng'
 import {
   COMPANION_IDS,
+  CAMP_CONSUMABLE_IDS,
+  CAMP_MATERIAL_IDS,
+  CAMP_RECIPE_IDS,
+  CAMP_STRUCTURE_IDS,
+  CAMP_TRAINING_IDS,
   EXPEDITION_DEFINITION_IDS,
   RNG_ALGORITHM,
   SAVE_VERSION,
@@ -31,6 +41,7 @@ import {
 import type {
   AdvanceReport,
   BattleState,
+  CampState,
   ExpeditionEventState,
   GameState,
   LifetimeStats,
@@ -120,6 +131,13 @@ interface LegacyGameStateV3 {
 type LegacyGameStateV4 = Omit<LegacyGameStateV3, 'schemaVersion'> & {
   schemaVersion: 4
   claimedBossMilestoneMask: number
+}
+
+type LegacyGameStateV5 = Omit<
+  GameState,
+  'schemaVersion' | 'currentMode' | 'camp'
+> & {
+  schemaVersion: 5
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -281,11 +299,120 @@ function hasValidExpeditionEvents(
   )
 }
 
+function hasValidCampState(value: unknown): value is CampState {
+  if (!isRecord(value) || value.definitionVersion !== CAMP_DEFINITION_VERSION) {
+    return false
+  }
+  const structures = value.structures
+  const training = value.training
+  const materials = value.materials
+  const consumables = value.consumables
+  const buffs = value.buffs
+  const merchant = value.merchant
+  const residents = value.residents
+  if (
+    !isRecord(structures) ||
+    !isRecord(training) ||
+    !isRecord(materials) ||
+    !isRecord(consumables) ||
+    !isRecord(buffs) ||
+    !isRecord(merchant) ||
+    !isRecord(residents) ||
+    !isRecord(residents.sera)
+  ) {
+    return false
+  }
+  if (
+    !CAMP_STRUCTURE_IDS.every(
+      (id) => isSafeNonNegativeInteger(structures[id]) && structures[id] >= 1 && structures[id] <= 5,
+    ) ||
+    !CAMP_TRAINING_IDS.every(
+      (id) =>
+        isSafeNonNegativeInteger(training[id]) &&
+        training[id] <= Number(structures.trainingGround) * 5,
+    ) ||
+    !CAMP_MATERIAL_IDS.every((id) => isSafeNonNegativeInteger(materials[id])) ||
+    !CAMP_CONSUMABLE_IDS.every((id) => isSafeNonNegativeInteger(consumables[id]))
+  ) {
+    return false
+  }
+  const craftJob = value.craftJob
+  if (craftJob !== null) {
+    if (!isRecord(craftJob)) return false
+    const recipeId = CAMP_RECIPE_IDS.find((id) => id === craftJob.recipeId)
+    if (
+      recipeId === undefined ||
+      !isSafeNonNegativeInteger(craftJob.remainingMs) ||
+      craftJob.remainingMs < 1 ||
+      craftJob.remainingMs > CAMP_RECIPE_DEFINITIONS[recipeId].baseDurationMs
+    ) {
+      return false
+    }
+  }
+  const bossFocusStage = buffs.bossFocusStage
+  const hasValidBossFocus =
+    bossFocusStage === null ||
+    (isSafeNonNegativeInteger(bossFocusStage) &&
+      (bossFocusStage === 0 ||
+        (bossFocusStage >= 10 && bossFocusStage <= MAX_STAGE && bossFocusStage % 10 === 0)))
+  if (
+    !isSafeNonNegativeInteger(buffs.goldBoostRounds) ||
+    buffs.goldBoostRounds > 1_800 ||
+    !hasValidBossFocus ||
+    !isSafeNonNegativeInteger(merchant.cycle) ||
+    !isSafeNonNegativeInteger(merchant.refreshRemainingMs) ||
+    merchant.refreshRemainingMs < 1 ||
+    merchant.refreshRemainingMs > CAMP_MERCHANT_REFRESH_MS ||
+    !isSafeNonNegativeInteger(merchant.purchasedOfferMask) ||
+    merchant.purchasedOfferMask > 7 ||
+    (residents.sera.status !== 'unmet' &&
+      residents.sera.status !== 'rescued' &&
+      residents.sera.status !== 'contracted') ||
+    !isSafeNonNegativeInteger(residents.sera.trust) ||
+    residents.sera.trust > 5 ||
+    (residents.sera.status !== 'contracted' && residents.sera.trust !== 0)
+  ) {
+    return false
+  }
+  return true
+}
+
+function isLegacyGameStateV5(value: unknown): value is LegacyGameStateV5 {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 5 ||
+    !hasValidSharedState(value) ||
+    !isBossMilestoneMask(value.claimedBossMilestoneMask) ||
+    !hasValidCompanionState(value) ||
+    !hasValidRng(value.rng)
+  ) {
+    return false
+  }
+  return hasValidExpeditionEvents(
+    value.expeditionEvents,
+    value.stats as LifetimeStats,
+    value.rng,
+    value.battle as BattleState,
+  )
+}
+
 export function isGameState(value: unknown): value is GameState {
   if (!isRecord(value) || value.schemaVersion !== SAVE_VERSION || !hasValidSharedState(value)) {
     return false
   }
+  const camp = value.camp
+  const battle = value.battle as BattleState
+  if (!hasValidCampState(camp)) return false
+  const bossFocusStage = camp.buffs.bossFocusStage
+  const hasValidCampBattleRelation =
+    bossFocusStage === null ||
+    bossFocusStage === 0 ||
+    (bossFocusStage === battle.stage &&
+      battle.stage % 10 === 0 &&
+      battle.stage <= battle.highestStage)
   return (
+    (value.currentMode === 'BATTLE' || value.currentMode === 'CAMP') &&
+    hasValidCampBattleRelation &&
     isBossMilestoneMask(value.claimedBossMilestoneMask) &&
     hasValidCompanionState(value) &&
     hasValidRng(value.rng) &&
@@ -382,6 +509,8 @@ function migrateLegacyGameState(
   const migrated: GameState = {
     schemaVersion: SAVE_VERSION,
     lastSavedAt: legacy.lastSavedAt,
+    currentMode: 'BATTLE',
+    camp: createInitialCampState(),
     claimedBossMilestoneMask: deriveLegacyBossMilestoneMask(
       legacy.battle.highestStage,
       legacy.stats.prestiges,
@@ -409,6 +538,8 @@ function migrateLegacyGameStateV3(state: LegacyGameStateV3): GameState {
   const migrated: GameState = {
     schemaVersion: SAVE_VERSION,
     lastSavedAt: legacy.lastSavedAt,
+    currentMode: 'BATTLE',
+    camp: createInitialCampState(),
     claimedBossMilestoneMask: deriveLegacyBossMilestoneMask(
       legacy.battle.highestStage,
       legacy.stats.prestiges,
@@ -435,6 +566,8 @@ function migrateLegacyGameStateV4(state: LegacyGameStateV4): GameState {
   const migrated: GameState = {
     schemaVersion: SAVE_VERSION,
     lastSavedAt: legacy.lastSavedAt,
+    currentMode: 'BATTLE',
+    camp: createInitialCampState(),
     claimedBossMilestoneMask: legacy.claimedBossMilestoneMask,
     expeditionEvents: createMigratedExpeditionEvents(
       legacy.battle.highestStage,
@@ -453,20 +586,32 @@ function migrateLegacyGameStateV4(state: LegacyGameStateV4): GameState {
   return normalizeGameState(migrated)
 }
 
+function migrateLegacyGameStateV5(state: LegacyGameStateV5): GameState {
+  const legacy = structuredClone(state)
+  const migrated: GameState = {
+    ...legacy,
+    schemaVersion: SAVE_VERSION,
+    currentMode: 'BATTLE',
+    camp: createInitialCampState(),
+  }
+  return normalizeGameState(migrated)
+}
+
 export function decodeGameState(value: unknown): GameState | null {
   if (isGameState(value)) return normalizeGameState(value)
   if (
     isRecord(value) &&
-    value.schemaVersion === SAVE_VERSION &&
+    value.schemaVersion === 5 &&
     isRecord(value.expeditionEvents) &&
     value.expeditionEvents.definitionVersion === undefined
   ) {
     const transitional = structuredClone(value)
     if (isRecord(transitional.expeditionEvents)) {
       transitional.expeditionEvents.definitionVersion = 1
-      if (isGameState(transitional)) return normalizeGameState(transitional)
+      if (isLegacyGameStateV5(transitional)) return migrateLegacyGameStateV5(transitional)
     }
   }
+  if (isLegacyGameStateV5(value)) return migrateLegacyGameStateV5(value)
   if (isLegacyGameStateV4(value)) return migrateLegacyGameStateV4(value)
   if (isLegacyGameStateV3(value)) return migrateLegacyGameStateV3(value)
   if (isLegacyGameStateV2(value)) return migrateLegacyGameState(value, value.rng)
@@ -545,11 +690,14 @@ export function isFutureGameStateValue(value: unknown): boolean {
   ) {
     return true
   }
-  return hasFutureExpeditionDefinitionVersion(value)
+  return hasFutureExpeditionDefinitionVersion(value) || hasFutureCampDefinitionVersion(value)
 }
 
 function hasFutureExpeditionDefinitionVersion(value: Record<string, unknown>): boolean {
-  if (value.schemaVersion !== SAVE_VERSION || !isRecord(value.expeditionEvents)) {
+  if (
+    (value.schemaVersion !== 5 && value.schemaVersion !== SAVE_VERSION) ||
+    !isRecord(value.expeditionEvents)
+  ) {
     return false
   }
   if (
@@ -565,6 +713,15 @@ function hasFutureExpeditionDefinitionVersion(value: Record<string, unknown>): b
       isRecord(event) &&
       isSafeNonNegativeInteger(event.definitionVersion) &&
       event.definitionVersion > EXPEDITION_DEFINITION_VERSION,
+  )
+}
+
+function hasFutureCampDefinitionVersion(value: Record<string, unknown>): boolean {
+  return (
+    value.schemaVersion === SAVE_VERSION &&
+    isRecord(value.camp) &&
+    isSafeNonNegativeInteger(value.camp.definitionVersion) &&
+    value.camp.definitionVersion > CAMP_DEFINITION_VERSION
   )
 }
 
@@ -816,8 +973,8 @@ export function bootstrapGame(
     }
   }
 
-  const elapsedMs = Math.min(MAX_OFFLINE_MS, Math.max(0, now - loaded.lastSavedAt))
-  const result = advanceGame(loaded, elapsedMs)
+  const result = advanceOfflineGame(loaded, Math.max(0, now - loaded.lastSavedAt))
+  const elapsedMs = result.report.elapsedMs
   result.state.lastSavedAt = now
   const committed = saveGameAtRevision(storage, result.state, revision)
   return {

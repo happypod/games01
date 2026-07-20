@@ -1,5 +1,65 @@
-export const SAVE_VERSION = 5 as const
+export const SAVE_VERSION = 6 as const
 export const RNG_ALGORITHM = 'xorshift32-v1' as const
+
+export const GAME_MODES = ['BATTLE', 'CAMP'] as const
+export type GameMode = (typeof GAME_MODES)[number]
+
+export const CAMP_STRUCTURE_IDS = ['tent', 'workbench', 'trainingGround'] as const
+export type CampStructureId = (typeof CAMP_STRUCTURE_IDS)[number]
+
+export const CAMP_TRAINING_IDS = ['attack', 'vitality'] as const
+export type CampTrainingId = (typeof CAMP_TRAINING_IDS)[number]
+
+export const CAMP_MATERIAL_IDS = ['ashShard', 'beastHide', 'emberCore'] as const
+export type CampMaterialId = (typeof CAMP_MATERIAL_IDS)[number]
+
+export const CAMP_CONSUMABLE_IDS = ['goldStew', 'focusTonic'] as const
+export type CampConsumableId = (typeof CAMP_CONSUMABLE_IDS)[number]
+
+export const CAMP_RECIPE_IDS = ['goldStew', 'focusTonic'] as const
+export type CampRecipeId = (typeof CAMP_RECIPE_IDS)[number]
+
+export const CAMP_RESIDENT_IDS = ['sera'] as const
+export type CampResidentId = (typeof CAMP_RESIDENT_IDS)[number]
+export type CampResidentStatus = 'unmet' | 'rescued' | 'contracted'
+
+export type CampStructureLevels = Record<CampStructureId, number>
+export type CampTrainingRanks = Record<CampTrainingId, number>
+export type CampMaterialInventory = Record<CampMaterialId, number>
+export type CampConsumableInventory = Record<CampConsumableId, number>
+
+export interface CampCraftJob {
+  recipeId: CampRecipeId
+  remainingMs: number
+}
+
+export interface CampBuffState {
+  goldBoostRounds: number
+  bossFocusStage: number | null
+}
+
+export interface CampMerchantState {
+  cycle: number
+  refreshRemainingMs: number
+  purchasedOfferMask: number
+}
+
+export interface CampResidentState {
+  status: CampResidentStatus
+  trust: number
+}
+
+export interface CampState {
+  definitionVersion: number
+  structures: CampStructureLevels
+  training: CampTrainingRanks
+  materials: CampMaterialInventory
+  consumables: CampConsumableInventory
+  craftJob: CampCraftJob | null
+  buffs: CampBuffState
+  merchant: CampMerchantState
+  residents: Record<CampResidentId, CampResidentState>
+}
 
 export const EXPEDITION_DEFINITION_IDS_V1 = Object.freeze([
   'event.ember-shrine',
@@ -123,6 +183,8 @@ export interface LifetimeStats {
 export interface GameState {
   schemaVersion: typeof SAVE_VERSION
   lastSavedAt: number
+  currentMode: GameMode
+  camp: CampState
   claimedBossMilestoneMask: number
   expeditionEvents: ExpeditionEventState
   rng: RngState

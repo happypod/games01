@@ -76,6 +76,132 @@ describe('useGame persistence safety', () => {
     unmount()
   })
 
+  it('persists camp mode and pauses foreground rounds while autosave checkpoints time', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    const rngBefore = structuredClone(result.current.state.rng)
+    const battleBefore = structuredClone(result.current.state.battle)
+
+    act(() => result.current.changeMode('CAMP'))
+    expect(result.current.state.currentMode).toBe('CAMP')
+    await act(async () => vi.advanceTimersByTimeAsync(6_000))
+
+    expect(result.current.state.currentMode).toBe('CAMP')
+    expect(result.current.state.rng).toEqual(rngBefore)
+    expect(result.current.state.battle).toEqual(battleBefore)
+    expect(result.current.state.lastSavedAt).toBe(Date.now())
+    expect(result.current.combatEventBatch).toMatchObject({
+      nextCursor: '0',
+      totalEvents: 0,
+    })
+    const saved = SAVE_SLOT_KEYS
+      .map((key) => window.localStorage.getItem(key))
+      .filter((raw): raw is string => raw !== null)
+      .map((raw) => parseSaveEnvelope(raw))
+      .filter((envelope) => envelope !== null)
+      .sort((left, right) => right.revision - left.revision)[0]
+    expect(saved?.state.currentMode).toBe('CAMP')
+    expect(saved?.state.rng).toEqual(rngBefore)
+    unmount()
+  })
+
+  it('does not carry suspended camp time across the battle resume boundary', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    act(() => result.current.changeMode('CAMP'))
+    const campSnapshot = structuredClone(result.current.state)
+
+    vi.setSystemTime(Date.now() + 60_000)
+    act(() => result.current.changeMode('BATTLE'))
+    const expected = advanceGame({ ...campSnapshot, currentMode: 'BATTLE' }, 1_000).state
+    await act(async () => vi.advanceTimersByTimeAsync(1_000))
+
+    expect(result.current.state.battle).toEqual(expected.battle)
+    expect(result.current.state.rng).toEqual(expected.rng)
+    unmount()
+  })
+
+  it('reconciles camp timers before commands and announces a craft completion once', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const startedAt = Date.now()
+    const initial = createInitialState(startedAt, 0x4214_2042)
+    initial.currentMode = 'CAMP'
+    initial.player.gold = 1_000
+    initial.camp.craftJob = { recipeId: 'goldStew', remainingMs: 1_000 }
+    initial.camp.merchant.refreshRemainingMs = 500
+    expect(saveGameAtRevision(window.localStorage, initial, null)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(result.current.readOnly).toBe(false)
+
+    vi.setSystemTime(startedAt + 600)
+    act(() => result.current.purchaseCampMerchantOffer(0))
+    expect(result.current.state.camp.craftJob).toEqual({
+      recipeId: 'goldStew',
+      remainingMs: 400,
+    })
+    expect(result.current.state.camp.merchant).toEqual({
+      cycle: 1,
+      refreshRemainingMs: 1_799_900,
+      purchasedOfferMask: 1,
+    })
+    expect(result.current.state.camp.materials).toMatchObject({
+      ashShard: 0,
+      beastHide: 6,
+    })
+    expect(result.current.state.player.gold).toBe(780)
+
+    vi.setSystemTime(startedAt + 1_000)
+    act(() => result.current.changeMode('BATTLE'))
+    expect(result.current.state.camp.craftJob).toBeNull()
+    expect(result.current.state.camp.consumables.goldStew).toBe(1)
+    expect(result.current.notice).toContain('황금 스튜 제작이 완료되었습니다.')
+    const completionNotice = result.current.notice
+
+    await act(async () => vi.advanceTimersByTimeAsync(250))
+    expect(result.current.notice).toBe(completionNotice)
+    unmount()
+  })
+
   it('latches writes off after a bootstrap read error', async () => {
     const originalGetItem = Storage.prototype.getItem
     vi.spyOn(Storage.prototype, 'getItem')

@@ -59,19 +59,25 @@ export function getHeroStats(state: GameState): HeroStats {
 
   return {
     attack: toSafeInteger(
-      (10 + (level - 1) * 2.2 + upgrades.weapon * 5) * permanentMultiplier,
+      (10 + (level - 1) * 2.2 + upgrades.weapon * 5) * permanentMultiplier +
+        state.camp.training.attack * 2,
       1,
     ),
     maxHp: toSafeInteger(
       (100 + (level - 1) * 14 + upgrades.armor * 30) *
         ironWillMultiplier *
-        permanentMultiplier,
+        permanentMultiplier +
+        state.camp.training.vitality * 20,
       1,
     ),
     defense: toSafeInteger(
       (upgrades.armor * 1.8 + (level - 1) * 0.35) * ironWillMultiplier,
     ),
-    goldMultiplier: 1 + upgrades.charm * 0.1 + skills.fortune * 0.12,
+    goldMultiplier:
+      1 +
+      upgrades.charm * 0.1 +
+      skills.fortune * 0.12 +
+      (state.camp.buffs.goldBoostRounds > 0 ? 0.5 : 0),
     powerStrikeMultiplier: 2.5 + Math.max(0, skills.powerStrike - 1) * 0.25,
   }
 }

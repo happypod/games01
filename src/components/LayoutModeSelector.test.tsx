@@ -67,4 +67,78 @@ describe('LayoutModeSelector', () => {
     expect(tactical).toHaveFocus()
     expect(tactical).toHaveAttribute('aria-checked', 'true')
   })
+
+  it('adds a persisted camp choice without changing the saved battle layout preference', () => {
+    const onLayoutChange = vi.fn()
+    const onGameModeChange = vi.fn()
+    const { rerender } = render(
+      <LayoutModeSelector
+        value="tactical"
+        onChange={onLayoutChange}
+        gameMode="BATTLE"
+        onGameModeChange={onGameModeChange}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('radio', { name: '캠프 · 관리' }))
+    expect(onGameModeChange).toHaveBeenCalledWith('CAMP')
+    expect(onLayoutChange).not.toHaveBeenCalled()
+
+    rerender(
+      <LayoutModeSelector
+        value="tactical"
+        onChange={onLayoutChange}
+        gameMode="CAMP"
+        onGameModeChange={onGameModeChange}
+      />,
+    )
+    fireEvent.click(screen.getByRole('radio', { name: '유형 1 · 대시보드' }))
+    expect(onLayoutChange).toHaveBeenCalledWith('dashboard')
+    expect(onGameModeChange).toHaveBeenLastCalledWith('BATTLE')
+  })
+
+  it('keeps battle layout choices available but blocks persisted camp changes in read-only mode', () => {
+    const onLayoutChange = vi.fn()
+    const onGameModeChange = vi.fn()
+    render(
+      <LayoutModeSelector
+        value="dashboard"
+        onChange={onLayoutChange}
+        gameMode="BATTLE"
+        onGameModeChange={onGameModeChange}
+        gameModeDisabled
+      />,
+    )
+
+    const camp = screen.getByRole('radio', { name: '캠프 · 관리' })
+    expect(camp).toHaveAttribute('aria-disabled', 'true')
+    fireEvent.click(camp)
+    expect(onGameModeChange).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('radio', { name: '유형 2 · 전술 전장' }))
+    expect(onLayoutChange).toHaveBeenCalledWith('tactical')
+  })
+
+  it('skips the unavailable camp choice during read-only roving navigation', () => {
+    const onLayoutChange = vi.fn()
+    render(
+      <LayoutModeSelector
+        value="tactical"
+        onChange={onLayoutChange}
+        gameMode="BATTLE"
+        onGameModeChange={vi.fn()}
+        gameModeDisabled
+      />,
+    )
+
+    const tactical = screen.getByRole('radio', { name: '유형 2 · 전술 전장' })
+    const dashboard = screen.getByRole('radio', { name: '유형 1 · 대시보드' })
+    tactical.focus()
+    fireEvent.keyDown(tactical, { key: 'ArrowRight' })
+
+    expect(dashboard).toHaveFocus()
+    expect(onLayoutChange).toHaveBeenCalledWith('dashboard')
+    expect(screen.getByTestId('layout-mode-selector'))
+      .toHaveAccessibleName('전투 및 캠프 화면')
+  })
 })

@@ -4,6 +4,7 @@ import legacySaveV2 from './fixtures/legacy-save-v2.json'
 import legacySaveV3 from './fixtures/legacy-save-v3.json'
 import legacySaveV4 from './fixtures/legacy-save-v4.json'
 import { MAX_BOSS_MILESTONE_MASK } from './bossMilestones'
+import { createInitialCampState } from './camp'
 import { getEnemyDefinition } from './content'
 import { advanceGame, createInitialState } from './engine'
 import {
@@ -353,6 +354,8 @@ describe('A/B game persistence', () => {
     expect(schemaVersion).toBe(SAVE_VERSION)
     expect(migratedFields).toEqual({
       lastSavedAt: legacySaveV1.lastSavedAt,
+      currentMode: 'BATTLE',
+      camp: createInitialCampState(),
       claimedBossMilestoneMask: 0,
       expeditionEvents: migratedExpeditionEvents(legacySaveV1.battle.highestStage, 0),
       player: {
@@ -439,6 +442,8 @@ describe('A/B game persistence', () => {
     expect(migrated).toEqual({
       ...legacySaveV2,
       schemaVersion: SAVE_VERSION,
+      currentMode: 'BATTLE',
+      camp: createInitialCampState(),
       claimedBossMilestoneMask: 0,
       expeditionEvents: migratedExpeditionEvents(
         legacySaveV2.battle.highestStage,
@@ -974,9 +979,13 @@ describe('A/B game persistence', () => {
       milestoneMask: 1,
       pending: [createExpeditionPendingEvent(state.rng.seed, 0, 0, 100)],
     }
-    const transitional = structuredClone(state) as unknown as {
-      expeditionEvents: Record<string, unknown>
-    }
+    const { currentMode: _mode, camp: _camp, ...schema5Fields } = structuredClone(state)
+    void _mode
+    void _camp
+    const transitional = {
+      ...schema5Fields,
+      schemaVersion: 5,
+    } as unknown as { expeditionEvents: Record<string, unknown> }
     delete transitional.expeditionEvents.definitionVersion
 
     expect(parseSave(JSON.stringify(transitional))).toMatchObject({
@@ -986,9 +995,14 @@ describe('A/B game persistence', () => {
       },
     })
 
-    const empty = structuredClone(createInitialState(100)) as unknown as {
-      expeditionEvents: Record<string, unknown>
-    }
+    const currentEmpty = structuredClone(createInitialState(100))
+    const { currentMode: _emptyMode, camp: _emptyCamp, ...emptySchema5Fields } = currentEmpty
+    void _emptyMode
+    void _emptyCamp
+    const empty = {
+      ...emptySchema5Fields,
+      schemaVersion: 5,
+    } as unknown as { expeditionEvents: Record<string, unknown> }
     delete empty.expeditionEvents.definitionVersion
     expect(parseSave(JSON.stringify(empty))).toMatchObject({
       expeditionEvents: { definitionVersion: 1, pending: [] },

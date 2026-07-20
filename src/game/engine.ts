@@ -35,7 +35,27 @@ import {
   resolveReachedExpeditionMilestones,
 } from './expedition'
 import { createRngState, nextRandom, seedFromText } from './rng'
-import { SAVE_VERSION } from './types'
+import {
+  CAMP_STRUCTURE_MAX_LEVEL,
+  CAMP_FOCUS_CRITICAL_BONUS,
+  CAMP_GOLD_STEW_ROUNDS,
+  CAMP_MERCHANT_OFFER_SLOTS,
+  CAMP_MERCHANT_REFRESH_MS,
+  CAMP_RECIPE_DEFINITIONS,
+  CAMP_TRAINING_EFFECTS,
+  getCampCraftDurationMs,
+  getCampMaterialYield,
+  getCampMerchantOfferCost,
+  getCampMerchantOffers,
+  getCampOfflineCapMs,
+  getCampStructureUpgradeCost,
+  getCampTrainingCost,
+  getCampTrainingRankCap,
+  getSeraTrustCost,
+  createInitialCampState,
+  type CampMerchantOfferSlot,
+} from './camp'
+import { CAMP_MATERIAL_IDS, SAVE_VERSION } from './types'
 import type {
   AdvanceReport,
   AdvanceResult,
@@ -44,9 +64,14 @@ import type {
   CombatEventCursor,
   CombatEventSnapshot,
   BossMilestoneRewardSnapshot,
+  CampConsumableId,
+  CampRecipeId,
+  CampStructureId,
+  CampTrainingId,
   CompanionId,
   CommandResult,
   ExpeditionChoiceId,
+  GameMode,
   GameState,
   SkillId,
   UpgradeId,
@@ -187,6 +212,19 @@ const emptyReport = (elapsedMs: number): AdvanceReport => ({
 
 const cloneState = (state: GameState): GameState => ({
   ...state,
+  camp: {
+    ...state.camp,
+    structures: { ...state.camp.structures },
+    training: { ...state.camp.training },
+    materials: { ...state.camp.materials },
+    consumables: { ...state.camp.consumables },
+    craftJob: state.camp.craftJob === null ? null : { ...state.camp.craftJob },
+    buffs: { ...state.camp.buffs },
+    merchant: { ...state.camp.merchant },
+    residents: {
+      sera: { ...state.camp.residents.sera },
+    },
+  },
   expeditionEvents: {
     ...state.expeditionEvents,
     pending: state.expeditionEvents.pending.map((pending) => ({
@@ -216,6 +254,8 @@ export function createInitialState(
   return {
     schemaVersion: SAVE_VERSION,
     lastSavedAt: now,
+    currentMode: 'BATTLE',
+    camp: createInitialCampState(),
     claimedBossMilestoneMask: 0,
     expeditionEvents: createInitialExpeditionEventState(),
     rng: createRngState(seed),
@@ -277,6 +317,13 @@ function resolveEnemyDefeat(
   state.stats.enemiesDefeated = addSafeIntegers(state.stats.enemiesDefeated, 1)
   report.kills = addSafeIntegers(report.kills, 1)
   report.goldEarned = addSafeIntegers(report.goldEarned, gold)
+  const materialYield = getCampMaterialYield(enemy)
+  for (const id of CAMP_MATERIAL_IDS) {
+    state.camp.materials[id] = addSafeIntegers(
+      state.camp.materials[id],
+      materialYield[id],
+    )
+  }
 
   let milestoneReward: BossMilestoneRewardSnapshot | null = null
   const configuredMilestone = enemy.isBoss ? getBossMilestoneReward(defeatedStage) : null
@@ -345,15 +392,21 @@ function resolveEnemyDefeat(
       ? { ...commonOutcome, type: 'bossVictory', milestoneReward }
       : { ...commonOutcome, type: 'kill' },
   )
+  if (enemy.isBoss && state.camp.buffs.bossFocusStage === defeatedStage) {
+    state.camp.buffs.bossFocusStage = null
+  }
 }
 
-function resolveRound(
+function resolveCombatRound(
   state: GameState,
   report: AdvanceReport,
   roundSequence: CombatEventCursor,
   batch: MutableCombatEventBatch,
 ) {
   const enemy = getEnemyDefinition(state.battle.stage)
+  if (enemy.isBoss && state.camp.buffs.bossFocusStage === 0) {
+    state.camp.buffs.bossFocusStage = enemy.stage
+  }
   const hero = getHeroStats(state)
   state.player.currentHp = Math.min(state.player.currentHp, hero.maxHp)
   state.battle.powerStrikeCooldownMs = Math.max(
@@ -368,7 +421,10 @@ function resolveRound(
     state.player.skills.powerStrike > 0 && state.battle.powerStrikeCooldownMs === 0
   const draw = nextRandom(state.rng)
   state.rng = draw.rng
-  const isCritical = draw.value < CRITICAL_CHANCE
+  const criticalChance = state.camp.buffs.bossFocusStage === enemy.stage
+    ? CRITICAL_CHANCE + CAMP_FOCUS_CRITICAL_BONUS
+    : CRITICAL_CHANCE
+  const isCritical = draw.value < criticalChance
   const heroDamage = toSafeInteger(
     hero.attack *
       (usesPowerStrike ? hero.powerStrikeMultiplier : 1) *
@@ -490,7 +546,59 @@ function resolveRound(
       highestStage: state.battle.highestStage,
       snapshot: captureCombatEventSnapshot(state),
     })
+    if (enemy.isBoss && state.camp.buffs.bossFocusStage === defeatedAtStage) {
+      state.camp.buffs.bossFocusStage = null
+    }
   }
+}
+
+function resolveRound(
+  state: GameState,
+  report: AdvanceReport,
+  roundSequence: CombatEventCursor,
+  batch: MutableCombatEventBatch,
+) {
+  resolveCombatRound(state, report, roundSequence, batch)
+  if (state.camp.buffs.goldBoostRounds > 0) {
+    state.camp.buffs.goldBoostRounds -= 1
+  }
+}
+
+function advanceCampTimers(state: GameState, elapsedMs: number) {
+  const job = state.camp.craftJob
+  if (job !== null) {
+    if (elapsedMs < job.remainingMs) {
+      job.remainingMs -= elapsedMs
+    } else {
+      state.camp.consumables[job.recipeId] = addSafeIntegers(
+        state.camp.consumables[job.recipeId],
+        1,
+      )
+      state.camp.craftJob = null
+    }
+  }
+
+  const merchant = state.camp.merchant
+  if (elapsedMs < merchant.refreshRemainingMs) {
+    merchant.refreshRemainingMs -= elapsedMs
+    return
+  }
+  if (merchant.cycle === Number.MAX_SAFE_INTEGER) return
+  const elapsedAfterRefresh = elapsedMs - merchant.refreshRemainingMs
+  const additionalCycles = Math.floor(elapsedAfterRefresh / CAMP_MERCHANT_REFRESH_MS)
+  const cycles = Math.min(
+    Number.MAX_SAFE_INTEGER - merchant.cycle,
+    1 + additionalCycles,
+  )
+  merchant.cycle += cycles
+  if (merchant.cycle === Number.MAX_SAFE_INTEGER) {
+    merchant.refreshRemainingMs = CAMP_MERCHANT_REFRESH_MS
+    merchant.purchasedOfferMask = 0
+    return
+  }
+  merchant.refreshRemainingMs = CAMP_MERCHANT_REFRESH_MS -
+    (elapsedAfterRefresh % CAMP_MERCHANT_REFRESH_MS)
+  merchant.purchasedOfferMask = 0
 }
 
 export function advanceGame(
@@ -500,9 +608,22 @@ export function advanceGame(
 ): AdvanceResult {
   let cursor = parseCombatEventCursor(startCursor)
   const finiteElapsed = Number.isFinite(rawElapsedMs) ? Math.floor(rawElapsedMs) : 0
-  const elapsedMs = Math.min(MAX_OFFLINE_MS, Math.max(0, finiteElapsed))
+  const elapsedMs = Math.min(
+    Math.max(MAX_OFFLINE_MS, getCampOfflineCapMs(input.camp)),
+    Math.max(0, finiteElapsed),
+  )
   const state = cloneState(input)
   const report = emptyReport(elapsedMs)
+  advanceCampTimers(state, elapsedMs)
+  if (state.currentMode === 'CAMP') {
+    return {
+      state,
+      report,
+      nextCursor: cursor.toString(),
+      totalEvents: 0,
+      events: [],
+    }
+  }
   const accumulatedMs = state.battle.roundRemainderMs + elapsedMs
   const rounds = Math.floor(accumulatedMs / COMBAT_ROUND_MS)
   state.battle.roundRemainderMs = accumulatedMs % COMBAT_ROUND_MS
@@ -519,6 +640,253 @@ export function advanceGame(
     nextCursor: cursor.toString(),
     totalEvents: eventBatch.totalEvents,
     events: eventBatch.events,
+  }
+}
+
+export function advanceOfflineGame(
+  input: GameState,
+  rawElapsedMs: number,
+  startCursor: CombatEventCursor = '0',
+): AdvanceResult {
+  const result = advanceGame(
+    input.currentMode === 'BATTLE' ? input : { ...input, currentMode: 'BATTLE' },
+    rawElapsedMs,
+    startCursor,
+  )
+  return input.currentMode === 'BATTLE'
+    ? result
+    : { ...result, state: { ...result.state, currentMode: input.currentMode } }
+}
+
+export function switchGameMode(input: GameState, mode: GameMode): CommandResult {
+  if (input.currentMode === mode) {
+    return {
+      state: input,
+      success: false,
+      message: mode === 'CAMP' ? '이미 캠프에서 쉬고 있습니다.' : '이미 자동 전투 중입니다.',
+    }
+  }
+  const state = cloneState(input)
+  state.currentMode = mode
+  return {
+    state,
+    success: true,
+    message: mode === 'CAMP'
+      ? '캠프에 진입했습니다. 화면을 보는 동안 자동 전투가 멈춥니다.'
+      : '캠프를 떠나 자동 전투를 재개했습니다.',
+  }
+}
+
+export function upgradeCampStructure(
+  input: GameState,
+  id: CampStructureId,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프에서만 시설을 확장할 수 있습니다.' }
+  }
+  const currentLevel = input.camp.structures[id]
+  const cost = getCampStructureUpgradeCost(id, currentLevel)
+  if (cost === null || currentLevel >= CAMP_STRUCTURE_MAX_LEVEL) {
+    return { state: input, success: false, message: '이미 최고 시설 레벨입니다.' }
+  }
+  if (input.player.gold < cost) {
+    return { state: input, success: false, message: `시설 확장에 골드 ${cost}이 필요합니다.` }
+  }
+
+  const state = cloneState(input)
+  state.player.gold -= cost
+  state.camp.structures[id] += 1
+  return {
+    state,
+    success: true,
+    message: `시설을 Lv.${state.camp.structures[id]}로 확장했습니다.`,
+  }
+}
+
+export function trainAtCamp(
+  input: GameState,
+  id: CampTrainingId,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프 단련소에서만 영구 훈련할 수 있습니다.' }
+  }
+  const currentRank = input.camp.training[id]
+  const rankCap = getCampTrainingRankCap(input.camp)
+  if (currentRank >= rankCap) {
+    return { state: input, success: false, message: '단련소를 확장해야 훈련을 계속할 수 있습니다.' }
+  }
+  const cost = getCampTrainingCost(id, currentRank)
+  if (input.player.gold < cost) {
+    return { state: input, success: false, message: `영구 훈련에 골드 ${cost}이 필요합니다.` }
+  }
+
+  const state = cloneState(input)
+  const previousMaxHp = getHeroStats(state).maxHp
+  state.player.gold -= cost
+  state.camp.training[id] += 1
+  if (id === 'vitality') {
+    const gainedHp = getHeroStats(state).maxHp - previousMaxHp
+    state.player.currentHp = Math.min(
+      getHeroStats(state).maxHp,
+      addSafeIntegers(state.player.currentHp, gainedHp),
+    )
+  }
+  return {
+    state,
+    success: true,
+    message: id === 'attack'
+      ? `공격 훈련 완료 · 영구 공격력 +${CAMP_TRAINING_EFFECTS.attack}`
+      : `체력 훈련 완료 · 영구 최대 체력 +${CAMP_TRAINING_EFFECTS.vitality}`,
+  }
+}
+
+export function startCampCraft(
+  input: GameState,
+  recipeId: CampRecipeId,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프 작업대에서만 제작을 시작할 수 있습니다.' }
+  }
+  if (input.camp.craftJob !== null) {
+    return { state: input, success: false, message: '작업대에서 이미 제작 중입니다.' }
+  }
+  const recipe = CAMP_RECIPE_DEFINITIONS[recipeId]
+  for (const id of CAMP_MATERIAL_IDS) {
+    if (input.camp.materials[id] < recipe.ingredients[id]) {
+      return { state: input, success: false, message: `${recipe.name} 제작 재료가 부족합니다.` }
+    }
+  }
+
+  const state = cloneState(input)
+  for (const id of CAMP_MATERIAL_IDS) {
+    state.camp.materials[id] -= recipe.ingredients[id]
+  }
+  state.camp.craftJob = {
+    recipeId,
+    remainingMs: getCampCraftDurationMs(state.camp, recipeId),
+  }
+  return { state, success: true, message: `${recipe.name} 제작을 시작했습니다.` }
+}
+
+export function consumeCampConsumable(
+  input: GameState,
+  id: CampConsumableId,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프에서만 전투 보급품을 준비할 수 있습니다.' }
+  }
+  if (input.camp.consumables[id] < 1) {
+    return { state: input, success: false, message: '사용할 보급품이 없습니다.' }
+  }
+  if (id === 'goldStew' && input.camp.buffs.goldBoostRounds > 0) {
+    return { state: input, success: false, message: '황금 스튜 효과가 이미 적용 중입니다.' }
+  }
+  if (id === 'focusTonic' && input.camp.buffs.bossFocusStage !== null) {
+    return { state: input, success: false, message: '집중 물약 효과가 이미 준비되어 있습니다.' }
+  }
+
+  const state = cloneState(input)
+  state.camp.consumables[id] -= 1
+  if (id === 'goldStew') {
+    state.camp.buffs.goldBoostRounds = CAMP_GOLD_STEW_ROUNDS
+  } else {
+    state.camp.buffs.bossFocusStage = 0
+  }
+  return {
+    state,
+    success: true,
+    message: id === 'goldStew'
+      ? '다음 1,800 전투 라운드의 골드 획득량이 50% 증가합니다.'
+      : '다음 보스전의 치명타 확률이 35%로 준비되었습니다.',
+  }
+}
+
+export function purchaseCampMerchantOffer(
+  input: GameState,
+  slot: CampMerchantOfferSlot,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프 상인에게서만 거래할 수 있습니다.' }
+  }
+  if (!CAMP_MERCHANT_OFFER_SLOTS.some((candidate) => candidate === slot)) {
+    return { state: input, success: false, message: '존재하지 않는 상인 제안입니다.' }
+  }
+  const bit = 1 << slot
+  if ((input.camp.merchant.purchasedOfferMask & bit) !== 0) {
+    return { state: input, success: false, message: '이번 갱신에서 이미 받은 제안입니다.' }
+  }
+  const offer = getCampMerchantOffers(input.camp.merchant.cycle)[slot]
+  if (offer.effect.type === 'rescueSera' && input.camp.residents.sera.status !== 'unmet') {
+    return { state: input, success: false, message: '세라는 이미 안전한 캠프에 머물고 있습니다.' }
+  }
+  const cost = getCampMerchantOfferCost(input.camp, offer)
+  if (input.player.gold < cost) {
+    return { state: input, success: false, message: `상인 거래에 골드 ${cost}이 필요합니다.` }
+  }
+
+  const state = cloneState(input)
+  state.player.gold -= cost
+  state.camp.merchant.purchasedOfferMask |= bit
+  if (offer.effect.type === 'material') {
+    state.camp.materials[offer.effect.id] = addSafeIntegers(
+      state.camp.materials[offer.effect.id],
+      offer.effect.amount,
+    )
+  } else if (offer.effect.type === 'consumable') {
+    state.camp.consumables[offer.effect.id] = addSafeIntegers(
+      state.camp.consumables[offer.effect.id],
+      offer.effect.amount,
+    )
+  } else {
+    state.camp.residents.sera = { status: 'rescued', trust: 0 }
+  }
+  return { state, success: true, message: `${offer.name} 제안을 완료했습니다.` }
+}
+
+export function acceptSeraContract(input: GameState): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프에서만 동행 의사를 확인할 수 있습니다.' }
+  }
+  if (input.camp.residents.sera.status !== 'rescued') {
+    return {
+      state: input,
+      success: false,
+      message: input.camp.residents.sera.status === 'contracted'
+        ? '세라와 이미 자발적 동행 계약을 맺었습니다.'
+        : '먼저 구호대의 세라 구조 지원을 완료해야 합니다.',
+    }
+  }
+  const state = cloneState(input)
+  state.camp.residents.sera = { status: 'contracted', trust: 0 }
+  return {
+    state,
+    success: true,
+    message: '세라가 본인의 의사로 캠프 상점 조언 계약에 합류했습니다.',
+  }
+}
+
+export function increaseSeraTrust(input: GameState): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프에서만 신뢰 활동을 진행할 수 있습니다.' }
+  }
+  const sera = input.camp.residents.sera
+  if (sera.status !== 'contracted') {
+    return { state: input, success: false, message: '자발적 동행 계약 뒤에 신뢰 활동을 시작할 수 있습니다.' }
+  }
+  const cost = getSeraTrustCost(sera.trust)
+  if (cost === null) {
+    return { state: input, success: false, message: '세라와의 신뢰가 이미 최고 단계입니다.' }
+  }
+  if (input.player.gold < cost) {
+    return { state: input, success: false, message: `신뢰 활동에 골드 ${cost}이 필요합니다.` }
+  }
+  const state = cloneState(input)
+  state.player.gold -= cost
+  state.camp.residents.sera.trust += 1
+  return {
+    state,
+    success: true,
+    message: `세라 신뢰 ${state.camp.residents.sera.trust} · 상인 가격 ${state.camp.residents.sera.trust * 2}% 할인`,
   }
 }
 
@@ -620,6 +988,13 @@ export function selectStage(input: GameState, rawStage: number): CommandResult {
     return { state: input, success: false, message: '아직 선택할 수 없는 스테이지입니다.' }
   }
   const state = cloneState(input)
+  if (
+    state.camp.buffs.bossFocusStage !== null &&
+    state.camp.buffs.bossFocusStage !== 0 &&
+    state.camp.buffs.bossFocusStage !== stage
+  ) {
+    state.camp.buffs.bossFocusStage = null
+  }
   state.battle.stage = stage
   state.battle.enemyHp = getEnemyDefinition(stage).maxHp
   state.player.currentHp = getHeroStats(state).maxHp
@@ -694,6 +1069,10 @@ export function performPrestige(input: GameState): CommandResult {
 
   const reward = getPrestigeReward(input.battle.highestStage)
   const state = createInitialState(input.lastSavedAt)
+  state.camp = cloneState(input).camp
+  if (state.camp.buffs.bossFocusStage !== null && state.camp.buffs.bossFocusStage !== 0) {
+    state.camp.buffs.bossFocusStage = null
+  }
   state.claimedBossMilestoneMask = input.claimedBossMilestoneMask
   state.rng = { ...input.rng }
   state.player.essence = addSafeIntegers(input.player.essence, reward)

@@ -565,9 +565,11 @@ describe('portable save transfer', () => {
       }
       checksum: string
     }
-    const markerlessState = raw.state as unknown as {
-      expeditionEvents: Record<string, unknown>
-    }
+    const { currentMode: _mode, camp: _camp, ...schema5Fields } = raw.state
+    void _mode
+    void _camp
+    raw.state = { ...schema5Fields, schemaVersion: 5 } as unknown as typeof raw.state
+    const markerlessState = raw.state as unknown as { expeditionEvents: Record<string, unknown> }
     delete markerlessState.expeditionEvents.definitionVersion
     raw.checksum = checksumText(JSON.stringify(raw.state))
 

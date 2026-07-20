@@ -31,7 +31,7 @@ import {
   getXpToNextLevel,
 } from './formulas'
 import { isGameState } from './persistence'
-import type { GameState } from './types'
+import { SAVE_VERSION, type GameState } from './types'
 
 function createUpperBoundaryState(): GameState {
   const state = createInitialState(0, 0x1a2b3c4d)
@@ -93,7 +93,7 @@ describe('game engine', () => {
   it('creates a valid first battle', () => {
     const state = createInitialState(1234)
 
-    expect(state.schemaVersion).toBe(5)
+    expect(state.schemaVersion).toBe(SAVE_VERSION)
     expect(state.claimedBossMilestoneMask).toBe(0)
     expect(state.lastSavedAt).toBe(1234)
     expect(state.rng).toMatchObject({ algorithm: 'xorshift32-v1', draws: 0 })

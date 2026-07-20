@@ -207,6 +207,13 @@ describe('combat event stream', () => {
     const expectedEnemyDamage = Math.max(1, enemy.attack - hero.defense)
     const expectedState: GameState = {
       ...state,
+      camp: {
+        ...state.camp,
+        merchant: {
+          ...state.camp.merchant,
+          refreshRemainingMs: state.camp.merchant.refreshRemainingMs - 1_000,
+        },
+      },
       rng: draw.rng,
       player: {
         ...state.player,

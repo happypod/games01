@@ -19,6 +19,7 @@ import { nextRandom } from './rng'
 import {
   EXPEDITION_DEFINITION_IDS,
   EXPEDITION_DEFINITION_IDS_V1,
+  SAVE_VERSION,
   type ExpeditionEventState,
   type GameState,
 } from './types'
@@ -55,10 +56,10 @@ function hashDefinitionSequence(sequence: readonly string[]): string {
 }
 
 describe('IRPG-107 deterministic expedition events', () => {
-  it('starts schema 5 with an empty current-run event ledger', () => {
+  it('starts the current schema with an empty current-run event ledger', () => {
     const state = createInitialState(1_234, 0x1234_5678)
 
-    expect(state.schemaVersion).toBe(5)
+    expect(state.schemaVersion).toBe(SAVE_VERSION)
     expect(state.expeditionEvents).toEqual({
       definitionVersion: 1,
       runPrestige: 0,

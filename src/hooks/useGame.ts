@@ -1,16 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   advanceGame,
+  acceptSeraContract as acceptSeraContractCommand,
   chooseExpeditionEvent as chooseExpeditionEventCommand,
   createInitialState,
   mergeCombatEventBatches,
   performPrestige,
+  purchaseCampMerchantOffer as purchaseCampMerchantOfferCommand,
   purchaseUpgrade,
   recruitCompanion as recruitCompanionCommand,
   selectStage,
+  startCampCraft as startCampCraftCommand,
+  switchGameMode,
+  increaseSeraTrust as increaseSeraTrustCommand,
+  trainAtCamp as trainAtCampCommand,
   trainCompanion as trainCompanionCommand,
+  upgradeCampStructure as upgradeCampStructureCommand,
+  consumeCampConsumable as consumeCampConsumableCommand,
   upgradeSkill,
 } from '../game/engine'
+import {
+  CAMP_RECIPE_DEFINITIONS,
+  type CampMerchantOfferSlot,
+} from '../game/camp'
 import {
   LEGACY_SAVE_KEY,
   SAVE_SLOT_KEYS,
@@ -24,9 +36,14 @@ import type {
   CombatEventBatch,
   CombatEventCursor,
   CompanionId,
+  CampStructureId,
+  CampTrainingId,
+  CampConsumableId,
+  CampRecipeId,
   CommandResult,
   ExpeditionChoiceId,
   GameState,
+  GameMode,
   SkillId,
   UpgradeId,
 } from '../game/types'
@@ -68,6 +85,14 @@ export interface GameController {
   ready: boolean
   readOnly: boolean
   lockSupported: boolean
+  changeMode: (mode: GameMode) => void
+  upgradeCampStructure: (id: CampStructureId) => void
+  trainAtCamp: (id: CampTrainingId) => void
+  startCampCraft: (id: CampRecipeId) => void
+  useCampConsumable: (id: CampConsumableId) => void
+  purchaseCampMerchantOffer: (slot: CampMerchantOfferSlot) => void
+  acceptSeraContract: () => void
+  increaseSeraTrust: () => void
   buyUpgrade: (id: UpgradeId) => void
   buySkill: (id: SkillId) => void
   recruitCompanion: (id: CompanionId) => void
@@ -85,6 +110,19 @@ export interface GameController {
 
 function getLockManager(): LockManager | null {
   return typeof navigator.locks?.request === 'function' ? navigator.locks : null
+}
+
+function getCampTimerNotice(before: GameState, after: GameState): string | null {
+  const messages: string[] = []
+  if (before.camp.craftJob !== null && after.camp.craftJob === null) {
+    messages.push(
+      `${CAMP_RECIPE_DEFINITIONS[before.camp.craftJob.recipeId].name} 제작이 완료되었습니다.`,
+    )
+  }
+  if (before.camp.merchant.cycle !== after.camp.merchant.cycle) {
+    messages.push('떠돌이 상인의 제안이 갱신되었습니다.')
+  }
+  return messages.length === 0 ? null : messages.join(' ')
 }
 
 export function useGame(): GameController {
@@ -116,6 +154,7 @@ export function useGame(): GameController {
   const writerOwnerRef = useRef<symbol | null>(null)
   const conflictBlockedRef = useRef(false)
   const heldLockRef = useRef<HeldWriterLock | null>(null)
+  const tickBaselineRef = useRef(0)
   const combatEventCursorRef = useRef<CombatEventCursor>('0')
   const combatEventBatchRef = useRef<CombatEventBatch>(combatEventBatch)
 
@@ -141,6 +180,7 @@ export function useGame(): GameController {
 
   const applyBootstrap = useCallback(
     (bootstrap: BootstrapResult, role: 'writer' | 'reader') => {
+      tickBaselineRef.current = Date.now()
       commit(bootstrap.state)
       resetCombatEvents()
       revisionRef.current = bootstrap.revision
@@ -152,7 +192,9 @@ export function useGame(): GameController {
       setReady(true)
       setNotice(
         role === 'writer'
-          ? '자동 원정을 시작했습니다.'
+          ? bootstrap.state.currentMode === 'CAMP'
+            ? '캠프에서 휴식 중입니다. 재접속 오프라인 원정은 계속 정산됩니다.'
+            : '자동 원정을 시작했습니다.'
           : '다른 탭이 진행을 저장 중입니다. 이 탭은 읽기 전용입니다.',
       )
     },
@@ -315,12 +357,22 @@ export function useGame(): GameController {
         setNotice(message)
         return { success: false, message, reason: 'read-only' }
       }
-      const result = command(stateRef.current)
+      const now = Date.now()
+      const current = stateRef.current
+      const elapsedMs = tickBaselineRef.current === 0
+        ? 0
+        : Math.max(0, now - tickBaselineRef.current)
+      const advanced = advanceGame(
+        current,
+        elapsedMs,
+        combatEventCursorRef.current,
+      )
+      const timerNotice = getCampTimerNotice(current, advanced.state)
+      const result = command(advanced.state)
       if (!result.success) {
         setNotice(result.message)
         return { success: false, message: result.message, reason: 'rejected' }
       }
-      const now = Date.now()
       const next = { ...result.state, lastSavedAt: now }
       const persisted = persist(next)
       if (!persisted.success) {
@@ -330,28 +382,33 @@ export function useGame(): GameController {
           reason: 'save-failed',
         }
       }
+      tickBaselineRef.current = now
+      recordCombatEvents(advanced)
       commit(next)
-      setNotice(result.message)
+      setNotice(timerNotice === null ? result.message : `${timerNotice} ${result.message}`)
       return { success: true, message: result.message, reason: 'committed' }
     },
-    [commit, persist, readOnly, ready],
+    [commit, persist, readOnly, ready, recordCombatEvents],
   )
 
   useEffect(() => {
     if (!ready || readOnly || !writerRef.current) return
-    let lastTickAt = Date.now()
+    tickBaselineRef.current = Date.now()
 
     const reconcile = (now: number) => {
-      const elapsedMs = Math.max(0, now - lastTickAt)
-      lastTickAt = now
+      const current = stateRef.current
+      const elapsedMs = Math.max(0, now - tickBaselineRef.current)
+      tickBaselineRef.current = now
       const result = advanceGame(
-        stateRef.current,
+        current,
         elapsedMs,
         combatEventCursorRef.current,
       )
+      const timerNotice = getCampTimerNotice(current, result.state)
       recordCombatEvents(result)
       const next = { ...result.state, lastSavedAt: now }
       commit(next)
+      if (timerNotice !== null) setNotice(timerNotice)
       return next
     }
 
@@ -378,6 +435,39 @@ export function useGame(): GameController {
 
   const buyUpgrade = useCallback(
     (id: UpgradeId) => runCommand((current) => purchaseUpgrade(current, id)),
+    [runCommand],
+  )
+  const upgradeCampStructure = useCallback(
+    (id: CampStructureId) => runCommand((current) => upgradeCampStructureCommand(current, id)),
+    [runCommand],
+  )
+  const trainAtCamp = useCallback(
+    (id: CampTrainingId) => runCommand((current) => trainAtCampCommand(current, id)),
+    [runCommand],
+  )
+  const startCampCraft = useCallback(
+    (id: CampRecipeId) => runCommand((current) => startCampCraftCommand(current, id)),
+    [runCommand],
+  )
+  const useCampConsumable = useCallback(
+    (id: CampConsumableId) => runCommand((current) => consumeCampConsumableCommand(current, id)),
+    [runCommand],
+  )
+  const purchaseCampMerchantOffer = useCallback(
+    (slot: CampMerchantOfferSlot) =>
+      runCommand((current) => purchaseCampMerchantOfferCommand(current, slot)),
+    [runCommand],
+  )
+  const acceptSeraContract = useCallback(
+    () => runCommand((current) => acceptSeraContractCommand(current)),
+    [runCommand],
+  )
+  const increaseSeraTrust = useCallback(
+    () => runCommand((current) => increaseSeraTrustCommand(current)),
+    [runCommand],
+  )
+  const changeMode = useCallback(
+    (mode: GameMode) => runCommand((current) => switchGameMode(current, mode)),
     [runCommand],
   )
   const buySkill = useCallback(
@@ -488,6 +578,14 @@ export function useGame(): GameController {
     ready,
     readOnly,
     lockSupported: lockManager !== null,
+    changeMode,
+    upgradeCampStructure,
+    trainAtCamp,
+    startCampCraft,
+    useCampConsumable,
+    purchaseCampMerchantOffer,
+    acceptSeraContract,
+    increaseSeraTrust,
     buyUpgrade,
     buySkill,
     recruitCompanion,

@@ -2,13 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GameScreen } from '../components/GameScreen'
 import {
   advanceGame,
+  acceptSeraContract,
   chooseExpeditionEvent,
   mergeCombatEventBatches,
   performPrestige,
+  purchaseCampMerchantOffer,
   purchaseUpgrade,
   recruitCompanion,
   selectStage,
+  startCampCraft,
+  switchGameMode,
+  increaseSeraTrust,
+  trainAtCamp,
   trainCompanion,
+  upgradeCampStructure,
+  consumeCampConsumable,
   upgradeSkill,
 } from '../game/engine'
 import { bootstrapGame } from '../game/persistence'
@@ -21,6 +29,7 @@ import type {
 } from '../game/types'
 import type { GameCommandFeedback, GameController } from '../hooks/useGame'
 import { DebugPanel } from './DebugPanel'
+import { getCampOfflineCapMs } from '../game/camp'
 import {
   applyDebugOfflineMinutes,
   cloneDebugState,
@@ -96,7 +105,11 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
       const now = Date.now()
       const realElapsedMs = Math.max(0, now - lastTickAtRef.current)
       lastTickAtRef.current = now
-      const scaledElapsedMs = scaleDebugElapsedMs(speed, realElapsedMs)
+      const scaledElapsedMs = scaleDebugElapsedMs(
+        speed,
+        realElapsedMs,
+        getCampOfflineCapMs(stateRef.current.camp),
+      )
       if (scaledElapsedMs === 0) return
       const advanced = advanceGame(
         stateRef.current,
@@ -178,6 +191,30 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     ready: true,
     readOnly: false,
     lockSupported: false,
+    changeMode: (mode) => {
+      void runCommand((current) => switchGameMode(current, mode))
+    },
+    upgradeCampStructure: (id) => {
+      void runCommand((current) => upgradeCampStructure(current, id))
+    },
+    trainAtCamp: (id) => {
+      void runCommand((current) => trainAtCamp(current, id))
+    },
+    startCampCraft: (id) => {
+      void runCommand((current) => startCampCraft(current, id))
+    },
+    useCampConsumable: (id) => {
+      void runCommand((current) => consumeCampConsumable(current, id))
+    },
+    purchaseCampMerchantOffer: (slot) => {
+      void runCommand((current) => purchaseCampMerchantOffer(current, slot))
+    },
+    acceptSeraContract: () => {
+      void runCommand((current) => acceptSeraContract(current))
+    },
+    increaseSeraTrust: () => {
+      void runCommand((current) => increaseSeraTrust(current))
+    },
     buyUpgrade: (id) => {
       void runCommand((current) => purchaseUpgrade(current, id))
     },

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { BattleArena } from './BattleArena'
+import { CampDashboard } from './CampDashboard'
 import { CombatLogPanel } from './CombatLogPanel'
 import { CombatResultSurface } from './CombatResultRegion'
 import { ExpeditionEventPanel } from './ExpeditionEventPanel'
@@ -91,7 +92,13 @@ export function GameScreen({
         </div>
         <div className="topbar__right">
           <div className="topbar__layout">
-            <LayoutModeSelector value={layoutMode} onChange={setLayoutMode} />
+            <LayoutModeSelector
+              value={layoutMode}
+              onChange={setLayoutMode}
+              gameMode={game.state.currentMode}
+              onGameModeChange={game.changeMode}
+              gameModeDisabled={controlsDisabled}
+            />
           </div>
           <div className="resource-rack" role="group" aria-label="보유 자원">
             <div><span className="resource-icon resource-icon--gold" aria-hidden="true">●</span><span>골드<strong>{formatNumber(game.state.player.gold)}</strong></span></div>
@@ -151,7 +158,20 @@ export function GameScreen({
 
         {developerTools}
 
-        {layoutMode === 'dashboard' ? (
+        {game.state.currentMode === 'CAMP' ? (
+          <CampDashboard
+            state={game.state}
+            notice={game.notice}
+            disabled={controlsDisabled}
+            onUpgradeStructure={game.upgradeCampStructure}
+            onTrain={game.trainAtCamp}
+            onStartCraft={game.startCampCraft}
+            onUseConsumable={game.useCampConsumable}
+            onPurchaseMerchantOffer={game.purchaseCampMerchantOffer}
+            onAcceptSeraContract={game.acceptSeraContract}
+            onIncreaseSeraTrust={game.increaseSeraTrust}
+          />
+        ) : layoutMode === 'dashboard' ? (
           <div className="game-dashboard" data-testid="game-dashboard">
             <section className="dashboard dashboard-column dashboard-column--battle" aria-label="전투와 영웅">
               <BattleArena

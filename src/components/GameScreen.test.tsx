@@ -31,6 +31,14 @@ function createController(): GameController {
     ready: true,
     readOnly: false,
     lockSupported: true,
+    changeMode: vi.fn(),
+    upgradeCampStructure: vi.fn(),
+    trainAtCamp: vi.fn(),
+    startCampCraft: vi.fn(),
+    useCampConsumable: vi.fn(),
+    purchaseCampMerchantOffer: vi.fn(),
+    acceptSeraContract: vi.fn(),
+    increaseSeraTrust: vi.fn(),
     buyUpgrade: vi.fn(),
     buySkill: vi.fn(),
     recruitCompanion: vi.fn(),
@@ -49,6 +57,30 @@ function createController(): GameController {
 }
 
 describe('GameScreen expedition prestige warning', () => {
+  it('renders one camp surface and no battle renderer for a persisted camp mode', () => {
+    const game = createController()
+    game.state.currentMode = 'CAMP'
+    render(
+      <GameScreen game={game} showReadOnlyWarning={false} showSaveTransfer={false} />,
+    )
+
+    expect(screen.getByTestId('camp-dashboard')).toBeVisible()
+    expect(screen.queryByTestId('game-dashboard')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('tactical-layout')).not.toBeInTheDocument()
+    expect(screen.getByText('전경 전투 일시 정지')).toBeVisible()
+  })
+
+  it('routes the camp choice through the persisted game command', () => {
+    const game = createController()
+    render(
+      <GameScreen game={game} showReadOnlyWarning={false} showSaveTransfer={false} />,
+    )
+
+    fireEvent.click(screen.getByRole('radio', { name: '캠프 · 관리' }))
+    expect(game.changeMode).toHaveBeenCalledTimes(1)
+    expect(game.changeMode).toHaveBeenCalledWith('CAMP')
+  })
+
   it('connects the stored expedition offer to the public command', () => {
     const game = createController()
     const pending = game.state.expeditionEvents.pending[0]!

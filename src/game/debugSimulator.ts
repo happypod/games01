@@ -29,6 +29,17 @@ export interface DebugSimulationResult {
 function cloneState(state: GameState): GameState {
   return {
     ...state,
+    camp: {
+      ...state.camp,
+      structures: { ...state.camp.structures },
+      training: { ...state.camp.training },
+      materials: { ...state.camp.materials },
+      consumables: { ...state.camp.consumables },
+      craftJob: state.camp.craftJob === null ? null : { ...state.camp.craftJob },
+      buffs: { ...state.camp.buffs },
+      merchant: { ...state.camp.merchant },
+      residents: { sera: { ...state.camp.residents.sera } },
+    },
     rng: { ...state.rng },
     player: {
       ...state.player,

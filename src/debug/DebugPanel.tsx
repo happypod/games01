@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { DEBUG_SPEEDS, type DebugSpeed } from '../game/debugSimulator'
+import { getCampOfflineCapMs } from '../game/camp'
 import type { GameState } from '../game/types'
 import {
   VISUAL_FIXTURE_IDS,
@@ -62,6 +63,7 @@ export function DebugPanel({
     kind: 'status',
     text: '저장과 격리된 디버그 세션입니다.',
   })
+  const maximumOfflineMinutes = getCampOfflineCapMs(state.camp) / 60_000
 
   const attempt = (action: () => void, success: string) => {
     try {
@@ -213,7 +215,7 @@ export function DebugPanel({
         </form>
 
         <form onSubmit={submitOffline}>
-          <label htmlFor="debug-offline">오프라인 시간 (0–480분)</label>
+          <label htmlFor="debug-offline">오프라인 시간 (0–{maximumOfflineMinutes}분)</label>
           <div className="debug-input-action">
             <input id="debug-offline" name="offlineMinutes" type="text" inputMode="numeric" value={offlineMinutes} onChange={(event) => setOfflineMinutes(event.target.value)} />
             <button type="submit">진행 적용</button>
