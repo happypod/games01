@@ -59,14 +59,14 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414' | 'IRPG-415' | 'IRPG-416' | 'IRPG-417' | 'IRPG-418'
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414' | 'IRPG-415' | 'IRPG-416' | 'IRPG-417' | 'IRPG-418' | 'IRPG-422'
   readonly stage: 1 | 3 | 5 | 10 | 20 | 30 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
   readonly canonicalEventHash?: `fnv1a32-v1:${string}`
-  readonly captureTarget: '.dashboard' | '.battle' | '.game-dashboard' | '.tactical-canvas' | '.camp-dashboard' | '.stage-map-panel' | '.progression-panels' | '.expedition-event-panel' | '.combat-log-panel' | '.combat-result-dialog'
+  readonly captureTarget: '.tactical-layout' | '.tactical-canvas' | '.tactical-action-bar' | '.tactical-utility-dock__panel' | '.camp-dashboard' | '.stage-map-panel' | '.expedition-event-panel' | '.combat-result-dialog'
   readonly failureRoute: 'none' | 'hero-and-enemy-corrupt' | 'cards-corrupt' | 'events-corrupt'
-  readonly setupAction: 'none' | 'open-stage-map' | 'open-growth-cards' | 'open-expedition-events' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result' | 'select-tactical-layout'
+  readonly setupAction: 'none' | 'open-stage-map' | 'assert-action-bar-assets' | 'open-expedition-events' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result' | 'assert-tactical-surface'
   readonly variants: readonly VisualVariantId[]
 }
 
@@ -111,7 +111,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     stage: 1,
     seedKey: 'irpg-506:visual.combat.hero-default:v1',
     canonicalHash: 'fnv1a32-v1:173f7ed1',
-    captureTarget: '.dashboard',
+    captureTarget: '.tactical-canvas',
     failureRoute: 'none',
     setupAction: 'none',
     variants: VISUAL_VARIANT_IDS,
@@ -123,7 +123,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     stage: 5,
     seedKey: 'irpg-506:visual.combat.enemy-default:v1',
     canonicalHash: 'fnv1a32-v1:b35df990',
-    captureTarget: '.battle',
+    captureTarget: '.tactical-canvas',
     failureRoute: 'none',
     setupAction: 'none',
     variants: VISUAL_VARIANT_IDS,
@@ -135,7 +135,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     stage: 10,
     seedKey: 'irpg-506:visual.combat.boss-default:v1',
     canonicalHash: 'fnv1a32-v1:96c283ab',
-    captureTarget: '.battle',
+    captureTarget: '.tactical-canvas',
     failureRoute: 'none',
     setupAction: 'none',
     variants: VISUAL_VARIANT_IDS,
@@ -147,7 +147,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     stage: 1,
     seedKey: 'irpg-506:visual.combat.fallback:v1',
     canonicalHash: 'fnv1a32-v1:6ca0199b',
-    captureTarget: '.dashboard',
+    captureTarget: '.tactical-canvas',
     failureRoute: 'hero-and-enemy-corrupt',
     setupAction: 'none',
     variants: VISUAL_VARIANT_IDS,
@@ -171,9 +171,9 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     stage: 3,
     seedKey: 'irpg-506:visual.cards.mixed-states:v1',
     canonicalHash: 'fnv1a32-v1:2bb88fcb',
-    captureTarget: '.progression-panels',
+    captureTarget: '.tactical-action-bar',
     failureRoute: 'none',
-    setupAction: 'open-growth-cards',
+    setupAction: 'assert-action-bar-assets',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.cards.fallback': {
@@ -183,9 +183,9 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     stage: 3,
     seedKey: 'irpg-506:visual.cards.fallback:v1',
     canonicalHash: 'fnv1a32-v1:8ae4f1e5',
-    captureTarget: '.progression-panels',
+    captureTarget: '.tactical-action-bar',
     failureRoute: 'cards-corrupt',
-    setupAction: 'open-growth-cards',
+    setupAction: 'assert-action-bar-assets',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.events.pending-three': {
@@ -220,7 +220,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     seedKey: 'irpg-506:visual.combat.event-log:v1',
     canonicalHash: 'fnv1a32-v1:bd740bd5',
     canonicalEventHash: 'fnv1a32-v1:e0a7de25',
-    captureTarget: '.combat-log-panel',
+    captureTarget: '.tactical-utility-dock__panel',
     failureRoute: 'none',
     setupAction: 'open-combat-log',
     variants: VISUAL_VARIANT_IDS,
@@ -253,13 +253,13 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
   },
   'visual.dashboard.one-view': {
     id: 'visual.dashboard.one-view',
-    label: '원 뷰 대시보드 · 스테이지 10',
-    ownerTicket: 'IRPG-414',
+    label: '전술 명령 원 뷰 · 스테이지 10',
+    ownerTicket: 'IRPG-422',
     stage: 10,
     seedKey: 'irpg-414:visual.dashboard.one-view:v1',
     canonicalHash: 'fnv1a32-v1:8cf7930a',
     canonicalEventHash: 'fnv1a32-v1:aa4f41fb',
-    captureTarget: '.game-dashboard',
+    captureTarget: '.tactical-layout',
     failureRoute: 'none',
     setupAction: 'none',
     variants: VISUAL_VARIANT_IDS,
@@ -274,7 +274,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     canonicalEventHash: 'fnv1a32-v1:c306eb11',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
-    setupAction: 'select-tactical-layout',
+    setupAction: 'assert-tactical-surface',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.dashboard.tactical-damaged': {
@@ -286,7 +286,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     canonicalHash: 'fnv1a32-v1:8ab5609d',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
-    setupAction: 'select-tactical-layout',
+    setupAction: 'assert-tactical-surface',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.dashboard.tactical-severe': {
@@ -298,7 +298,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     canonicalHash: 'fnv1a32-v1:007bd4fd',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
-    setupAction: 'select-tactical-layout',
+    setupAction: 'assert-tactical-surface',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.events.tactical-overlay': {
@@ -311,7 +311,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     canonicalEventHash: 'fnv1a32-v1:15091bd6',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
-    setupAction: 'select-tactical-layout',
+    setupAction: 'assert-tactical-surface',
     variants: VISUAL_VARIANT_IDS,
   },
   'visual.camp.resting': {

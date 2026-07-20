@@ -176,7 +176,7 @@ describe('IRPG-506 named visual fixtures', () => {
           : id === 'visual.dashboard.tactical-canvas'
           ? 'IRPG-415'
           : id === 'visual.dashboard.one-view'
-          ? 'IRPG-414'
+          ? 'IRPG-422'
           : id === 'visual.map.stage-frontier'
           ? 'IRPG-408'
           : id.startsWith('visual.cards.')
@@ -235,8 +235,8 @@ describe('IRPG-506 named visual fixtures', () => {
     expect(VISUAL_FIXTURE_REGISTRY['visual.cards.fallback'].failureRoute)
       .toBe('cards-corrupt')
     expect(VISUAL_FIXTURE_REGISTRY['visual.cards.mixed-states']).toMatchObject({
-      captureTarget: '.progression-panels',
-      setupAction: 'open-growth-cards',
+      captureTarget: '.tactical-action-bar',
+      setupAction: 'assert-action-bar-assets',
     })
     expect(VISUAL_FIXTURE_REGISTRY['visual.events.pending-three']).toMatchObject({
       captureTarget: '.expedition-event-panel',
@@ -251,7 +251,7 @@ describe('IRPG-506 named visual fixtures', () => {
     const eventDefinition = VISUAL_FIXTURE_REGISTRY['visual.combat.event-log']
     const eventBatch = createVisualFixtureCombatEventBatch('visual.combat.event-log')
     expect(eventDefinition).toMatchObject({
-      captureTarget: '.combat-log-panel',
+      captureTarget: '.tactical-utility-dock__panel',
       setupAction: 'open-combat-log',
       canonicalEventHash: 'fnv1a32-v1:e0a7de25',
     })
@@ -276,8 +276,8 @@ describe('IRPG-506 named visual fixtures', () => {
     const dashboardDefinition = VISUAL_FIXTURE_REGISTRY['visual.dashboard.one-view']
     const dashboardBatch = createVisualFixtureCombatEventBatch('visual.dashboard.one-view')
     expect(dashboardDefinition).toMatchObject({
-      ownerTicket: 'IRPG-414',
-      captureTarget: '.game-dashboard',
+      ownerTicket: 'IRPG-422',
+      captureTarget: '.tactical-layout',
       setupAction: 'none',
       canonicalEventHash: 'fnv1a32-v1:aa4f41fb',
     })
@@ -303,7 +303,7 @@ describe('IRPG-506 named visual fixtures', () => {
     expect(tacticalDefinition).toMatchObject({
       ownerTicket: 'IRPG-415',
       captureTarget: '.tactical-canvas',
-      setupAction: 'select-tactical-layout',
+      setupAction: 'assert-tactical-surface',
       canonicalEventHash: 'fnv1a32-v1:c306eb11',
     })
     expect(tacticalBatch).toMatchObject({ nextCursor: '73', totalEvents: 12 })
@@ -326,7 +326,7 @@ describe('IRPG-506 named visual fixtures', () => {
     expect(tacticalOverlayDefinition).toMatchObject({
       ownerTicket: 'IRPG-417',
       captureTarget: '.tactical-canvas',
-      setupAction: 'select-tactical-layout',
+      setupAction: 'assert-tactical-surface',
       canonicalEventHash: 'fnv1a32-v1:15091bd6',
     })
     expect(tacticalOverlayBatch).toEqual({
@@ -544,6 +544,7 @@ describe('IRPG-506 visual fixture UI adapter', () => {
       'fnv1a32-v1:e0a7de25',
     )
     expect(screen.queryByTestId('combat-log-list')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '전투 로그' }))
     expect(screen.getByTestId('combat-log-preview').getElementsByTagName('li'))
       .toHaveLength(5)
     fireEvent.click(screen.getByRole('button', { name: '전투 로그 펼치기' }))
@@ -553,7 +554,7 @@ describe('IRPG-506 visual fixture UI adapter', () => {
     expect(window.localStorage).toHaveLength(0)
   })
 
-  it('keeps the card capture target stable inside the growth tab wrapper', () => {
+  it('keeps all six mapped card assets inside the tactical action bar capture target', () => {
     render(<DebugSessionApp onExit={vi.fn()} />)
 
     fireEvent.change(screen.getByLabelText('시각 회귀 fixture'), {
@@ -562,17 +563,18 @@ describe('IRPG-506 visual fixture UI adapter', () => {
     fireEvent.click(screen.getByRole('button', { name: 'fixture 적용' }))
 
     const root = screen.getByTestId('visual-fixture-root')
-    const growthCenter = root.querySelector('.growth-center')
-    const captureTarget = root.querySelector('.progression-panels')
+    const captureTarget = root.querySelector('.tactical-action-bar')
     expect(root).toHaveAttribute('data-visual-fixture-id', 'visual.cards.mixed-states')
-    expect(growthCenter).toContainElement(captureTarget as HTMLElement)
-    expect(captureTarget).toContainElement(root.querySelector('.growth-tabpanel--equipment'))
-    expect(captureTarget).toContainElement(root.querySelector('.growth-tabpanel--skill'))
-    expect(captureTarget).not.toContainElement(root.querySelector('.growth-tabpanel--companion'))
-    expect(captureTarget?.querySelectorAll('[data-card-asset-id]')).toHaveLength(6)
+    expect(root.querySelector('.tactical-battlefield')).toContainElement(
+      captureTarget as HTMLElement,
+    )
+    expect(captureTarget?.querySelectorAll('[data-action-kind="equipment"] [data-asset-id]'))
+      .toHaveLength(3)
+    expect(captureTarget?.querySelectorAll('[data-action-kind="skill"] [data-asset-id]'))
+      .toHaveLength(3)
   })
 
-  it('renders the deterministic one-view dashboard fixture surface', () => {
+  it('renders the deterministic tactical one-view fixture surface', () => {
     render(<DebugSessionApp onExit={vi.fn()} />)
 
     fireEvent.change(screen.getByLabelText('시각 회귀 fixture'), {
@@ -584,12 +586,17 @@ describe('IRPG-506 visual fixture UI adapter', () => {
     expect(root).toHaveAttribute('data-visual-fixture-id', 'visual.dashboard.one-view')
     expect(root).toHaveAttribute('data-canonical-state-hash', 'fnv1a32-v1:8cf7930a')
     expect(root).toHaveAttribute('data-canonical-event-hash', 'fnv1a32-v1:aa4f41fb')
-    expect(root.querySelector('.game-dashboard')).toBeInTheDocument()
-    expect(root.querySelectorAll('.stage-map-compact__stage')).toHaveLength(10)
+    expect(root.querySelector('.tactical-layout')).toBeInTheDocument()
+    expect(root.querySelector('.game-dashboard')).not.toBeInTheDocument()
+    expect(root.querySelectorAll('.tactical-timeline__nodes button')).toHaveLength(10)
+    expect(root.querySelectorAll('[data-action-slot]')).toHaveLength(8)
+    fireEvent.click(screen.getByRole('button', { name: '전투 로그' }))
     expect(screen.getByTestId('combat-log-preview').getElementsByTagName('li'))
       .toHaveLength(5)
     expect(screen.getByRole('tablist', { name: '성장 메뉴' })).toBeInTheDocument()
-    expect(screen.getByTestId('expedition-event-panel')).toHaveTextContent('대기 중 1/3')
+    expect(screen.getByTestId('tactical-event-count-status')).toHaveTextContent(
+      '원정 이벤트 1건 대기 중',
+    )
   })
 
   it.each([
@@ -607,6 +614,7 @@ describe('IRPG-506 visual fixture UI adapter', () => {
     const root = screen.getByTestId('visual-fixture-root')
     expect(root).toHaveAttribute('data-visual-fixture-id', id)
     expect(root).toHaveAttribute('data-canonical-event-hash', definition.canonicalEventHash)
+    fireEvent.click(screen.getByRole('button', { name: '승패 결과' }))
     fireEvent.click(screen.getByRole('button', { name: buttonName }))
     expect(screen.getByTestId('combat-result-dialog')).toHaveAttribute(
       'data-result-type',

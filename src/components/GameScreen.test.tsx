@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createInitialState } from '../game/engine'
 import { EXPEDITION_EVENT_DEFINITIONS_V1 } from '../game/content'
@@ -6,7 +6,10 @@ import { createExpeditionPendingEvent } from '../game/expedition'
 import type { GameController } from '../hooks/useGame'
 import { GameScreen } from './GameScreen'
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  window.localStorage.clear()
+})
 
 function createController(): GameController {
   const state = createInitialState(100, 0x0107_0410)
@@ -57,6 +60,33 @@ function createController(): GameController {
 }
 
 describe('GameScreen expedition prestige warning', () => {
+  it('always renders the tactical battle surface and ignores the retired layout preference', () => {
+    window.localStorage.setItem('emberwatch.ui.layout.v1', 'dashboard')
+    const game = createController()
+    render(
+      <GameScreen game={game} showReadOnlyWarning={false} showSaveTransfer={false} />,
+    )
+
+    expect(screen.getByTestId('tactical-layout')).toBeVisible()
+    expect(screen.queryByTestId('game-dashboard')).not.toBeInTheDocument()
+    expect(screen.queryByText('유형 1 · 대시보드')).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '전투 · 전술 전장' }))
+      .toHaveAttribute('aria-checked', 'true')
+
+    const actionBar = screen.getByRole('region', { name: '장비와 스킬 빠른 슬롯' })
+    for (const assetId of [
+      'equipment.ember-blade',
+      'equipment.guard-armor',
+      'equipment.fortune-charm',
+      'skill.power-strike',
+      'skill.iron-will',
+      'skill.loot-sense',
+    ]) {
+      expect(actionBar.querySelector(`[data-asset-id="${assetId}"]`))
+        .toBeInTheDocument()
+    }
+  })
+
   it('renders one camp surface and no battle renderer for a persisted camp mode', () => {
     const game = createController()
     game.state.currentMode = 'CAMP'
@@ -98,6 +128,7 @@ describe('GameScreen expedition prestige warning', () => {
       />,
     )
 
+    fireEvent.click(screen.getByRole('button', { name: '원정 이벤트 1건 보기' }))
     expect(screen.getByRole('heading', { name: '원정 선택 이벤트' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', {
       name: `${definition.name}, ${label}, ${preview}`,
@@ -122,7 +153,9 @@ describe('GameScreen expedition prestige warning', () => {
       />,
     )
 
-    const prestige = screen.getByRole('button', { name: '환생하기' })
+    fireEvent.click(screen.getByRole('button', { name: '불씨의 계승' }))
+    const utilityPanel = screen.getByTestId('tactical-utility-panel')
+    const prestige = within(utilityPanel).getByRole('button', { name: '환생하기' })
     fireEvent.click(prestige)
     expect(confirm).toHaveBeenLastCalledWith(
       '골드, 레벨, 장비, 스테이지를 초기화하고 환생할까요?\n' +

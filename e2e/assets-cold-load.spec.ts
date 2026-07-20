@@ -374,7 +374,7 @@ test('production bundle and DOM exclude the IRPG-507 debug panel', async ({
   ).toHaveCount(0)
 })
 
-test('production cold load stays within the asset budget and preserves lazy namespaces', async ({
+test('production cold load stays within budget while inactive art remains deferred', async ({
   browser,
 }, testInfo) => {
   test.skip(
@@ -501,11 +501,15 @@ test('production cold load stays within the asset budget and preserves lazy name
       )
     }
 
+    const activeRegionId = 'region.ashen-border'
     const lazyOutputs = new Set<string>()
     const nonCurrentCombatOutputs = new Set<string>()
     for (const entry of assetManifest.assets) {
       const outputs = outputsByAssetId.get(entry.id) ?? []
-      if (/^(?:region|result|event)\./.test(entry.id)) {
+      if (
+        /^(?:result|event)\./.test(entry.id)
+        || (entry.id.startsWith('region.') && entry.id !== activeRegionId)
+      ) {
         addOutputFiles(lazyOutputs, outputs)
       }
       if ((entry.id.startsWith('enemy.') && entry.id !== currentEnemy.id) || entry.id.startsWith('boss.')) {
@@ -561,21 +565,17 @@ test('production cold load stays within the asset budget and preserves lazy name
       'A non-current enemy or boss asset was requested',
     ).toEqual([])
 
-    const activeRegionId = 'region.ashen-border'
     const activeRegionImageOutputs = regionImageOutputsById.get(activeRegionId) ?? new Set<string>()
-    expect(evidence.initialRegionImageRequests, 'A region image loaded before map disclosure').toEqual([])
-    expect(
-      initialEquipmentCardImageRequests.length,
-      'The visible equipment tab did not request any equipment card art',
-    ).toBeGreaterThan(0)
-    expect(
-      initialSkillCardImageRequests,
-      'The inactive skill tab requested card art during cold load',
-    ).toEqual([])
-    expect(evidence.initialCardImageRequests).toEqual(initialEquipmentCardImageRequests)
     expect(activeRegionImageOutputs.size, 'Vite manifest has no unique active-region image').toBe(1)
+    expect(evidence.initialRegionImageRequests, 'The tactical backdrop did not load its active region')
+      .toEqual([...activeRegionImageOutputs].sort())
+    expect(initialEquipmentCardImageRequests)
+      .toEqual([...equipmentCardImageOutputs].sort())
+    expect(initialSkillCardImageRequests).toEqual([...skillCardImageOutputs].sort())
+    expect(evidence.initialCardImageRequests).toEqual([...allCardImageOutputs].sort())
 
-    await page.getByRole('button', { name: '원정 지도 열기' }).click()
+    await page.getByRole('button', { name: '3지역 원정 지도 열기' }).click()
+    await page.getByRole('button', { name: '원정 지도 열기', exact: true }).click()
     const activeRegionArt = page.locator('.stage-map-scene__art')
     await expect(activeRegionArt).toHaveAttribute('data-asset-id', activeRegionId)
     await expect(activeRegionArt).toHaveAttribute('data-state', 'loaded')
@@ -607,7 +607,7 @@ test('production cold load stays within the asset budget and preserves lazy name
       contentType: 'application/json',
     })
 
-    expect(expectedActiveRegionRequests, 'Opening the map did not request its active region').toHaveLength(1)
+    expect(expectedActiveRegionRequests, 'The tactical surface did not request its active region').toHaveLength(1)
     expect(
       regionImageRequestsAfterDisclosure,
       'Opening the map requested an inactive region image',
@@ -645,10 +645,8 @@ test('production cold load stays within the asset budget and preserves lazy name
         )
         .map(({ url }) => resolveRequestedDistFile(url).relative),
     )
-    expect(
-      intersection(skillCardImageOutputs, imageRequestsBeforeSkillTab),
-      'Scrolling the equipment tab requested an inactive skill card',
-    ).toEqual([])
+    expect(intersection(skillCardImageOutputs, imageRequestsBeforeSkillTab))
+      .toEqual([...skillCardImageOutputs].sort())
 
     await page.getByRole('tab', { name: '스킬', exact: true }).click()
     await expect(equipmentPanel).not.toBeVisible()
@@ -675,13 +673,13 @@ test('production cold load stays within the asset budget and preserves lazy name
       allCardImageOutputs,
       imageRequestsAfterCards,
     )
-    const cardImageResponseFiles = captured
+    const cardImageResponseFiles = [...new Set(captured
       .filter(({ resourceType, status }) =>
         resourceType === 'image' && status >= 200 && status < 300,
       )
       .map(({ url }) => resolveRequestedDistFile(url).relative)
       .filter((file) => allCardImageOutputs.has(file))
-      .sort()
+    )].sort()
     const expectedCardRequests = [...cardImageOutputsById.values()]
       .flatMap((files) => [...files])
       .sort()
@@ -706,7 +704,7 @@ test('production cold load stays within the asset budget and preserves lazy name
   }
 })
 
-test('type 1 defers tactical scenery and type 2 loads only its visible region', async ({
+test('the tactical-only surface eagerly loads visible actors and all quick-slot art', async ({
   browser,
 }, testInfo) => {
   test.skip(
@@ -765,6 +763,15 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
       ...imageOutputs('region.forgotten-caldera'),
     ])
     const companionOutputs = imageOutputs('companion.ember-fox.default')
+    const slotAssetIds = [
+      'equipment.ember-blade',
+      'equipment.guard-armor',
+      'equipment.fortune-charm',
+      'skill.power-strike',
+      'skill.iron-will',
+      'skill.loot-sense',
+    ] as const
+    const slotOutputs = new Set(slotAssetIds.flatMap((id) => [...imageOutputs(id)]))
     const eclipseDamageOutputs = new Set([
       ...imageOutputs('boss.eclipse-knight.damaged'),
       ...imageOutputs('boss.eclipse-knight.severe'),
@@ -774,18 +781,24 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
       ...activeRegionOutputs,
       ...inactiveRegionOutputs,
       ...companionOutputs,
+      ...slotOutputs,
       ...eclipseDamageOutputs,
     ])
 
     await page.goto('/', { waitUntil: 'networkidle' })
-    await expect(page.getByRole('radio', { name: '유형 1 · 대시보드' })).toHaveAttribute(
+    await expect(page.getByRole('radio', { name: '전투 · 전술 전장' })).toHaveAttribute(
       'aria-checked',
       'true',
     )
     const initialTacticalRequests = intersection(allTacticalOnlyOutputs, requestedImageFiles)
-    expect(initialTacticalRequests).toEqual([])
+    expect(initialTacticalRequests).toEqual([
+      ...activeRegionOutputs,
+      ...companionOutputs,
+      ...slotOutputs,
+    ].sort())
+    expect(intersection(inactiveRegionOutputs, requestedImageFiles)).toEqual([])
+    expect(intersection(eclipseDamageOutputs, requestedImageFiles)).toEqual([])
 
-    await page.getByRole('radio', { name: '유형 2 · 전술 전장' }).click()
     const background = page.locator('.tactical-canvas__background')
     await expect(background).toHaveAttribute('data-asset-id', 'region.ashen-border')
     await expect(background).toHaveAttribute('data-state', 'loaded')
@@ -795,10 +808,15 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
       'companion.ember-fox.default',
     )
     await expect(companionAsset).toHaveAttribute('data-state', 'loaded')
+    for (const assetId of slotAssetIds) {
+      await expect(page.locator(`.tactical-action-bar [data-asset-id="${assetId}"]`))
+        .toHaveAttribute('data-state', 'loaded')
+    }
 
     const activeRegionRequests = intersection(activeRegionOutputs, requestedImageFiles)
     const inactiveRegionRequests = intersection(inactiveRegionOutputs, requestedImageFiles)
     const companionRequests = intersection(companionOutputs, requestedImageFiles)
+    const slotRequests = intersection(slotOutputs, requestedImageFiles)
     const eclipseDamageRequests = intersection(
       eclipseDamageOutputs,
       requestedImageFiles,
@@ -809,6 +827,7 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
         activeRegionRequests,
         inactiveRegionRequests,
         companionRequests,
+        slotRequests,
         eclipseDamageRequests,
         companionState: 'recruited-rank-2',
       }, null, 2)),
@@ -818,6 +837,7 @@ test('type 1 defers tactical scenery and type 2 loads only its visible region', 
     expect(activeRegionRequests).toEqual([...activeRegionOutputs].sort())
     expect(inactiveRegionRequests).toEqual([])
     expect(companionRequests).toEqual([...companionOutputs].sort())
+    expect(slotRequests).toEqual([...slotOutputs].sort())
     expect(eclipseDamageRequests).toEqual([])
   } finally {
     await context.close()
@@ -880,6 +900,7 @@ test('loads only the selected result illustration after an explicit detail actio
     expect(initialResultRequests, 'Cold load requested a result illustration').toEqual([])
 
     await context.clock.setFixedTime(new Date(startedAt.getTime() + 50_000))
+    await page.getByRole('button', { name: '승패 결과' }).click()
     const detailButton = page.getByRole('button', {
       name: '스테이지 10 패배 · 스테이지 9 복귀 상세 보기',
     })

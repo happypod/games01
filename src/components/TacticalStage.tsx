@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faMapLocationDot, faXmark } from '@fortawesome/free-solid-svg-icons'
 import {
   COMPANION_ATTACK_INTERVAL_MS,
   COMPANION_DEFINITIONS,
@@ -25,6 +27,7 @@ import {
 import { ExpeditionEventPanel } from './ExpeditionEventPanel'
 import { GameAsset } from './GameAsset'
 import { StatBar } from './StatBar'
+import { StageMapPanel } from './StageMapPanel'
 import {
   projectTacticalScenePresentation,
   TACTICAL_DAMAGE_POPUP_DURATION_MS,
@@ -78,6 +81,7 @@ export function TacticalStage({
   const [openedEventOverlay, setOpenedEventOverlay] = useState<{
     eventIds: readonly string[]
   } | null>(null)
+  const [isMapOverlayVisible, setMapOverlayVisible] = useState(false)
   const isEventOverlayVisible = openedEventOverlay !== null &&
     state.expeditionEvents.pending.some(
       ({ eventId }) => openedEventOverlay.eventIds.includes(eventId),
@@ -88,7 +92,7 @@ export function TacticalStage({
   const effects = useTacticalStageEffects(
     batch,
     streamGeneration,
-    !isEventOverlayVisible,
+    !isEventOverlayVisible && !isMapOverlayVisible,
   )
   const presentation = effects.scene?.snapshot ?? null
   const presentedStage = presentation?.stage ?? state.battle.stage
@@ -145,6 +149,8 @@ export function TacticalStage({
   const stageHeadingRef = useRef<HTMLHeadingElement>(null)
   const eventToggleRef = useRef<HTMLButtonElement>(null)
   const eventOverlayRef = useRef<HTMLElement>(null)
+  const mapToggleRef = useRef<HTMLButtonElement>(null)
+  const mapOverlayRef = useRef<HTMLElement>(null)
   const previousEventOverlayVisibleRef = useRef(false)
   const heroAssetRef = useRef<HTMLDivElement>(null)
   const enemyAssetRef = useRef<HTMLDivElement>(null)
@@ -191,6 +197,12 @@ export function TacticalStage({
     const focusTarget = firstChoice ?? heading
     focusTarget?.focus()
   }, [isEventOverlayVisible, pendingEventIdentity])
+  useLayoutEffect(() => {
+    if (!isMapOverlayVisible) return
+    mapOverlayRef.current?.querySelector<HTMLButtonElement>(
+      '.stage-map-disclosure__toggle',
+    )?.focus()
+  }, [isMapOverlayVisible])
   const cooldownPercent = companion === null
     ? 0
     : Math.min(
@@ -220,7 +232,7 @@ export function TacticalStage({
 
   return (
     <section
-      className={`tactical-canvas ${hasPendingEvent ? 'tactical-canvas--event' : ''} ${isEventOverlayVisible ? 'tactical-canvas--event-open' : ''}`}
+      className={`tactical-canvas ${hasPendingEvent ? 'tactical-canvas--event' : ''} ${isEventOverlayVisible ? 'tactical-canvas--event-open' : ''} ${isMapOverlayVisible ? 'tactical-canvas--map-open' : ''}`}
       aria-labelledby="tactical-stage-title"
       data-testid="tactical-canvas"
       data-region-id={region.id}
@@ -243,7 +255,7 @@ export function TacticalStage({
 
       <div
         className="tactical-canvas__base"
-        inert={isEventOverlayVisible || undefined}
+        inert={isEventOverlayVisible || isMapOverlayVisible || undefined}
       >
         {scenePresentation.ultimateFlash && effects.scene && (
           <div
@@ -411,8 +423,21 @@ export function TacticalStage({
 
         <nav className="tactical-timeline" aria-label={`${liveRegion.name} 현재 10단계`}>
           <div className="tactical-timeline__heading">
-            <span>{liveRegion.name}</span>
-            <small>{timeline[0]?.stage}–{timeline.at(-1)?.stage} · 최고 {state.battle.highestStage}</small>
+            <div>
+              <span>{liveRegion.name}</span>
+              <small>{timeline[0]?.stage}–{timeline.at(-1)?.stage} · 최고 {state.battle.highestStage}</small>
+            </div>
+            <button
+              ref={mapToggleRef}
+              type="button"
+              className="tactical-map-toggle"
+              aria-label="3지역 원정 지도 열기"
+              aria-expanded={isMapOverlayVisible}
+              aria-controls="tactical-map-overlay"
+              onClick={() => setMapOverlayVisible(true)}
+            >
+              <FontAwesomeIcon icon={faMapLocationDot} aria-hidden="true" />
+            </button>
           </div>
           <div className="tactical-timeline__nodes">
             {timeline.map((node) => {
@@ -457,6 +482,7 @@ export function TacticalStage({
                 setOpenedEventOverlay(null)
                 return
               }
+              setMapOverlayVisible(false)
               const eventIds = state.expeditionEvents.pending.map(
                 ({ eventId }) => eventId,
               )
@@ -496,6 +522,40 @@ export function TacticalStage({
           <ExpeditionEventPanel
             pending={state.expeditionEvents.pending}
             onChoose={chooseExpeditionEvent}
+            disabled={disabled}
+            {...(disabledReason ? { disabledReason } : {})}
+          />
+        </aside>
+      )}
+
+      {isMapOverlayVisible && (
+        <aside
+          ref={mapOverlayRef}
+          id="tactical-map-overlay"
+          className="tactical-map-overlay"
+          aria-label="3지역 원정 지도"
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return
+            event.preventDefault()
+            setMapOverlayVisible(false)
+            mapToggleRef.current?.focus()
+          }}
+        >
+          <button
+            type="button"
+            className="tactical-map-overlay__close"
+            aria-label="3지역 원정 지도 닫기"
+            onClick={() => {
+              setMapOverlayVisible(false)
+              mapToggleRef.current?.focus()
+            }}
+          >
+            <FontAwesomeIcon icon={faXmark} aria-hidden="true" />
+          </button>
+          <StageMapPanel
+            currentStage={state.battle.stage}
+            highestStage={state.battle.highestStage}
+            onChooseStage={onChooseStage}
             disabled={disabled}
             {...(disabledReason ? { disabledReason } : {})}
           />

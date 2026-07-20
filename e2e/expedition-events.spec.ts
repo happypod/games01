@@ -26,6 +26,8 @@ async function reachFirstExpeditionEvent(page: Page, startedAt: Date): Promise<L
     await page.waitForTimeout(300)
     await spendEnabledButtons(page, 'upgrade-title')
     await spendEnabledButtons(page, 'skill-title')
+    const eventToggle = page.getByRole('button', { name: /원정 이벤트 \d+건 보기/ })
+    if (await eventToggle.isVisible()) await eventToggle.click()
   }
   await expect(cards).toHaveCount(1)
   return cards.first()
@@ -77,13 +79,10 @@ test('public flow commits a rapid duplicate choice once and preserves it after r
   })
 
   await expect(page.locator(`[data-expedition-event-id="${eventId}"]`)).toHaveCount(0)
-  await expect(page.locator('.expedition-event-panel__feedback--success')).toHaveText(
+  await expect(page.locator('.tactical-canvas__status')).toHaveText(
     '원정 이벤트 선택을 적용했습니다.',
   )
-  await expect(page.locator('.notice-strip')).toHaveText(
-    '원정 이벤트 선택을 적용했습니다.',
-  )
-  await expect(page.getByRole('heading', { name: '원정 선택 이벤트' })).toBeFocused()
+  await expect(page.locator('#tactical-stage-title')).toBeFocused()
   expect(await readInteger(goldValue(page))).toBe(beforeGold + preview)
 
   const committedGold = await readInteger(goldValue(page))
@@ -134,6 +133,7 @@ test('lazy event art falls back safely and keyboard focus advances at 200% zoom'
   await page.evaluate(() => {
     document.documentElement.style.zoom = '2'
   })
+  await page.getByRole('button', { name: '원정 이벤트 3건 보기' }).click()
   const slots = page.locator('[data-event-asset-id]')
   await expect(slots).toHaveCount(3)
 
@@ -141,12 +141,12 @@ test('lazy event art falls back safely and keyboard focus advances at 200% zoom'
     const slot = slots.nth(index)
     await slot.scrollIntoViewIfNeeded()
     await expect(slot).toHaveAttribute('data-art-active', 'true')
-    await expect.poll(() => requests.length).toBe(index + 1)
-    expect(new Set(requests).size).toBe(index + 1)
     const art = slot.locator('.expedition-event-card__asset')
     await expect(art).toHaveAttribute('data-state', 'fallback')
     await expect(art).toHaveAttribute('data-resolved-asset-id', 'fallback.card')
   }
+  await expect.poll(() => requests.length).toBe(3)
+  expect(new Set(requests).size).toBe(3)
 
   const cards = page.locator('.expedition-event-card')
   const firstChoice = cards.first().getByRole('button').first()

@@ -1,7 +1,19 @@
 import { readFile } from 'node:fs/promises'
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 const STARTED_AT = new Date('2026-07-17T02:00:00.000Z')
+
+async function openSaveBackup(page: Page) {
+  const trigger = page.getByRole('button', { name: '저장 백업' })
+  if (await trigger.getAttribute('aria-expanded') !== 'true') {
+    await trigger.focus()
+    await page.keyboard.press('Enter')
+  }
+  await expect(page.getByTestId('tactical-utility-panel')).toHaveAttribute(
+    'data-utility-panel',
+    'backup',
+  )
+}
 
 test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업만 복원한다', async ({
   context,
@@ -24,6 +36,7 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
     page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.1', { exact: true }),
   ).toBeVisible()
 
+  await openSaveBackup(page)
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: '저장 내보내기' }).click()
   const download = await downloadPromise
@@ -38,6 +51,7 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
     page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.0', { exact: true }),
   ).toBeVisible()
 
+  await openSaveBackup(page)
   const fileInput = page.getByLabel('저장 파일 선택')
   await fileInput.setInputFiles({
     name: 'broken.json',
@@ -46,6 +60,7 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
   })
   await expect(page.getByText('JSON 형식이 올바르지 않습니다.', { exact: true })).toBeVisible()
   await page.reload()
+  await openSaveBackup(page)
   await expect(
     page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.0', { exact: true }),
   ).toBeVisible()
@@ -60,6 +75,7 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
   await preview.getByRole('button', { name: '취소' }).click()
   await expect(preview).toHaveCount(0)
   await page.reload()
+  await openSaveBackup(page)
   await expect(
     page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.0', { exact: true }),
   ).toBeVisible()

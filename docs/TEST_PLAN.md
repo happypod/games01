@@ -81,6 +81,8 @@ IRPG-414 Done 기준선은 Vitest 36파일·297테스트, 자산 validator 32테
 | 오프라인 중복 방지 | 같은 시각 재부팅, Playwright 닫기·재접속·재새로고침 | 탭 숨김과 OS 절전 복귀 |
 | 다중 탭 충돌 | stale revision 원문 불변, reader 무쓰기, 동일 revision 충돌 차단, 두 페이지 lock 인계 | 비정상 브라우저 종료 복구 |
 | 반응형·접근성 | progressbar·modal focus 컴포넌트 테스트, 360px·키보드·reduced-motion Playwright | 실제 보조공학 조합의 외부 전문 감사 |
+| IRPG-422 단일 전술 화면 | 과거 layout preference 무시, `.tactical-layout` 단일 분기, 8슬롯 고정 순서·6개 manifest ID·2개 캠프 소모품 아이콘, 강화/각인 exact-once | 360·1024·1440px 및 200%에서 전장 우선순위와 슬롯 상세 체감 확인 |
+| IRPG-422 유틸리티 도크 | 4개 accessible icon name, tooltip·단일 popover, 상세 heading focus, Escape/명시적 닫기 뒤 trigger focus 복귀, 외부 클릭 대상 focus 보존, 중첩 modal Escape 소유권, 기존 로그·결과·환생·백업 동작 | 실제 스크린리더에서 tooltip과 popover reading order 확인 |
 | 시각 자산 | manifest validator fixture, production URL·gzip·lazy-load, 적·보스 8종·결과 2종·원정 이벤트 3종 stable mapping, 카드별 lazy-load, 360px·200%·fallback·A/B 저장 지속, IRPG-412 Ubuntu event baseline 8개 승인 | 외부 미술 방향 검토 |
 | 첫 환생 목표 | 10회 결정론적 가속 세션과 대표 브라우저 상태 | IRPG-205 외부 사용자 10회 실제 플레이 |
 | 장시간 결정론 | 1x·10x·100x 24시간 soak와 3×8시간 canonical 비교 | IRPG-507 브라우저 개발 패널, IRPG-508 7일 stress |
@@ -198,6 +200,10 @@ IRPG-420 Done 증거는 고정 재료의 single/chunked·boss 경계와 RNG draw
 IRPG-421 Done 게이트는 `src/game/campMerchant.test.ts`에서 30분 직전·정확 경계·3-cycle 분할 동치와 RNG 불변, 3-bit 구매 원장의 비용-1·정확 일치·중복 거절, 세라 구조 지원과 별도 자발적 계약, 신뢰 비용·10% 할인 상한, reload·offline·portable·환생 보존을 고정한다. 명령 전 elapsed로 오래된 offer 구매를 막고 terminal cycle 진입과 이미 terminal인 ledger 모두 single/split exact-once를 지킨다. consent·economy·accessibility 독립 리뷰와 실제 브라우저 구조→별도 계약→신뢰 할인→reload를 통과했고 IRPG-420 Done 뒤 최종 canonical·CI를 통과했다.
 
 캠프 통합 시각 게이트는 신규 `visual.camp.resting` fixture의 360×800·1440×900 × default·reduced-motion 4개 variant를 추가해 전체 18개 fixture·72개 canonical screenshot과 같은 runner 3회 반복 216개를 요구한다. `e2e/camp.spec.ts`는 360×800 키보드·모션 감소와 1440×900의 200% equivalent viewport에서 가로 overflow·44px 조작·주요 heading 노출을 확인하고, `e2e/camp-management.spec.ts`는 시설·훈련·제작·상인·자발적 계약 흐름과 저장된 제작 job의 페이지 종료→offline 정확 1회 완료→reload 무중복을 브라우저 증거로 남긴다. [push quality `29743295721`](https://github.com/happypod/games01/actions/runs/29743295721), [PR quality `29743299219`](https://github.com/happypod/games01/actions/runs/29743299219), [visual `29743295715`](https://github.com/happypod/games01/actions/runs/29743295715)이 성공했고 artifact `8461530261`의 72개 PNG는 체크인 기준선과 72/72 byte-identical이다.
+
+IRPG-422 게이트는 유형 1 대시보드와 레이아웃 선택 상태를 제거하고 전투 모드의 단일 전술 전장을 새 수용 기준으로 삼는다. IRPG-414~417 문서의 유형 1·2 비교와 당시 baseline 수치는 역사적 완료 증거로 보존하되, 이후 화면 회귀 판정에서는 IRPG-422가 이를 대체한다. 단위·컴포넌트 검사는 과거 `emberwatch.ui.layout.v1` 값 무시, 전투·캠프 분기, 8슬롯 고정 순서, 실제 manifest 자산 6개와 이미지 요청이 없는 소모품 아이콘 2개, 슬롯 상태·비용·효과 비교, 강화·각인 exact-once, 캠프 이동, 4아이콘 tooltip·단일 popover·Escape·외부 클릭·focus return을 고정한다.
+
+일반 Playwright는 360×800·1024×768·1440×900과 effective 360px/200%에서 페이지 가로 overflow 없음, 최소 44px 조작 대상, DOM/키보드 읽기 순서, 전장·액션바·도크 배치, 캠프 왕복, 전투 로그·승패 결과·환생·내보내기·가져오기 실제 동작을 검증한다. reduced-motion에서는 상시 이동·flash를 제거한 정적 대체를 요구한다. production 자산 검사는 최초 전투에서 영웅·현재 적과 액션바의 6개 실제 자산만 eager이고, 소모품 이미지 요청과 비활성 지역·이벤트·damage/result 자산 요청은 disclosure 전 0개인지 확인한다. visual gate는 기존 18개 fixture·72개 canonical 이름과 variant 수를 유지하되 전투 fixture를 단일 전술 surface로 의도적으로 재승인하고, 캠프 fixture 및 저장 canonical의 비의도 변경이 없음을 hash·artifact metadata로 분리해 검토한다. `npm run verify` 뒤 push/PR quality와 Ubuntu visual 결과를 IRPG-422 `Test evidence`에 기록하기 전에는 Done으로 전환하지 않는다.
 
 ## 8. 현재 브라우저 증거
 

@@ -120,18 +120,18 @@ export async function openVisualFixture(
     )
   }
 
-  if (fixture.setupAction === 'select-tactical-layout') {
+  if (fixture.setupAction === 'assert-tactical-surface') {
     const tacticalOption = page.getByRole('radio', {
-      name: '유형 2 · 전술 전장',
+      name: '전투 · 전술 전장',
       exact: true,
     })
-    await tacticalOption.click()
     await expect(tacticalOption).toHaveAttribute('aria-checked', 'true')
     await expect(page.locator('.tactical-canvas')).toBeVisible()
   }
 
   if (fixture.setupAction === 'open-stage-map') {
-    await page.getByRole('button', { name: '원정 지도 열기' }).click()
+    await page.getByRole('button', { name: '3지역 원정 지도 열기' }).click()
+    await page.getByRole('button', { name: '원정 지도 열기', exact: true }).click()
     await expect(page.getByRole('tab', { name: /월락 고개/ })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -143,14 +143,15 @@ export async function openVisualFixture(
     )
   }
 
-  if (fixture.setupAction === 'open-growth-cards') {
-    const artSlots = page.locator('[data-card-asset-id]')
+  if (fixture.setupAction === 'assert-action-bar-assets') {
+    const artSlots = page.locator(
+      '.tactical-action-bar [data-action-kind="equipment"] [data-asset-id], ' +
+      '.tactical-action-bar [data-action-kind="skill"] [data-asset-id]',
+    )
     await expect(artSlots).toHaveCount(6)
     for (let index = 0; index < 6; index += 1) {
       const slot = artSlots.nth(index)
-      await slot.scrollIntoViewIfNeeded()
-      await expect(slot).toHaveAttribute('data-art-active', 'true')
-      await expect(slot.locator('.growth-card__asset')).toHaveAttribute(
+      await expect(slot).toHaveAttribute(
         'data-state',
         fixture.failureRoute === 'cards-corrupt' ? 'fallback' : 'loaded',
       )
@@ -158,6 +159,7 @@ export async function openVisualFixture(
   }
 
   if (fixture.setupAction === 'open-expedition-events') {
+    await page.getByRole('button', { name: '원정 이벤트 3건 보기' }).click()
     const eventSlots = page.locator('[data-event-asset-id]')
     await expect(eventSlots).toHaveCount(3)
     for (let index = 0; index < 3; index += 1) {
@@ -172,6 +174,7 @@ export async function openVisualFixture(
   }
 
   if (fixture.setupAction === 'open-combat-log') {
+    await page.getByRole('button', { name: '전투 로그' }).click()
     await page.getByRole('button', { name: '전투 로그 펼치기' }).click()
     const list = page.getByTestId('combat-log-list')
     await expect(list.getByRole('listitem')).toHaveCount(20)
@@ -192,6 +195,7 @@ export async function openVisualFixture(
     const resultType = victory ? 'bossVictory' : 'defeat'
     const assetId = victory ? 'result.boss-victory' : 'result.defeat'
 
+    await page.getByRole('button', { name: '승패 결과' }).click()
     const detailButton = page.getByRole('button', { name: buttonName, exact: true })
     await expect(detailButton).toBeVisible()
     await detailButton.click()
@@ -215,7 +219,10 @@ export async function openVisualFixture(
       .toHaveAttribute('aria-expanded', 'false')
   }
   if (fixture.failureRoute === 'hero-and-enemy-corrupt') {
-    for (const selector of ['.hero-portrait', '.enemy-portrait__asset']) {
+    for (const selector of [
+      '.tactical-actor__asset--hero',
+      '.tactical-actor__asset--enemy',
+    ]) {
       await expect(page.locator(selector)).toHaveAttribute('data-state', 'fallback')
       await expect(page.locator(selector)).toHaveAttribute(
         'data-resolved-asset-id',
@@ -224,7 +231,7 @@ export async function openVisualFixture(
     }
   }
   if (fixture.failureRoute === 'cards-corrupt') {
-    const cardAssets = target.locator('.growth-card__asset')
+    const cardAssets = target.locator('.tactical-action-bar__slot-asset')
     await expect(cardAssets).toHaveCount(6)
     for (let index = 0; index < 6; index += 1) {
       await expect(cardAssets.nth(index)).toHaveAttribute('data-state', 'fallback')
@@ -308,7 +315,9 @@ export async function verifyResponsiveVisualSurface(
     buttons
       .filter((button) => {
         const style = getComputedStyle(button)
-        return style.display !== 'none' && style.visibility !== 'hidden'
+        return style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && button.closest('.tactical-action-bar__slots') === null
       })
       .map((button) => {
         const rect = button.getBoundingClientRect()
@@ -352,14 +361,16 @@ export async function fitVisualCaptureTarget(page: Page, target: Locator) {
   if (layoutViewport === null) {
     throw new Error('Visual capture requires a fixed viewport.')
   }
-  const initial = await target.evaluate((element) => ({
-    height: element.getBoundingClientRect().height,
-    viewportHeight: window.innerHeight,
-  }))
-  if (initial.height > initial.viewportHeight) {
+
+  await alignVisualCaptureTarget(page, target)
+  const initial = await target.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    return { bottom: rect.bottom, viewportHeight: window.innerHeight }
+  })
+  if (initial.bottom > initial.viewportHeight + 1) {
     await page.setViewportSize({
       width: layoutViewport.width,
-      height: Math.ceil(initial.height) + 2,
+      height: Math.ceil(initial.bottom) + 2,
     })
   }
 

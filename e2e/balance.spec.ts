@@ -40,8 +40,9 @@ test('representative active play keeps browser UI and progression in sync', asyn
   }
 
   await expect(page.getByRole('heading', { name: /스테이지 10/ })).toBeVisible()
-  await expect(page.locator('.stage-nav span')).toHaveText('최고 10')
-  await expect(page.locator('.level-seal')).toHaveText('Lv.3')
+  await expect(page.locator('.tactical-timeline__heading small')).toContainText('최고 10')
+  await expect(page.locator('.tactical-actor--hero .tactical-actor__copy > span'))
+    .toContainText('Lv. 3')
 
   const goldResource = page.locator('.resource-rack > div').filter({ hasText: '골드' })
   await expect(goldResource.locator('strong')).toHaveText('13')

@@ -24,6 +24,14 @@ async function applyCombatLogFixture(page: Page) {
   )
 }
 
+async function openCombatLogTool(page: Page) {
+  await page.getByRole('button', { name: '전투 로그' }).click()
+  await expect(page.getByTestId('tactical-utility-panel')).toHaveAttribute(
+    'data-utility-panel',
+    'log',
+  )
+}
+
 test.describe('IRPG-411 recent combat log', () => {
   test.use({ viewport: { width: 360, height: 800 } })
 
@@ -34,6 +42,7 @@ test.describe('IRPG-411 recent combat log', () => {
     await context.clock.setFixedTime(FIXED_NOW)
     await enterDebugSession(page)
     await applyCombatLogFixture(page)
+    await openCombatLogTool(page)
 
     const openToggle = page.getByRole('button', { name: '전투 로그 펼치기' })
     await expect(openToggle).toHaveAttribute('aria-expanded', 'false')
@@ -77,11 +86,13 @@ test.describe('IRPG-411 recent combat log', () => {
     await context.clock.setFixedTime(FIXED_NOW)
     await enterDebugSession(page)
     await applyCombatLogFixture(page)
+    await openCombatLogTool(page)
     await page.getByRole('button', { name: '전투 로그 펼치기' }).click()
     await expect(page.getByTestId('combat-log-list').getByRole('listitem')).toHaveCount(20)
 
     await page.reload()
     await expect(page.getByTestId('debug-panel')).toBeVisible()
+    await openCombatLogTool(page)
     await page.getByRole('button', { name: '전투 로그 펼치기' }).click()
     await expect(page.getByText('아직 기록된 전투 이벤트가 없습니다.')).toBeVisible()
 
@@ -91,6 +102,8 @@ test.describe('IRPG-411 recent combat log', () => {
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: '보상 확인' }).click()
+    await openCombatLogTool(page)
+    await page.getByRole('button', { name: '전투 로그 펼치기' }).click()
     await expect(page.getByText('아직 기록된 전투 이벤트가 없습니다.')).toBeVisible()
   })
 })
@@ -106,6 +119,7 @@ test.describe('IRPG-411 zoom and reduced motion', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await enterDebugSession(page)
     await applyCombatLogFixture(page)
+    await openCombatLogTool(page)
     await page.evaluate(() => {
       document.documentElement.style.zoom = '2'
     })

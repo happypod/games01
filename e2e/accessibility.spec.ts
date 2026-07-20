@@ -50,6 +50,7 @@ test.describe('360px keyboard and screenreader semantics', () => {
 
     const targets = page.locator('button:visible, a.brand:visible, label.file-button:visible')
     for (let index = 0; index < (await targets.count()); index += 1) {
+      await targets.nth(index).scrollIntoViewIfNeeded()
       await expectMinimumTarget(targets.nth(index), 360)
     }
 
@@ -58,40 +59,29 @@ test.describe('360px keyboard and screenreader semantics', () => {
     await expect(page.getByRole('group', { name: '보유 자원' })).toBeVisible()
     for (const name of [
       /스테이지 1/,
-      '방랑 기사 아렌',
-      '3지역 원정 지도',
-      '원정 선택 이벤트',
-      '승패 결과',
-      '전투 로그',
+      '장비와 스킬 빠른 슬롯',
       '성장 센터',
       '성장 장비',
       '스킬 각인',
       '동료 원정대',
-      '불씨의 계승',
-      '저장 백업',
     ]) {
       await expect(page.getByRole('region', { name })).toBeVisible()
     }
-    expect(
-      await page.locator('main section[aria-labelledby] > :first-child h2, main section[aria-labelledby] > h2').allTextContents(),
-    ).toEqual([
-      '스테이지 1',
-      '방랑 기사 아렌',
-      '3지역 원정 지도',
-      '원정 선택 이벤트',
-      '승패 결과',
-      '전투 로그',
-      '성장 센터',
-      '성장 장비',
-      '스킬 각인',
-      '동료 원정대',
-      '불씨의 계승',
-      '저장 백업',
-    ])
+    await expect(page.getByRole('radiogroup', { name: '전투 및 캠프 화면' }))
+      .toBeVisible()
+    await expect(page.getByRole('toolbar', { name: '전술 슬롯바' })).toBeVisible()
+    await expect(page.getByRole('group', { name: '원정 보조 기능' })).toBeVisible()
+    for (const name of ['전투 로그', '승패 결과', '불씨의 계승', '저장 백업']) {
+      await expect(page.getByRole('button', { name })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      )
+    }
     await expect(page.locator('.ambient[aria-hidden="true"]')).toHaveCount(2)
-    await expect(page.locator('.enemy-portrait')).toHaveAttribute('aria-hidden', 'true')
+    await expect(page.locator('.tactical-actor__asset[aria-hidden="true"]')).toHaveCount(2)
+    await expect(page.locator('.tactical-action-bar__slot-asset[aria-hidden="true"]'))
+      .toHaveCount(6)
     await expect(page.locator('.growth-card__art[aria-hidden="true"]')).toHaveCount(6)
-    await expect(page.locator('.item-glyph[aria-hidden="true"]')).toHaveCount(1)
 
     await page.keyboard.press('Tab')
     const skipLink = page.getByRole('link', { name: '본문 바로가기' })
@@ -107,14 +97,8 @@ test.describe('360px keyboard and screenreader semantics', () => {
       'aria-valuetext',
       /34 \/ 34, 100%/,
     )
-    await expect(page.getByRole('progressbar', { name: '생명력' })).toHaveAttribute(
-      'aria-valuemax',
-      '100',
-    )
-    await expect(page.getByRole('progressbar', { name: '경험치' })).toHaveAttribute(
-      'aria-valuemin',
-      '0',
-    )
+    await expect(page.getByRole('progressbar', { name: '영웅 체력' }))
+      .toHaveAttribute('aria-valuemax', '100')
 
     await context.clock.setFixedTime(new Date(STARTED_AT.getTime() + 6_000))
     const weaponButton = page.getByRole('button', { name: /불씨 검 강화/ })
@@ -127,6 +111,13 @@ test.describe('360px keyboard and screenreader semantics', () => {
     ).toBeVisible()
 
     const backup = createPortableSave(createInitialState(STARTED_AT.getTime()), STARTED_AT.getTime())!
+    const backupTrigger = page.getByRole('button', { name: '저장 백업' })
+    await tabTo(page, backupTrigger, 80)
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('tactical-utility-panel')).toHaveAttribute(
+      'data-utility-panel',
+      'backup',
+    )
     const fileInput = page.getByLabel('저장 파일 선택')
     await tabTo(page, fileInput)
     await expect(page.locator('label.file-button')).toHaveCSS('outline-style', 'solid')
@@ -177,7 +168,8 @@ test.describe('zoom and reduced motion', () => {
 
     const audit = await page.evaluate(() => {
       const liveDot = document.querySelector<HTMLElement>('.live-badge i')!
-      const aura = document.querySelector<HTMLElement>('.enemy-portrait__aura')!
+      const hero = document.querySelector<HTMLElement>('.tactical-actor__asset--hero')!
+      const enemy = document.querySelector<HTMLElement>('.tactical-actor__asset--enemy')!
       const progress = document.querySelector<HTMLElement>('.stat-bar__fill')!
       const targets = Array.from(
         document.querySelectorAll<HTMLElement>('button, a.brand, label.file-button'),
@@ -185,7 +177,10 @@ test.describe('zoom and reduced motion', () => {
         .filter((element) => {
           const rect = element.getBoundingClientRect()
           const style = getComputedStyle(element)
-          return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden'
+          return rect.width > 0
+            && rect.height > 0
+            && style.visibility !== 'hidden'
+            && element.closest('.tactical-action-bar__slots') === null
         })
         .map((element) => {
           const rect = element.getBoundingClientRect()
@@ -199,7 +194,8 @@ test.describe('zoom and reduced motion', () => {
           ({ left, right }) => left < -0.5 || right > window.innerWidth + 0.5,
         ),
         liveAnimation: getComputedStyle(liveDot).animationName,
-        auraAnimation: getComputedStyle(aura).animationName,
+        heroAnimation: getComputedStyle(hero).animationName,
+        enemyAnimation: getComputedStyle(enemy).animationName,
         progressTransition: getComputedStyle(progress).transitionDuration,
       }
     })
@@ -207,7 +203,8 @@ test.describe('zoom and reduced motion', () => {
     expect(audit.scrollWidth).toBeLessThanOrEqual(audit.clientWidth)
     expect(audit.clippedTargets).toEqual([])
     expect(audit.liveAnimation).toBe('none')
-    expect(audit.auraAnimation).toBe('none')
+    expect(audit.heroAnimation).toBe('none')
+    expect(audit.enemyAnimation).toBe('none')
     expect(audit.progressTransition).toBe('0s')
     expect(browserErrors).toEqual([])
   })

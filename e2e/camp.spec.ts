@@ -35,7 +35,7 @@ test.describe('IRPG-418 battle and camp activity mode', () => {
 
     await page.getByRole('radio', { name: '캠프 · 관리' }).click()
     await expect(page.getByTestId('camp-dashboard')).toBeVisible()
-    await expect(page.getByTestId('game-dashboard')).toHaveCount(0)
+    await expect(page.getByTestId('tactical-layout')).toHaveCount(0)
     await expect(page.getByText('전경 전투 일시 정지')).toBeVisible()
 
     await context.clock.setFixedTime(new Date(STARTED_AT.getTime() + 6_000))
@@ -70,8 +70,8 @@ test.describe('IRPG-418 battle and camp activity mode', () => {
     await expect(page.getByTestId('camp-dashboard')).toBeVisible()
     await expect(gold).toHaveText(goldAfterOffline)
 
-    await page.getByRole('radio', { name: '유형 1 · 대시보드' }).click()
-    await expect(page.getByTestId('game-dashboard')).toBeVisible()
+    await page.getByRole('radio', { name: '전투 · 전술 전장' }).click()
+    await expect(page.getByTestId('tactical-layout')).toBeVisible()
     await expect(page.getByTestId('camp-dashboard')).toHaveCount(0)
     expect(browserErrors).toEqual([])
   })
@@ -82,25 +82,25 @@ test.describe('IRPG-418 battle and camp activity mode', () => {
     await page.goto('/')
     await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
 
-    const dashboard = page.getByRole('radio', { name: '유형 1 · 대시보드' })
-    const tactical = page.getByRole('radio', { name: '유형 2 · 전술 전장' })
+    const tactical = page.getByRole('radio', { name: '전투 · 전술 전장' })
     const camp = page.getByRole('radio', { name: '캠프 · 관리' })
-    await dashboard.focus()
-    await dashboard.press('ArrowRight')
-    await expect(tactical).toBeFocused()
+    await tactical.focus()
     await tactical.press('ArrowRight')
     await expect(camp).toBeFocused()
     await expect(page.getByTestId('camp-dashboard')).toBeVisible()
+    await camp.press('ArrowLeft')
+    await expect(tactical).toBeFocused()
+    await expect(page.getByTestId('tactical-layout')).toBeVisible()
 
     const geometry = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
-      controls: [...document.querySelectorAll<HTMLElement>('.layout-mode-selector [role="radio"]')]
+      controls: [...document.querySelectorAll<HTMLElement>('.game-mode-selector [role="radio"]')]
         .map((element) => {
           const rect = element.getBoundingClientRect()
           return { width: rect.width, height: rect.height }
         }),
-      animations: [...document.querySelectorAll<HTMLElement>('.camp-dashboard *')]
+      animations: [...document.querySelectorAll<HTMLElement>('.tactical-layout *')]
         .some((element) => getComputedStyle(element).animationName !== 'none'),
     }))
     expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
@@ -117,7 +117,7 @@ test.describe('IRPG-418 battle and camp activity mode', () => {
     const geometry = await page.evaluate(() => ({
       clientWidth: document.documentElement.clientWidth,
       scrollWidth: document.documentElement.scrollWidth,
-      modeControls: [...document.querySelectorAll<HTMLElement>('.layout-mode-selector [role="radio"]')]
+      modeControls: [...document.querySelectorAll<HTMLElement>('.game-mode-selector [role="radio"]')]
         .map((element) => {
           const rect = element.getBoundingClientRect()
           return { width: rect.width, height: rect.height }

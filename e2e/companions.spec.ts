@@ -56,9 +56,10 @@ test('첫 보스 뒤 동료를 영입·훈련하고 협공과 저장을 확인�
     name: '불씨 여우 루미 훈련, 비용 100 골드',
   })
   await expect(trainRankOne).toBeFocused()
-  const battleCompanion = page.locator('.companion-cycle')
+  const battleCompanion = page.locator('.tactical-companion')
   await expect(battleCompanion).toContainText('불씨 여우 루미')
-  await expect(battleCompanion).toContainText('Rank 1 · 협공 피해 2')
+  await expect(battleCompanion).toContainText('Rank 1')
+  await expect(battleCompanion).toContainText('협공 2')
 
   const recruited = recruitCompanion(seeded, 'emberFox')
   expect(recruited.success).toBe(true)
@@ -72,13 +73,15 @@ test('첫 보스 뒤 동료를 영입·훈련하고 협공과 저장을 확인�
 
   await trainRankOne.click()
   await expect(page.getByText('불씨 여우 루미 랭크 상승', { exact: true })).toBeVisible()
-  await expect(battleCompanion).toContainText('Rank 2 · 협공 피해 3')
+  await expect(battleCompanion).toContainText('Rank 2')
+  await expect(battleCompanion).toContainText('협공 3')
   await expect(
     page.getByLabel('보유 자원').locator('div').filter({ hasText: '골드' }).locator('strong'),
   ).toHaveText('200')
 
   await page.reload()
-  await expect(page.locator('.companion-cycle')).toContainText('Rank 2 · 협공 피해 3')
+  await expect(page.locator('.tactical-companion')).toContainText('Rank 2')
+  await expect(page.locator('.tactical-companion')).toContainText('협공 3')
   const writerTrain = page.getByRole('region', { name: '동료 원정대' }).getByRole('button', {
     name: '불씨 여우 루미 훈련, 비용 180 골드',
   })
@@ -136,6 +139,6 @@ test('오프라인 협공 보고를 한 번만 표시한다', async ({ context, 
   await report.getByRole('button', { name: '보상 확인' }).click()
   await page.reload()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.locator('.companion-cycle')).toContainText('불씨 여우 루미')
+  await expect(page.locator('.tactical-companion')).toContainText('불씨 여우 루미')
   expect(browserErrors).toEqual([])
 })

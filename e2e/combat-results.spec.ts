@@ -50,6 +50,15 @@ async function applyResultFixture(
   return root
 }
 
+async function openResultsTool(page: Page) {
+  const trigger = page.getByRole('button', { name: '승패 결과' })
+  if (await trigger.getAttribute('aria-expanded') !== 'true') await trigger.click()
+  await expect(page.getByTestId('tactical-utility-panel')).toHaveAttribute(
+    'data-utility-panel',
+    'results',
+  )
+}
+
 function resultFact(dialog: Locator, label: string) {
   return dialog.locator('.combat-result-dialog__facts > div').filter({
     hasText: label,
@@ -68,21 +77,22 @@ test.describe('IRPG-410 foreground result status', () => {
     await page.goto('/')
     await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
 
-    const stageMapToggle = page.getByRole('button', { name: '원정 지도 열기' })
+    const stageMapToggle = page.getByRole('button', { name: '3지역 원정 지도 열기' })
     await stageMapToggle.focus()
     await expect(stageMapToggle).toBeFocused()
     await context.clock.setFixedTime(new Date(FOREGROUND_NOW.getTime() + 50_000))
 
+    await expect(stageMapToggle).toBeFocused()
+    await expect(page.getByTestId('combat-result-dialog')).toHaveCount(0)
+    await expect(page.getByTestId('tactical-utility-result-announcement')).toContainText(
+      '새 전투 결과: 스테이지 10 패배, 스테이지 9 복귀',
+    )
+    await openResultsTool(page)
     const detailButton = page.getByRole('button', {
       name: '스테이지 10 패배 · 스테이지 9 복귀 상세 보기',
     })
     await expect(detailButton).toBeVisible()
-    await expect(stageMapToggle).toBeFocused()
-    await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(page.getByTestId('combat-result-list').getByRole('listitem')).toHaveCount(1)
-    await expect(page.getByTestId('combat-result-announcement')).toContainText(
-      '새 전투 결과: 스테이지 10 패배, 스테이지 9 복귀',
-    )
     expect(browserErrors).toEqual([])
   })
 })
@@ -96,12 +106,13 @@ test.describe('IRPG-410 deterministic result details', () => {
     await context.clock.setFixedTime(FIXED_NOW)
     await enterDebugSession(page)
     const root = await applyResultFixture(page, 'visual.result.boss-victory')
+    await openResultsTool(page)
     const canonicalHash = await root.getAttribute('data-canonical-state-hash')
     expect(canonicalHash).not.toBeNull()
 
-    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page.getByTestId('combat-result-dialog')).toHaveCount(0)
     await expect(page.locator('[data-asset-id^="result."]')).toHaveCount(0)
-    await expect(page.getByTestId('combat-result-announcement')).toHaveText(
+    await expect(page.getByTestId('tactical-utility-result-announcement')).toHaveText(
       '새 전투 결과: 스테이지 10 보스 승리. 라운드 51.',
     )
 
@@ -143,6 +154,7 @@ test.describe('IRPG-410 deterministic result details', () => {
     await context.clock.setFixedTime(FIXED_NOW)
     await enterDebugSession(page)
     const root = await applyResultFixture(page, 'visual.result.defeat')
+    await openResultsTool(page)
     const canonicalHash = await root.getAttribute('data-canonical-state-hash')
     expect(canonicalHash).not.toBeNull()
 
@@ -171,6 +183,7 @@ test.describe('IRPG-410 deterministic result details', () => {
     await context.clock.setFixedTime(FIXED_NOW)
     await enterDebugSession(page)
     const root = await applyResultFixture(page, 'visual.result.defeat')
+    await openResultsTool(page)
     await page.getByRole('button', {
       name: '스테이지 10 패배 · 스테이지 9 복귀 상세 보기',
     }).click()
@@ -191,12 +204,14 @@ test.describe('IRPG-410 deterministic result details', () => {
     await context.clock.setFixedTime(FIXED_NOW)
     await enterDebugSession(page)
     await applyResultFixture(page, 'visual.result.boss-victory')
+    await openResultsTool(page)
     await expect(page.getByTestId('combat-result-list').getByRole('listitem')).toHaveCount(1)
 
     await page.reload()
     await expect(page.getByTestId('debug-panel')).toBeVisible()
+    await openResultsTool(page)
     await expect(page.getByText(/아직 보스 승리 또는 패배 결과가 없습니다/)).toBeVisible()
-    await expect(page.getByTestId('combat-result-announcement')).toBeEmpty()
+    await expect(page.getByTestId('tactical-utility-result-announcement')).toBeEmpty()
 
     const panel = page.getByTestId('debug-panel')
     await panel.getByLabel('오프라인 시간 (0–480분)').fill('1')
@@ -204,6 +219,7 @@ test.describe('IRPG-410 deterministic result details', () => {
     const offlineDialog = page.getByRole('dialog', { name: /쉬는 동안에도/ })
     await expect(offlineDialog).toBeVisible()
     await offlineDialog.getByRole('button', { name: '보상 확인' }).click()
+    await openResultsTool(page)
     await expect(page.getByText(/아직 보스 승리 또는 패배 결과가 없습니다/)).toBeVisible()
     await expect(page.getByTestId('combat-result-list')).toHaveCount(0)
   })
@@ -232,6 +248,7 @@ test.describe('IRPG-410 fallback, zoom, and reduced motion', () => {
     })
     await enterDebugSession(page)
     await applyResultFixture(page, 'visual.result.boss-victory')
+    await openResultsTool(page)
     await page.evaluate(() => {
       document.documentElement.style.zoom = '2'
     })

@@ -1,6 +1,14 @@
 import { expect, test, type Page } from '@playwright/test'
 
-const STARTED_AT = new Date('2026-07-19T09:00:00.000Z')
+const STARTED_AT = new Date('2026-07-20T09:00:00.000Z')
+const SLOT_ASSET_IDS = [
+  'equipment.ember-blade',
+  'equipment.guard-armor',
+  'equipment.fortune-charm',
+  'skill.power-strike',
+  'skill.iron-will',
+  'skill.loot-sense',
+] as const
 
 function collectBrowserErrors(page: Page, errors: string[]) {
   page.on('pageerror', (error) => errors.push(`page: ${error.message}`))
@@ -13,7 +21,7 @@ for (const viewport of [
   { width: 1_440, height: 900 },
   { width: 1_024, height: 768 },
 ] as const) {
-  test(`IRPG-414 keeps a ${viewport.width}x${viewport.height} one-view dashboard`, async ({
+  test(`IRPG-422 keeps the tactical command surface in one view at ${viewport.width}x${viewport.height}`, async ({
     context,
     page,
   }, testInfo) => {
@@ -23,20 +31,29 @@ for (const viewport of [
     await context.clock.setFixedTime(STARTED_AT)
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
-    await expect(page.locator('.enemy-portrait__asset')).toHaveAttribute('data-state', 'loaded')
-    await testInfo.attach(`irpg-414-dashboard-${viewport.width}x${viewport.height}.png`, {
-      body: await page.screenshot({ animations: 'disabled' }),
-      contentType: 'image/png',
-    })
+
+    const layout = page.getByTestId('tactical-layout')
+    const canvas = page.getByTestId('tactical-canvas')
+    const actionBar = page.getByRole('region', { name: '장비와 스킬 빠른 슬롯' })
+    const dock = page.getByTestId('tactical-utility-dock')
+    await expect(layout).toBeVisible()
+    await expect(canvas).toBeVisible()
+    await expect(actionBar).toBeVisible()
+    await expect(dock).toBeVisible()
+    await expect(page.getByTestId('game-dashboard')).toHaveCount(0)
+
+    for (const assetId of SLOT_ASSET_IDS) {
+      const asset = actionBar.locator(`[data-asset-id="${assetId}"]`)
+      await expect(asset).toHaveCount(1)
+      await expect(asset).toHaveAttribute('data-state', 'loaded')
+    }
+    await expect(actionBar.locator('[data-action-slot]')).toHaveCount(8)
+    await expect(dock.locator('[data-utility-id]')).toHaveCount(4)
 
     const geometry = await page.evaluate(() => {
-      const dashboard = document.querySelector<HTMLElement>('.game-dashboard')!
-      const columns = [
-        document.querySelector<HTMLElement>('.dashboard-column--battle')!,
-        document.querySelector<HTMLElement>('.dashboard-column--journey')!,
-        document.querySelector<HTMLElement>('.dashboard-column--growth')!,
-      ]
-      const toRect = (element: HTMLElement) => {
+      const toRect = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector)
+        if (element === null) throw new Error(`${selector} missing`)
         const rect = element.getBoundingClientRect()
         return {
           left: rect.left,
@@ -47,186 +64,133 @@ for (const viewport of [
           height: rect.height,
         }
       }
+      const controls = [...document.querySelectorAll<HTMLElement>(
+        '.tactical-action-bar__slot, .tactical-utility-dock__trigger',
+      )].map((element) => {
+        const rect = element.getBoundingClientRect()
+        return { width: rect.width, height: rect.height }
+      })
       return {
         clientWidth: document.documentElement.clientWidth,
         clientHeight: document.documentElement.clientHeight,
         scrollWidth: document.documentElement.scrollWidth,
         scrollHeight: document.documentElement.scrollHeight,
-        bodyScrollWidth: document.body.scrollWidth,
-        bodyScrollHeight: document.body.scrollHeight,
-        scrollX: window.scrollX,
-        scrollY: window.scrollY,
-        dashboard: toRect(dashboard),
-        columns: columns.map(toRect),
+        layout: toRect('.tactical-layout'),
+        canvas: toRect('.tactical-canvas'),
+        actionBar: toRect('.tactical-action-bar'),
+        dock: toRect('.tactical-command-dock'),
+        controls,
       }
     })
 
     expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
-    expect(geometry.bodyScrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
     expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.clientHeight)
-    expect(geometry.bodyScrollHeight).toBeLessThanOrEqual(geometry.clientHeight)
-    expect(geometry.scrollX).toBe(0)
-    expect(geometry.scrollY).toBe(0)
-
-    const [battle, journey, growth] = geometry.columns
-    expect(battle).toBeDefined()
-    expect(journey).toBeDefined()
-    expect(growth).toBeDefined()
-    expect(battle!.left).toBeGreaterThanOrEqual(geometry.dashboard.left - 1)
-    expect(battle!.right).toBeLessThanOrEqual(journey!.left + 1)
-    expect(journey!.right).toBeLessThanOrEqual(growth!.left + 1)
-    expect(growth!.right).toBeLessThanOrEqual(geometry.dashboard.right + 1)
-    for (const column of geometry.columns) {
-      expect(column.top).toBeGreaterThanOrEqual(geometry.dashboard.top - 1)
-      expect(column.bottom).toBeLessThanOrEqual(geometry.dashboard.bottom + 1)
-      expect(column.height).toBeGreaterThan(0)
-    }
-
-    const columnWidth = geometry.columns.reduce((total, column) => total + column.width, 0)
-    expect(battle!.width / columnWidth).toBeGreaterThan(0.33)
-    expect(battle!.width / columnWidth).toBeLessThan(0.37)
-    expect(journey!.width / columnWidth).toBeGreaterThan(0.38)
-    expect(journey!.width / columnWidth).toBeLessThan(0.42)
-    expect(growth!.width / columnWidth).toBeGreaterThan(0.23)
-    expect(growth!.width / columnWidth).toBeLessThan(0.27)
-
-    await expect(page.locator('.battle')).toBeVisible()
-    await expect(page.locator('.stage-map-compact__stage')).toHaveCount(10)
-    await expect(page.locator('.stage-map-compact__stage[aria-current="step"]')).toBeVisible()
-    await expect(page.locator('.combat-log-panel')).toBeVisible()
+    expect(geometry.canvas.bottom).toBeLessThanOrEqual(geometry.actionBar.top + 1)
+    expect(geometry.actionBar.bottom).toBeLessThanOrEqual(geometry.clientHeight)
+    expect(geometry.dock.left).toBeGreaterThanOrEqual(geometry.canvas.right - 1)
+    expect(geometry.dock.bottom).toBeLessThanOrEqual(geometry.clientHeight)
+    expect(geometry.controls.every(({ width, height }) => width >= 44 && height >= 44))
+      .toBe(true)
 
     const growthTabs = page.getByRole('tablist', { name: '성장 메뉴' })
-    const equipmentTab = growthTabs.getByRole('tab', { name: /장비/ })
-    const skillTab = growthTabs.getByRole('tab', { name: '스킬', exact: true })
-    const companionTab = growthTabs.getByRole('tab', { name: '동료', exact: true })
-    const equipmentPanel = page.locator('#growth-tabpanel-equipment')
-    const skillPanel = page.locator('#growth-tabpanel-skill')
-    const companionPanel = page.locator('#growth-tabpanel-companion')
-
-    await expect(growthTabs).toBeVisible()
-    await expect(equipmentTab).toHaveAttribute('aria-selected', 'true')
-    await expect(equipmentTab).toHaveAttribute('tabindex', '0')
-    await expect(skillTab).toHaveAttribute('aria-selected', 'false')
-    await expect(skillTab).toHaveAttribute('tabindex', '-1')
-    await expect(companionTab).toHaveAttribute('aria-selected', 'false')
-    await expect(equipmentPanel).toBeVisible()
-    await expect(skillPanel).not.toBeVisible()
-    await expect(companionPanel).not.toBeVisible()
-
-    await equipmentTab.focus()
+    const equipment = growthTabs.getByRole('tab', { name: /장비/ })
+    const skill = growthTabs.getByRole('tab', { name: '스킬', exact: true })
+    const companion = growthTabs.getByRole('tab', { name: '동료', exact: true })
+    await equipment.focus()
     await page.keyboard.press('ArrowRight')
-    await expect(skillTab).toBeFocused()
-    await expect(skillTab).toHaveAttribute('aria-selected', 'true')
-    await expect(equipmentPanel).not.toBeVisible()
-    await expect(skillPanel).toBeVisible()
-    await expect(companionPanel).not.toBeVisible()
-
+    await expect(skill).toBeFocused()
     await page.keyboard.press('End')
-    await expect(companionTab).toBeFocused()
-    await expect(companionTab).toHaveAttribute('aria-selected', 'true')
-    await expect(skillPanel).not.toBeVisible()
-    await expect(companionPanel).toBeVisible()
-
+    await expect(companion).toBeFocused()
     await page.keyboard.press('Home')
-    await expect(equipmentTab).toBeFocused()
-    await expect(equipmentTab).toHaveAttribute('aria-selected', 'true')
-    await expect(equipmentPanel).toBeVisible()
+    await expect(equipment).toBeFocused()
 
-    for (const control of [
-      page.locator('.prestige-panel button'),
-      page.locator('.save-transfer__actions button'),
-      page.locator('.save-transfer__actions .file-button'),
-    ]) {
-      await control.scrollIntoViewIfNeeded()
-      await expect(control).toBeAttached()
-      const insidePane = await control.evaluate((element) => {
-        const controlRect = element.getBoundingClientRect()
-        const paneRect = element.closest<HTMLElement>('.dashboard-pane--management')!
-          .getBoundingClientRect()
-        return controlRect.top >= paneRect.top - 1 && controlRect.bottom <= paneRect.bottom + 1
-      })
-      expect(insidePane).toBe(true)
-      expect(await page.evaluate(() => window.scrollY)).toBe(0)
-    }
+    await dock.getByRole('button', { name: '전투 로그' }).hover()
+    await expect(page.getByRole('tooltip', { name: '전투 로그' })).toBeVisible()
+    await dock.getByRole('button', { name: '전투 로그' }).click()
+    await expect(page.getByTestId('tactical-utility-panel')).toBeVisible()
+    await page.getByRole('button', { name: '전투 로그 닫기' }).click()
+    await expect(page.getByTestId('tactical-utility-panel')).toHaveCount(0)
 
-    const campaignPane = page.locator('.dashboard-pane--campaign')
-    await page.getByRole('button', { name: '원정 지도 열기' }).click()
-    const paneBeforeScroll = await campaignPane.evaluate((element) => ({
-      overflowY: getComputedStyle(element).overflowY,
-      clientHeight: element.clientHeight,
-      scrollHeight: element.scrollHeight,
-      scrollTop: element.scrollTop,
-    }))
-    expect(['auto', 'scroll']).toContain(paneBeforeScroll.overflowY)
-    expect(paneBeforeScroll.scrollHeight).toBeGreaterThan(paneBeforeScroll.clientHeight)
-    expect(paneBeforeScroll.scrollTop).toBe(0)
-
-    await campaignPane.evaluate((element) => {
-      element.scrollTop = element.scrollHeight
+    await testInfo.attach(`irpg-422-tactical-${viewport.width}x${viewport.height}.png`, {
+      body: await page.screenshot({ animations: 'disabled' }),
+      contentType: 'image/png',
     })
-    await expect.poll(() => campaignPane.evaluate((element) => element.scrollTop)).toBeGreaterThan(0)
-    expect(await page.evaluate(() => window.scrollY)).toBe(0)
     expect(browserErrors).toEqual([])
   })
 }
 
-test.describe('IRPG-414 mobile flow', () => {
+test.describe('IRPG-422 mobile tactical flow', () => {
   test.use({ viewport: { width: 360, height: 800 } })
 
-  test('keeps the vertical document flow and exposes every growth panel', async ({
+  test('keeps slots, utilities, growth panels and reduced motion usable without page overflow', async ({
     context,
     page,
   }, testInfo) => {
     const browserErrors: string[] = []
     collectBrowserErrors(page, browserErrors)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await context.clock.setFixedTime(STARTED_AT)
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
-    await expect(page.locator('.enemy-portrait__asset')).toHaveAttribute('data-state', 'loaded')
-    await testInfo.attach('irpg-414-dashboard-360x800.png', {
-      body: await page.screenshot({ animations: 'disabled' }),
-      contentType: 'image/png',
-    })
+
+    const canvas = page.getByTestId('tactical-canvas')
+    const actionBar = page.getByRole('region', { name: '장비와 스킬 빠른 슬롯' })
+    const dock = page.getByTestId('tactical-utility-dock')
+    await expect(canvas).toBeVisible()
+    await expect(actionBar).toBeVisible()
+    await expect(actionBar.locator('[data-action-slot]')).toHaveCount(8)
+
+    await actionBar.locator('[data-action-slot="armor"]').click()
+    const detail = actionBar.locator('[data-action-detail="armor"]')
+    await expect(detail).toBeVisible()
+    await expect(detail.getByRole('heading', { name: '수호 갑옷' })).toBeVisible()
+    await detail.getByRole('button', { name: '수호 갑옷 상세 닫기' }).click()
+    await expect(detail).toHaveCount(0)
+
+    await dock.getByRole('button', { name: '승패 결과' }).click()
+    await expect(page.getByTestId('tactical-utility-panel')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dock.getByRole('button', { name: '승패 결과' })).toBeFocused()
 
     const geometry = await page.evaluate(() => {
-      const columns = [
-        document.querySelector<HTMLElement>('.dashboard-column--battle')!,
-        document.querySelector<HTMLElement>('.dashboard-column--journey')!,
-        document.querySelector<HTMLElement>('.dashboard-column--growth')!,
-      ].map((element) => {
+      const slots = document.querySelector<HTMLElement>('.tactical-action-bar__slots')!
+      const controls = [...document.querySelectorAll<HTMLElement>(
+        '.game-mode-selector [role="radio"], .tactical-action-bar button, .tactical-utility-dock button',
+      )].filter((element) => {
         const rect = element.getBoundingClientRect()
-        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
+        const style = getComputedStyle(element)
+        return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden'
+      }).map((element) => {
+        const rect = element.getBoundingClientRect()
+        return { width: rect.width, height: rect.height }
       })
       return {
         clientWidth: document.documentElement.clientWidth,
         clientHeight: document.documentElement.clientHeight,
         scrollWidth: document.documentElement.scrollWidth,
         scrollHeight: document.documentElement.scrollHeight,
-        bodyScrollWidth: document.body.scrollWidth,
-        columns,
+        slotsClientWidth: slots.clientWidth,
+        slotsScrollWidth: slots.scrollWidth,
+        invalidControls: controls.filter(({ width, height }) => width < 44 || height < 44),
+        animations: [...document.querySelectorAll<HTMLElement>('.tactical-layout *')]
+          .some((element) => getComputedStyle(element).animationName !== 'none'),
       }
     })
 
     expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
-    expect(geometry.bodyScrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
     expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight)
-    expect(geometry.columns[0]!.bottom).toBeLessThanOrEqual(geometry.columns[1]!.top + 1)
-    expect(geometry.columns[1]!.bottom).toBeLessThanOrEqual(geometry.columns[2]!.top + 1)
-    for (const column of geometry.columns) {
-      expect(column.left).toBeGreaterThanOrEqual(0)
-      expect(column.right).toBeLessThanOrEqual(geometry.clientWidth)
-    }
+    expect(geometry.slotsScrollWidth).toBeGreaterThan(geometry.slotsClientWidth)
+    expect(geometry.invalidControls).toEqual([])
+    expect(geometry.animations).toBe(false)
 
-    const mobileTablist = page.locator('.growth-tabs__tablist')
-    await expect(mobileTablist).toHaveCount(0)
-    await expect(page.getByRole('tab')).toHaveCount(0)
-    await expect(page.getByRole('tabpanel')).toHaveCount(0)
+    await expect(page.locator('.growth-tabs__tablist')).toHaveCount(0)
     await expect(page.locator('#growth-tabpanel-equipment')).toBeVisible()
     await expect(page.locator('#growth-tabpanel-skill')).toBeVisible()
     await expect(page.locator('#growth-tabpanel-companion')).toBeVisible()
-    await expect(page.getByRole('region', { name: '성장 장비' })).toBeVisible()
-    await expect(page.getByRole('region', { name: '스킬 각인' })).toBeVisible()
-    await expect(page.getByRole('region', { name: '동료 원정대' })).toBeVisible()
+    await testInfo.attach('irpg-422-tactical-360x800.png', {
+      body: await page.screenshot({ animations: 'disabled', fullPage: true }),
+      contentType: 'image/png',
+    })
     expect(browserErrors).toEqual([])
   })
 })

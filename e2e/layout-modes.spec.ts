@@ -4,8 +4,7 @@ import { getEnemyDefinition } from '../src/game/content'
 import { createInitialState } from '../src/game/engine'
 import { SAVE_FORMAT_VERSION, SAVE_SLOT_A_KEY } from '../src/game/persistence'
 
-const DASHBOARD_OPTION = '유형 1 · 대시보드'
-const TACTICAL_OPTION = '유형 2 · 전술 전장'
+const TACTICAL_OPTION = '전투 · 전술 전장'
 
 async function expectReady(page: Page) {
   await page.goto('/')
@@ -41,7 +40,7 @@ async function settleImagePaint(page: Page) {
   )
 }
 
-test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
+test.describe('IRPG-422 tactical-only battle surface and tactical motion', () => {
   for (const damageFixture of [
     {
       id: 'visual.dashboard.tactical-damaged',
@@ -52,27 +51,17 @@ test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
       assetId: 'boss.eclipse-knight.severe',
     },
   ] as const) {
-    test(`uses ${damageFixture.assetId} in both layout types`, async ({ page }) => {
+    test(`uses ${damageFixture.assetId} in the tactical battle surface`, async ({ page }) => {
       await enterDebugSession(page)
       await applyFixture(page, damageFixture.id)
 
       const root = page.getByTestId('visual-fixture-root')
-      const dashboardAsset = page.locator('.enemy-portrait__asset')
       const expectedDamageState = damageFixture.id.endsWith('damaged')
         ? 'damaged'
         : 'severe'
       const expectedDamageLabel = damageFixture.id.endsWith('damaged')
         ? '갑옷 균열'
         : '갑옷 붕괴 직전'
-      await expect(dashboardAsset).toHaveAttribute('data-asset-id', damageFixture.assetId)
-      await expect(dashboardAsset).toHaveAttribute('data-state', 'loaded')
-      await expect(page.locator('.battle')).toHaveAttribute(
-        'data-enemy-damage-state',
-        expectedDamageState,
-      )
-      await expect(page.locator('.battle').getByText(expectedDamageLabel)).toBeVisible()
-
-      await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
       const canvas = page.getByTestId('tactical-canvas')
       await expect(canvas).toHaveAttribute('data-enemy-asset-id', damageFixture.assetId)
       await expect(canvas).toHaveAttribute(
@@ -93,19 +82,17 @@ test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
     })
   }
 
-  test('defaults safely to type 1 and restores only a valid type 2 preference', async ({ page }) => {
+  test('uses one tactical renderer and ignores every retired layout preference value', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('emberwatch.ui.layout.v1', 'dashboard')
+    })
     await expectReady(page)
 
-    const dashboard = page.getByRole('radio', { name: DASHBOARD_OPTION, exact: true })
     const tactical = page.getByRole('radio', { name: TACTICAL_OPTION, exact: true })
-    await expect(dashboard).toHaveAttribute('aria-checked', 'true')
-    await expect(page.getByTestId('game-dashboard')).toHaveCount(1)
-    await expect(page.getByTestId('tactical-layout')).toHaveCount(0)
-
-    await tactical.click()
     await expect(tactical).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('game-dashboard')).toHaveCount(0)
     await expect(page.getByTestId('tactical-layout')).toHaveCount(1)
+    await expect(page.getByText('유형 1 · 대시보드')).toHaveCount(0)
 
     await page.reload()
     await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
@@ -116,43 +103,43 @@ test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
     await expect(page.getByTestId('tactical-layout')).toHaveCount(1)
   })
 
-  test('falls back to type 1 for an invalid preference', async ({ page }) => {
+  test('ignores an invalid retired preference without rewriting it', async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem('emberwatch.ui.layout.v1', 'unknown-layout')
     })
     await expectReady(page)
-    await expect(page.getByRole('radio', { name: DASHBOARD_OPTION })).toHaveAttribute(
+    await expect(page.getByRole('radio', { name: TACTICAL_OPTION })).toHaveAttribute(
       'aria-checked',
       'true',
     )
-    await expect(page.getByTestId('game-dashboard')).toHaveCount(1)
+    await expect(page.getByTestId('tactical-layout')).toHaveCount(1)
+    expect(await page.evaluate(() => localStorage.getItem('emberwatch.ui.layout.v1')))
+      .toBe('unknown-layout')
   })
 
-  test('supports keyboard switching while preserving a single active renderer', async ({ page }) => {
+  test('supports keyboard battle and camp switching with a single active renderer', async ({ page }) => {
     await expectReady(page)
-    const dashboard = page.getByRole('radio', { name: DASHBOARD_OPTION })
     const tactical = page.getByRole('radio', { name: TACTICAL_OPTION })
-    const resultAnnouncement = page.getByTestId('combat-result-announcement')
+    const camp = page.getByRole('radio', { name: '캠프 · 관리' })
+    const resultAnnouncement = page.getByTestId('tactical-utility-result-announcement')
 
     await expect(resultAnnouncement).toHaveCount(1)
 
-    await dashboard.focus()
-    await dashboard.press('ArrowRight')
+    await tactical.focus()
+    await tactical.press('ArrowRight')
+    await expect(camp).toBeFocused()
+    await expect(camp).toHaveAttribute('aria-checked', 'true')
+    await expect(page.locator('#tactical-stage-title')).toHaveCount(0)
+    await expect(page.getByTestId('camp-dashboard')).toHaveCount(1)
+
+    await camp.press('Home')
     await expect(tactical).toBeFocused()
     await expect(tactical).toHaveAttribute('aria-checked', 'true')
     await expect(page.locator('#tactical-stage-title')).toHaveCount(1)
-    await expect(page.locator('#battle-title')).toHaveCount(0)
-    await expect(resultAnnouncement).toHaveCount(1)
-
-    await tactical.press('Home')
-    await expect(dashboard).toBeFocused()
-    await expect(page.locator('#tactical-stage-title')).toHaveCount(0)
-    await expect(page.locator('#battle-title')).toHaveCount(1)
-    await expect(resultAnnouncement).toHaveCount(1)
-    await expect(page.locator('[aria-live="polite"] #tactical-stage-title')).toHaveCount(0)
+    await expect(page.getByTestId('camp-dashboard')).toHaveCount(0)
   })
 
-  test('keeps game, event, notice, and A/B save state unchanged across a layout round trip', async ({ page }) => {
+  test('keeps game, event, and A/B save state unchanged across slot and utility disclosures', async ({ page }) => {
     await enterDebugSession(page)
     await applyFixture(page, 'visual.dashboard.tactical-canvas')
 
@@ -166,22 +153,22 @@ test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
       return {
         stateHash: root.dataset.canonicalStateHash,
         eventHash: root.dataset.canonicalEventHash,
-        notice: document.querySelector<HTMLElement>('.notice-strip')?.textContent,
+        notice: document.querySelector<HTMLElement>('.tactical-canvas__status')?.textContent,
         storage,
       }
     })
     const before = await capture()
 
-    await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
-    await page.getByRole('radio', { name: DASHBOARD_OPTION }).click()
+    const slot = page.locator('[data-action-slot="armor"]')
+    await slot.click()
+    await expect(page.locator('[data-action-detail="armor"]')).toBeVisible()
+    await slot.click()
+    const log = page.locator('[data-utility-id="log"]')
+    await log.click()
+    await expect(page.getByTestId('tactical-utility-panel')).toBeVisible()
+    await log.click()
 
     expect(await capture()).toEqual(before)
-    await expect(page.getByRole('radio', { name: DASHBOARD_OPTION })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    )
-    expect(await page.evaluate(() => localStorage.getItem('emberwatch.ui.layout.v1')))
-      .toBe('dashboard')
   })
 
   for (const viewport of [
@@ -322,7 +309,7 @@ test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
       const companion = document.querySelector<HTMLElement>('.tactical-companion')!
       const clientWidth = document.documentElement.clientWidth
       const targets = Array.from(document.querySelectorAll<HTMLElement>(
-        '.layout-mode-selector [role="radio"], .tactical-canvas button, .tactical-command-dock button',
+        '.game-mode-selector [role="radio"], .tactical-canvas button, .tactical-command-dock button',
       ))
         .filter((element) => {
           const style = getComputedStyle(element)
@@ -670,7 +657,7 @@ test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
     })
   })
 
-  test('plays only newly arriving combat cues and does not replay them after a layout round trip', async ({ page }) => {
+  test('keeps a newly arriving combat cue mounted across a utility disclosure', async ({ page }) => {
     await enterDebugSession(page)
     await applyFixture(page, 'visual.dashboard.tactical-canvas')
     await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
@@ -681,11 +668,10 @@ test.describe('IRPG-415/416/417 selectable layouts and tactical motion', () => {
     await expect(canvas).toHaveAttribute('data-scene-id', /.+/)
     await expect(canvas.locator('.tactical-cue')).toHaveClass(/tactical-cue--active/)
 
-    await page.getByRole('radio', { name: DASHBOARD_OPTION }).click()
-    await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
-    await expect(page.getByTestId('tactical-canvas')).not.toHaveAttribute(
-      'data-scene-id',
-      /.+/,
-    )
+    const sceneId = await canvas.getAttribute('data-scene-id')
+    await page.locator('[data-utility-id="log"]').click()
+    await expect(page.getByTestId('tactical-utility-panel')).toBeVisible()
+    await page.locator('[data-utility-id="log"]').click()
+    await expect(canvas).toHaveAttribute('data-scene-id', sceneId ?? '')
   })
 })

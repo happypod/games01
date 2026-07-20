@@ -45,7 +45,7 @@ function summaryValue(panel: Locator, label: string) {
 test.describe('IRPG-409 illustrated card browser contract', () => {
   test.use({ viewport: { width: 360, height: 800 } })
 
-  test('lazy-loads six unique cards and preserves cost+1, exact, one-short, locked, and MAX commands', async ({
+  test('eagerly reuses six quick-slot assets and preserves cost+1, exact, one-short, locked, and MAX commands', async ({
     context,
     page,
   }, testInfo) => {
@@ -58,7 +58,8 @@ test.describe('IRPG-409 illustrated card browser contract', () => {
     })
 
     const panel = await openMixedCardFixture(page)
-    expect(cardRequests).toEqual([])
+    await expect.poll(() => cardRequests.length).toBe(6)
+    expect(new Set(cardRequests).size).toBe(6)
 
     const weapon = card(page, 'upgrade-weapon')
     const armor = card(page, 'upgrade-armor')

@@ -29,6 +29,14 @@ async function openDebugSessionAtStage(page: Page, stage: number) {
 }
 
 async function openStageMap(page: Page) {
+  const battlefieldToggle = page.getByRole('button', {
+    name: '3지역 원정 지도 열기',
+  })
+  await expect(battlefieldToggle).toBeVisible()
+  await battlefieldToggle.click()
+  await expect(page.getByRole('complementary', { name: '3지역 원정 지도' }))
+    .toBeVisible()
+
   const toggle = page.locator('.stage-map-disclosure__toggle')
   await expect(toggle).toHaveAccessibleName('원정 지도 열기')
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
