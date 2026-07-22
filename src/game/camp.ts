@@ -1,0 +1,224 @@
+import { toSafeInteger } from './formulas'
+import type {
+  CampMaterialInventory,
+  CampRecipeId,
+  CampState,
+  CampStructureId,
+  CampTrainingId,
+  EnemyDefinition,
+} from './types'
+
+export const CAMP_DEFINITION_VERSION = 1 as const
+export const CAMP_MERCHANT_REFRESH_MS = 30 * 60 * 1_000
+export const CAMP_STRUCTURE_MAX_LEVEL = 5
+export const CAMP_TRAINING_RANKS_PER_LEVEL = 5
+
+const HOUR_MS = 60 * 60 * 1_000
+
+export const CAMP_OFFLINE_CAP_HOURS = Object.freeze([8, 9, 10, 11, 12] as const)
+export const CAMP_WORKBENCH_DURATION_PERCENT = Object.freeze([100, 90, 80, 70, 60] as const)
+
+export const CAMP_STRUCTURE_UPGRADE_COSTS: Readonly<
+  Record<CampStructureId, readonly [number, number, number, number]>
+> = Object.freeze({
+  tent: Object.freeze([600, 1_500, 3_600, 8_000] as const),
+  workbench: Object.freeze([450, 1_100, 2_700, 6_200] as const),
+  trainingGround: Object.freeze([500, 1_250, 3_000, 7_000] as const),
+})
+
+export const CAMP_TRAINING_EFFECTS: Readonly<Record<CampTrainingId, number>> = Object.freeze({
+  attack: 2,
+  vitality: 20,
+})
+
+export const CAMP_GOLD_STEW_ROUNDS = 1_800
+export const CAMP_FOCUS_CRITICAL_BONUS = 0.2
+export const CAMP_MERCHANT_OFFER_SLOTS = [0, 1, 2] as const
+export type CampMerchantOfferSlot = (typeof CAMP_MERCHANT_OFFER_SLOTS)[number]
+
+type CampMerchantOfferEffect =
+  | { readonly type: 'material'; readonly id: keyof CampMaterialInventory; readonly amount: number }
+  | { readonly type: 'consumable'; readonly id: CampRecipeId; readonly amount: number }
+  | { readonly type: 'rescueSera' }
+
+export interface CampMerchantOfferDefinition {
+  readonly id: string
+  readonly name: string
+  readonly description: string
+  readonly baseCost: number
+  readonly effect: CampMerchantOfferEffect
+}
+
+function merchantOffer(
+  definition: CampMerchantOfferDefinition,
+): CampMerchantOfferDefinition {
+  return Object.freeze({ ...definition, effect: Object.freeze({ ...definition.effect }) })
+}
+
+export const CAMP_MERCHANT_OFFER_CYCLES = Object.freeze([
+  Object.freeze([
+    merchantOffer({ id: 'ash-cache', name: '재 파편 꾸러미', description: '재의 파편 10개', baseCost: 120, effect: { type: 'material', id: 'ashShard', amount: 10 } }),
+    merchantOffer({ id: 'gold-stew', name: '완성된 황금 스튜', description: '황금 스튜 1개', baseCost: 420, effect: { type: 'consumable', id: 'goldStew', amount: 1 } }),
+    merchantOffer({ id: 'sera-relief', name: '세라 구조 지원', description: '구호대에 안전한 이동·치료 비용을 지원합니다.', baseCost: 800, effect: { type: 'rescueSera' } }),
+  ] as const),
+  Object.freeze([
+    merchantOffer({ id: 'hide-bundle', name: '야수 가죽 묶음', description: '야수 가죽 6개', baseCost: 220, effect: { type: 'material', id: 'beastHide', amount: 6 } }),
+    merchantOffer({ id: 'focus-tonic', name: '완성된 집중 물약', description: '집중 물약 1개', baseCost: 620, effect: { type: 'consumable', id: 'focusTonic', amount: 1 } }),
+    merchantOffer({ id: 'mixed-cache', name: '원정 재료 상자', description: '재의 파편 18개', baseCost: 260, effect: { type: 'material', id: 'ashShard', amount: 18 } }),
+  ] as const),
+  Object.freeze([
+    merchantOffer({ id: 'ember-core', name: '정제된 불씨 핵', description: '불씨 핵 1개', baseCost: 520, effect: { type: 'material', id: 'emberCore', amount: 1 } }),
+    merchantOffer({ id: 'hide-reserve', name: '가죽 비축분', description: '야수 가죽 10개', baseCost: 360, effect: { type: 'material', id: 'beastHide', amount: 10 } }),
+    merchantOffer({ id: 'stew-reserve', name: '황금 스튜 비축분', description: '황금 스튜 1개', baseCost: 380, effect: { type: 'consumable', id: 'goldStew', amount: 1 } }),
+  ] as const),
+] as const)
+
+export const SERA_TRUST_COSTS = Object.freeze([250, 500, 900, 1_500, 2_400] as const)
+
+export function getCampMerchantOffers(cycle: number) {
+  return CAMP_MERCHANT_OFFER_CYCLES[cycle % CAMP_MERCHANT_OFFER_CYCLES.length]!
+}
+
+export function getSeraMerchantDiscountPercent(camp: Pick<CampState, 'residents'>): number {
+  return camp.residents.sera.status === 'contracted'
+    ? camp.residents.sera.trust * 2
+    : 0
+}
+
+export function getCampMerchantOfferCost(
+  camp: Pick<CampState, 'residents'>,
+  offer: CampMerchantOfferDefinition,
+): number {
+  return toSafeInteger(
+    offer.baseCost * (1 - getSeraMerchantDiscountPercent(camp) / 100),
+    1,
+  )
+}
+
+export function getSeraTrustCost(currentTrust: number): number | null {
+  if (currentTrust < 0 || currentTrust >= SERA_TRUST_COSTS.length) return null
+  return SERA_TRUST_COSTS[currentTrust] ?? null
+}
+
+export interface CampRecipeDefinition {
+  readonly id: CampRecipeId
+  readonly name: string
+  readonly baseDurationMs: number
+  readonly ingredients: Readonly<CampMaterialInventory>
+}
+
+export const CAMP_RECIPE_DEFINITIONS: Readonly<Record<CampRecipeId, CampRecipeDefinition>> = Object.freeze({
+  goldStew: Object.freeze({
+    id: 'goldStew',
+    name: '황금 스튜',
+    baseDurationMs: 5 * 60 * 1_000,
+    ingredients: Object.freeze({ ashShard: 10, beastHide: 4, emberCore: 0 }),
+  }),
+  focusTonic: Object.freeze({
+    id: 'focusTonic',
+    name: '집중 물약',
+    baseDurationMs: 10 * 60 * 1_000,
+    ingredients: Object.freeze({ ashShard: 6, beastHide: 2, emberCore: 1 }),
+  }),
+})
+
+export function getCampMaterialYield(
+  enemy: Pick<EnemyDefinition, 'assetId' | 'isBoss'>,
+): CampMaterialInventory {
+  return {
+    ashShard: 1,
+    beastHide: enemy.assetId === 'enemy.twilight-wolf' ? 1 : 0,
+    emberCore: enemy.isBoss ? 1 : 0,
+  }
+}
+
+export function getCampCraftDurationMs(
+  camp: Pick<CampState, 'structures'>,
+  recipeId: CampRecipeId,
+): number {
+  return toSafeInteger(
+    CAMP_RECIPE_DEFINITIONS[recipeId].baseDurationMs *
+      getCampWorkbenchDurationMultiplier(camp),
+    1,
+  )
+}
+
+const CAMP_TRAINING_COSTS = Object.freeze({
+  attack: { base: 140, growth: 1.45 },
+  vitality: { base: 160, growth: 1.45 },
+} as const satisfies Readonly<Record<CampTrainingId, { base: number; growth: number }>>)
+
+export function getCampStructureUpgradeCost(
+  id: CampStructureId,
+  currentLevel: number,
+): number | null {
+  if (currentLevel < 1 || currentLevel >= CAMP_STRUCTURE_MAX_LEVEL) return null
+  return CAMP_STRUCTURE_UPGRADE_COSTS[id][currentLevel - 1] ?? null
+}
+
+export function getCampOfflineCapMs(camp: Pick<CampState, 'structures'>): number {
+  const level = Math.min(
+    CAMP_STRUCTURE_MAX_LEVEL,
+    Math.max(1, Math.floor(camp.structures.tent)),
+  )
+  return CAMP_OFFLINE_CAP_HOURS[level - 1]! * HOUR_MS
+}
+
+export function getCampWorkbenchDurationMultiplier(
+  camp: Pick<CampState, 'structures'>,
+): number {
+  const level = Math.min(
+    CAMP_STRUCTURE_MAX_LEVEL,
+    Math.max(1, Math.floor(camp.structures.workbench)),
+  )
+  return CAMP_WORKBENCH_DURATION_PERCENT[level - 1]! / 100
+}
+
+export function getCampTrainingRankCap(camp: Pick<CampState, 'structures'>): number {
+  return camp.structures.trainingGround * CAMP_TRAINING_RANKS_PER_LEVEL
+}
+
+export function getCampTrainingCost(id: CampTrainingId, currentRank: number): number {
+  const definition = CAMP_TRAINING_COSTS[id]
+  return toSafeInteger(definition.base * definition.growth ** Math.max(0, currentRank), 1)
+}
+
+export function createInitialCampState(): CampState {
+  return {
+    definitionVersion: CAMP_DEFINITION_VERSION,
+    structures: {
+      tent: 1,
+      workbench: 1,
+      trainingGround: 1,
+    },
+    training: {
+      attack: 0,
+      vitality: 0,
+    },
+    materials: {
+      ashShard: 0,
+      beastHide: 0,
+      emberCore: 0,
+    },
+    consumables: {
+      goldStew: 0,
+      focusTonic: 0,
+    },
+    craftJob: null,
+    buffs: {
+      goldBoostRounds: 0,
+      bossFocusStage: null,
+    },
+    merchant: {
+      cycle: 0,
+      refreshRemainingMs: CAMP_MERCHANT_REFRESH_MS,
+      purchasedOfferMask: 0,
+    },
+    residents: {
+      sera: {
+        status: 'unmet',
+        trust: 0,
+      },
+    },
+  }
+}

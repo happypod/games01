@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <title>전투 결과 이미지 대체 표식</title>
+  <rect width="1280" height="720" fill="#12100f"/>
+  <path d="M640 70 770 190l175-7-7 175 121 129-121 129-175-7-130 121-129-121-175 7 7-175-121-129 121-129 175 7z" fill="#2d211b" stroke="#a95b37" stroke-width="12"/>
+  <path d="M640 160 730 314l-90 246-90-246z" fill="#d66b3d" opacity=".75"/>
+  <circle cx="640" cy="360" r="92" fill="#161210" stroke="#dda05a" stroke-width="12"/>
+</svg>

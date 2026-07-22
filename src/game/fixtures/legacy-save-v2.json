@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "lastSavedAt": 1700000000000,
+  "rng": {
+    "algorithm": "xorshift32-v1",
+    "seed": 873835004,
+    "state": 305419896,
+    "draws": 42
+  },
+  "player": {
+    "level": 3,
+    "xp": 5,
+    "gold": 87,
+    "essence": 2,
+    "currentHp": 80,
+    "skillPoints": 2,
+    "upgrades": {
+      "weapon": 1,
+      "armor": 1,
+      "charm": 0
+    },
+    "skills": {
+      "powerStrike": 2,
+      "ironWill": 1,
+      "fortune": 0
+    }
+  },
+  "battle": {
+    "stage": 4,
+    "highestStage": 6,
+    "enemyHp": 30,
+    "roundRemainderMs": 500,
+    "powerStrikeCooldownMs": 2000,
+    "kills": 12,
+    "defeats": 1
+  },
+  "stats": {
+    "goldEarned": 210,
+    "enemiesDefeated": 12,
+    "prestiges": 0
+  }
+}

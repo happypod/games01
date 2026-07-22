@@ -1,0 +1,43 @@
+name: visual-baseline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'agent/**'
+      - 'codex/**'
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Generate canonical Ubuntu baselines
+        run: npm run test:e2e:visual:update
+      - name: Prove three-repeat stability
+        run: npm run test:e2e:visual -- --repeat-each=3
+      - name: Upload canonical baseline evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: irpg-506-ubuntu-baselines
+          path: |
+            e2e/__screenshots__/irpg-506/
+            playwright-report/visual/
+            test-results/visual/
+          if-no-files-found: error
+          retention-days: 14

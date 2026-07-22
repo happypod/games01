@@ -1,0 +1,59 @@
+name: RPG delivery ticket
+description: 설계부터 검증·테스트까지 추적하는 작업 티켓
+title: "[IRPG-000] "
+labels: ["status:draft"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: 사용자 또는 시스템이 얻게 되는 결과를 한 문장으로 적어 주세요.
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [P0, P1, P2]
+    validations:
+      required: true
+  - type: input
+    id: skills
+    attributes:
+      label: Skill tags
+      placeholder: ENG-SIM, QA-DOMAIN
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope / Non-scope
+      description: 포함 항목과 의도적으로 제외할 항목을 분리해 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and impacts
+      description: 선행 티켓, 저장 스키마, 콘텐츠 설정, 접근성 영향을 적어 주세요.
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Given / When / Then으로 검증 가능하게 작성해 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: 수식·상태·불변식 검토 방법을 적어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Test plan
+      description: 단위·통합·브라우저·플레이 테스트와 필요한 fixture를 적어 주세요.
+    validations:
+      required: true

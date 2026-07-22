@@ -1,0 +1,108 @@
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import { createInitialState } from '../game/engine'
+import { createPortableSave } from '../game/saveTransfer'
+import { SaveTransferPanel } from './SaveTransferPanel'
+
+function stateWithGold(gold: number) {
+  const state = createInitialState(1_000)
+  state.player.gold = gold
+  return state
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((complete) => {
+    resolve = complete
+  })
+  return { promise, resolve }
+}
+
+describe('SaveTransferPanel', () => {
+  it('keeps the newest file selection when an older read completes later', async () => {
+    const olderRead = deferred<string>()
+    const newerRead = deferred<string>()
+    const older = new File(['old'], 'older.json', { type: 'application/json' })
+    const newer = new File(['new'], 'newer.json', { type: 'application/json' })
+    Object.defineProperty(older, 'text', { value: () => olderRead.promise })
+    Object.defineProperty(newer, 'text', { value: () => newerRead.promise })
+
+    render(
+      <SaveTransferPanel
+        state={createInitialState(0)}
+        onRestore={() => ({ success: true, message: 'ok' })}
+      />,
+    )
+    const input = screen.getByLabelText('저장 파일 선택')
+    fireEvent.change(input, { target: { files: [older] } })
+    fireEvent.change(input, { target: { files: [newer] } })
+
+    await act(async () => newerRead.resolve(createPortableSave(stateWithGold(222), 2_000)!))
+    const dialog = await screen.findByRole('dialog', { name: '이 진행으로 복원할까요?' })
+    expect(within(dialog).getByText('222')).toBeInTheDocument()
+
+    await act(async () => olderRead.resolve(createPortableSave(stateWithGold(111), 2_000)!))
+    expect(within(dialog).getByText('222')).toBeInTheDocument()
+    expect(within(dialog).queryByText('111')).not.toBeInTheDocument()
+  })
+
+  it('announces file read failures without opening a preview', async () => {
+    const broken = new File(['broken'], 'broken.json', { type: 'application/json' })
+    Object.defineProperty(broken, 'text', {
+      value: vi.fn().mockRejectedValue(new Error('simulated read failure')),
+    })
+    render(
+      <SaveTransferPanel
+        state={createInitialState(0)}
+        onRestore={() => ({ success: true, message: 'ok' })}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('저장 파일 선택'), {
+      target: { files: [broken] },
+    })
+
+    expect(await screen.findByText('저장 파일을 읽지 못했습니다.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('traps modal focus, closes with Escape, and restores the file input focus', async () => {
+    const backup = new File(['backup'], 'backup.json', { type: 'application/json' })
+    Object.defineProperty(backup, 'text', {
+      value: () => Promise.resolve(createPortableSave(stateWithGold(222), 2_000)!),
+    })
+    render(
+      <SaveTransferPanel
+        state={createInitialState(0)}
+        onRestore={() => ({ success: true, message: 'ok' })}
+      />,
+    )
+    const input = screen.getByLabelText('저장 파일 선택')
+    input.focus()
+    fireEvent.change(input, { target: { files: [backup] } })
+
+    const dialog = await screen.findByRole('dialog', { name: '이 진행으로 복원할까요?' })
+    expect(dialog.closest('[data-modal-layer="true"]')?.parentElement).toBe(document.body)
+    const cancel = within(dialog).getByRole('button', { name: '취소' })
+    const restore = within(dialog).getByRole('button', { name: '검증된 저장 복원' })
+    await waitFor(() => expect(cancel).toHaveFocus())
+
+    dialog.focus()
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true })
+    expect(restore).toHaveFocus()
+
+    input.focus()
+    expect(cancel).toHaveFocus()
+
+    restore.focus()
+    fireEvent.keyDown(restore, { key: 'Tab' })
+    expect(cancel).toHaveFocus()
+    fireEvent.keyDown(cancel, { key: 'Tab', shiftKey: true })
+    expect(restore).toHaveFocus()
+
+    fireEvent.keyDown(restore, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(input).toHaveFocus()
+    expect(screen.getByText('백업 복원을 취소했습니다.')).toBeInTheDocument()
+  })
+})
