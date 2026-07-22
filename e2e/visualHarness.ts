@@ -383,6 +383,11 @@ export async function fitVisualCaptureTarget(page: Page, target: Locator) {
   }
 
   await alignVisualCaptureTarget(page, target)
+  // Expanding the viewport can activate responsive or lazy GameAsset images
+  // after openVisualFixture's initial resource wait. Settle those new loads
+  // before measuring and capturing the fitted surface.
+  await waitForVisualResources(page, target)
+  await alignVisualCaptureTarget(page, target)
   const fitted = await target.evaluate((element) => {
     const rect = element.getBoundingClientRect()
     return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight }
