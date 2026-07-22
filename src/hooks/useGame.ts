@@ -4,6 +4,8 @@ import {
   acceptSeraContract as acceptSeraContractCommand,
   chooseExpeditionEvent as chooseExpeditionEventCommand,
   createInitialState,
+  equipQuickConsumable as equipQuickConsumableCommand,
+  healAtCamp as healAtCampCommand,
   mergeCombatEventBatches,
   performPrestige,
   purchaseCampMerchantOffer as purchaseCampMerchantOfferCommand,
@@ -17,6 +19,7 @@ import {
   trainCompanion as trainCompanionCommand,
   upgradeCampStructure as upgradeCampStructureCommand,
   consumeCampConsumable as consumeCampConsumableCommand,
+  useEquippedConsumable as consumeEquippedConsumableCommand,
   upgradeSkill,
 } from '../game/engine'
 import {
@@ -39,6 +42,7 @@ import type {
   CampStructureId,
   CampTrainingId,
   CampConsumableId,
+  CampQuickConsumableId,
   CampRecipeId,
   CommandResult,
   ExpeditionChoiceId,
@@ -90,6 +94,9 @@ export interface GameController {
   trainAtCamp: (id: CampTrainingId) => void
   startCampCraft: (id: CampRecipeId) => void
   useCampConsumable: (id: CampConsumableId) => void
+  healAtCamp: () => void
+  equipQuickConsumable: (id: CampQuickConsumableId | null) => void
+  useEquippedConsumable: () => void
   purchaseCampMerchantOffer: (slot: CampMerchantOfferSlot) => void
   acceptSeraContract: () => void
   increaseSeraTrust: () => void
@@ -461,6 +468,19 @@ export function useGame(): GameController {
     (id: CampConsumableId) => runCommand((current) => consumeCampConsumableCommand(current, id)),
     [runCommand],
   )
+  const healAtCamp = useCallback(
+    () => runCommand((current) => healAtCampCommand(current)),
+    [runCommand],
+  )
+  const equipQuickConsumable = useCallback(
+    (id: CampQuickConsumableId | null) =>
+      runCommand((current) => equipQuickConsumableCommand(current, id)),
+    [runCommand],
+  )
+  const useEquippedConsumable = useCallback(
+    () => runCommand((current) => consumeEquippedConsumableCommand(current)),
+    [runCommand],
+  )
   const purchaseCampMerchantOffer = useCallback(
     (slot: CampMerchantOfferSlot) =>
       runCommand((current) => purchaseCampMerchantOfferCommand(current, slot)),
@@ -593,6 +613,9 @@ export function useGame(): GameController {
     trainAtCamp,
     startCampCraft,
     useCampConsumable,
+    healAtCamp,
+    equipQuickConsumable,
+    useEquippedConsumable,
     purchaseCampMerchantOffer,
     acceptSeraContract,
     increaseSeraTrust,

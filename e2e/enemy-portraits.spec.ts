@@ -66,14 +66,15 @@ async function expectEncounterGeometry(page: Page, panel: Locator, stage: number
       asset: box('.tactical-actor__asset--enemy'),
       copy: box('.tactical-actor--enemy .tactical-actor__copy'),
       hp: box('.tactical-actor--enemy [role="progressbar"][aria-label="적 체력"]'),
-      timeline: box('.tactical-timeline'),
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
     }
   })
   await expect(asset).toBeVisible()
-  await expect(page.getByRole('progressbar', { name: '적 체력' })).toBeVisible()
-  for (const candidate of [geometry.asset, geometry.copy, geometry.hp, geometry.timeline]) {
+  await expect(
+    page.getByTestId('tactical-canvas').getByRole('progressbar', { name: '적 체력' }),
+  ).toBeVisible()
+  for (const candidate of [geometry.asset, geometry.copy, geometry.hp]) {
     expect(candidate.left).toBeGreaterThanOrEqual(geometry.canvas.left - 1)
     expect(candidate.right).toBeLessThanOrEqual(geometry.canvas.right + 1)
     expect(candidate.top).toBeGreaterThanOrEqual(geometry.canvas.top - 1)
@@ -159,7 +160,9 @@ test('falls back after corrupt ash slime art while combat and autosave continue'
   await expect(asset).toHaveAttribute('data-resolved-asset-id', 'fallback.character')
   await expect(asset).toHaveAttribute('data-state', 'fallback')
   await expect(page.locator('.tactical-actor--enemy h3')).toHaveText('잿빛 슬라임')
-  await expect(page.getByRole('progressbar', { name: '적 체력' })).toBeVisible()
+  await expect(
+    page.getByTestId('tactical-canvas').getByRole('progressbar', { name: '적 체력' }),
+  ).toBeVisible()
   await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
 
   await context.clock.setFixedTime(new Date(STARTED_AT.getTime() + 6_000))

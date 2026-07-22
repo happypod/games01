@@ -5,6 +5,7 @@ import {
   CAMP_STRUCTURE_MAX_LEVEL,
   CAMP_TRAINING_EFFECTS,
   CAMP_WORKBENCH_DURATION_PERCENT,
+  getCampHealingAshCost,
   getCampStructureUpgradeCost,
   getCampCraftDurationMs,
   getCampMerchantOfferCost,
@@ -13,16 +14,20 @@ import {
   getCampTrainingRankCap,
   getSeraMerchantDiscountPercent,
   getSeraTrustCost,
+  getHealingPotionRecoveryAmount,
   type CampMerchantOfferSlot,
 } from '../game/camp'
 import { getHeroStats } from '../game/formulas'
 import { formatNumber } from '../game/format'
-import type {
-  CampStructureId,
-  CampTrainingId,
-  CampConsumableId,
-  CampRecipeId,
-  GameState,
+import {
+  CAMP_RECIPE_IDS,
+  SAVE_VERSION,
+  type CampConsumableId,
+  type CampQuickConsumableId,
+  type CampRecipeId,
+  type CampStructureId,
+  type CampTrainingId,
+  type GameState,
 } from '../game/types'
 import { GameAsset } from './GameAsset'
 import { StatBar } from './StatBar'
@@ -35,6 +40,8 @@ interface CampDashboardProps {
   onTrain: (id: CampTrainingId) => void
   onStartCraft: (id: CampRecipeId) => void
   onUseConsumable: (id: CampConsumableId) => void
+  onHealAtCamp: () => void
+  onEquipQuickConsumable: (id: CampQuickConsumableId | null) => void
   onPurchaseMerchantOffer: (slot: CampMerchantOfferSlot) => void
   onAcceptSeraContract: () => void
   onIncreaseSeraTrust: () => void
@@ -99,6 +106,8 @@ export function CampDashboard({
   onTrain,
   onStartCraft,
   onUseConsumable,
+  onHealAtCamp,
+  onEquipQuickConsumable,
   onPurchaseMerchantOffer,
   onAcceptSeraContract,
   onIncreaseSeraTrust,
@@ -108,6 +117,11 @@ export function CampDashboard({
   const merchantOffers = getCampMerchantOffers(state.camp.merchant.cycle)
   const merchantDiscount = getSeraMerchantDiscountPercent(state.camp)
   const sera = state.camp.residents.sera
+  const healingAshCost = getCampHealingAshCost(state)
+  const healingCannotAfford = healingAshCost !== null
+    && state.camp.materials.ashShard < healingAshCost
+  const healingPotionRecovery = getHealingPotionRecoveryAmount(state)
+  const healingPotionEquipped = state.camp.quickConsumable === 'healingPotion'
 
   return (
     <div className="camp-dashboard" data-testid="camp-dashboard">
@@ -158,7 +172,7 @@ export function CampDashboard({
             <p className="eyebrow">CAMP OVERVIEW</p>
             <h2 id="camp-overview-title">캠프 조감도</h2>
           </div>
-          <span>schema 6 · 안전한 기반</span>
+          <span>schema {SAVE_VERSION} · 안전한 기반</span>
         </header>
         <div className="camp-facility-grid">
           {FACILITIES.map((facility) => {
@@ -304,6 +318,47 @@ export function CampDashboard({
           <div><dt>단련소</dt><dd>Lv.{state.camp.structures.trainingGround}</dd></div>
           <div><dt>보유 골드</dt><dd>{formatNumber(state.player.gold)}</dd></div>
         </dl>
+        <section className="camp-supplies" aria-labelledby="camp-healing-title">
+          <div className="camp-training__heading">
+            <div>
+              <p className="eyebrow">HEALING BRAZIER</p>
+              <h3 id="camp-healing-title">치유 화로</h3>
+            </div>
+            <span>재의 온기로 완전 회복</span>
+          </div>
+          <div className="camp-supply-grid camp-supply-grid--healing">
+            <button
+              type="button"
+              className="camp-healing-device"
+              disabled={disabled || healingAshCost === null || healingCannotAfford}
+              onClick={onHealAtCamp}
+              aria-label={disabled
+                ? '치유 화로 · 지금은 사용할 수 없음'
+                : healingAshCost === null
+                  ? '치유 화로 · 체력이 가득 참'
+                  : healingCannotAfford
+                    ? `치유 화로 · 재의 파편 ${healingAshCost}개 필요 · 재료 부족`
+                    : `치유 화로 · 재의 파편 ${healingAshCost}개로 완전 회복`}
+            >
+              <GameAsset
+                assetId="event.ember-shrine"
+                purpose="card"
+                className="camp-healing-device__art"
+                fallbackLabel="치유 화로"
+                fit="cover"
+                decorative
+              />
+              <span>
+                <strong>치유 화로</strong>
+                <small>{healingAshCost === null
+                  ? '현재 체력이 가득 찼습니다.'
+                  : healingCannotAfford
+                    ? `재의 파편 ${healingAshCost}개 필요 · 재료 부족`
+                    : `재의 파편 ${healingAshCost}개 · HP ${formatNumber(state.player.currentHp)} → ${formatNumber(hero.maxHp)}`}</small>
+              </span>
+            </button>
+          </div>
+        </section>
         <section className="camp-training" aria-labelledby="camp-training-title">
           <div className="camp-training__heading">
             <div>
@@ -371,7 +426,7 @@ export function CampDashboard({
             </div>
           )}
           <div className="camp-recipe-list">
-            {(['goldStew', 'focusTonic'] as const).map((id) => {
+            {CAMP_RECIPE_IDS.map((id) => {
               const recipe = CAMP_RECIPE_DEFINITIONS[id]
               const missing = (Object.keys(MATERIAL_LABELS) as Array<keyof typeof MATERIAL_LABELS>)
                 .some((materialId) => state.camp.materials[materialId] < recipe.ingredients[materialId])
@@ -432,6 +487,26 @@ export function CampDashboard({
                 : state.camp.buffs.bossFocusStage === 0
                   ? '다음 보스전 준비 완료'
                   : `STAGE ${state.camp.buffs.bossFocusStage} 집중 적용 중`}</small>
+            </button>
+            <button
+              type="button"
+              disabled={disabled || (!healingPotionEquipped && state.camp.consumables.healingPotion < 1)}
+              onClick={() => onEquipQuickConsumable(
+                healingPotionEquipped ? null : 'healingPotion',
+              )}
+              aria-pressed={healingPotionEquipped}
+              aria-label={disabled
+                ? '회복 물약 빠른 슬롯 · 지금은 변경할 수 없음'
+                : healingPotionEquipped
+                  ? '회복 물약 빠른 슬롯 장착 해제'
+                  : state.camp.consumables.healingPotion < 1
+                    ? '회복 물약 빠른 슬롯 장착 · 보유 물약 없음'
+                    : '회복 물약 빠른 슬롯 장착'}
+            >
+              <strong>회복 물약 ×{state.camp.consumables.healingPotion}</strong>
+              <small>{healingPotionEquipped
+                ? `장착 중 · 전투에서 HP ${formatNumber(healingPotionRecovery)} 회복`
+                : `빠른 슬롯 장착 · HP ${formatNumber(healingPotionRecovery)} 회복`}</small>
             </button>
           </div>
         </section>

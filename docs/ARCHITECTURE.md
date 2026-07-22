@@ -29,7 +29,7 @@ flowchart LR
 - `rng`: `xorshift32-v1` 최초 seed, 현재 uint32 state, 누적 draw 횟수
 - `player`: 레벨, 경험치, 자원, 현재 HP, 강화·스킬 랭크와 영입 동료·원정 랭크
 - `battle`: 현재·최고 스테이지, 적 HP, 라운드 나머지 시간, 영웅·동료 쿨다운, 승패 통계
-- `camp`: definition version, Lv.1~5 시설, 시설별 상한 안의 영구 훈련 rank, 재료·소모품·제작·버프·상인·거주자 상태. schema6 migration은 안전한 기본값을 주며, 시설·훈련을 구매하지 않은 상태의 전투 수식·RNG·보상에는 영향을 주지 않는다.
+- `camp`: definition version, Lv.1~5 시설, 시설별 상한 안의 영구 훈련 rank, 재료·소모품·빠른 슬롯·제작·버프·상인·거주자 상태. schema7은 schema6 원장을 보존하며 회복 물약과 빠른 슬롯 기본값만 추가한다.
 - `stats`: 평생 골드, 처치, 환생
 
 공격력, 최대 HP, 방어력, 적 능력치, 강화 비용은 저장하지 않고 selector 성격의 순수 함수로 매번 파생한다. 콘텐츠 조정 뒤 오래된 저장에도 새 밸런스가 일관되게 적용된다.
@@ -47,7 +47,10 @@ switchGameMode(state, mode): CommandResult
 upgradeCampStructure(state, id): CommandResult
 trainAtCamp(state, id): CommandResult
 startCampCraft(state, recipeId): CommandResult
-useCampConsumable(state, id): CommandResult
+consumeCampConsumable(state, id): CommandResult
+healAtCamp(state): CommandResult
+equipQuickConsumable(state, id): CommandResult
+useEquippedConsumable(state): CommandResult
 purchaseCampMerchantOffer(state, slot): CommandResult
 acceptSeraContract(state): CommandResult
 increaseSeraTrust(state): CommandResult
@@ -68,9 +71,10 @@ chooseExpeditionEvent(state, eventId, choiceId): CommandResult
 - 시설·훈련의 단일 출처는 `camp.ts`의 `camp-facilities-v1` 상수와 selector다. 시설 비용은 텐트 `[600, 1500, 3600, 8000]`, 작업대 `[450, 1100, 2700, 6200]`, 단련소 `[500, 1250, 3000, 7000]`이고, 훈련 비용은 공격 `round(140 × 1.45^rank)`, 체력 `round(160 × 1.45^rank)`다. 모든 비용은 1 이상 안전 정수로 포화한다.
 - 파생 능력치는 기존 정수 영구 multiplier 계산 뒤 공격 훈련 `rank × 2`, 체력 훈련 `rank × 20`을 마지막 flat 항으로 더한다. 체력 훈련 transaction은 증가한 최대 HP만큼 현재 HP도 새 상한 안에서 회복한다.
 - `camp.ts`의 finite material·recipe table이 재료 지급과 제작 비용의 단일 출처다. 모든 처치는 `ashShard +1`, `enemy.twilight-wolf` 처치는 추가 `beastHide +1`, 보스 처치는 추가 `emberCore +1`을 지급한다. 이 분기는 stable enemy definition만 읽으며 전투 RNG draw를 추가하지 않는다.
-- `startCampCraft`는 `CAMP`, 빈 작업대, 충분한 재료를 모두 검증한 뒤 clone에서 재료 차감과 job 생성을 하나의 transaction으로 수행한다. `goldStew`는 `{ ashShard: 10, beastHide: 4, emberCore: 0 } / 300,000ms`, `focusTonic`은 `{ ashShard: 6, beastHide: 2, emberCore: 1 } / 600,000ms`이고, job의 `remainingMs`는 시작 당시 작업대 `1.0·0.9·0.8·0.7·0.6` multiplier를 반영한 immutable snapshot이다.
+- `startCampCraft`는 `CAMP`, 빈 작업대, 충분한 재료를 모두 검증한 뒤 clone에서 재료 차감과 job 생성을 하나의 transaction으로 수행한다. `goldStew`는 `{ ashShard: 10, beastHide: 4, emberCore: 0 } / 300,000ms`, `focusTonic`은 `{ ashShard: 6, beastHide: 2, emberCore: 1 } / 600,000ms`, `healingPotion`은 `{ ashShard: 4, beastHide: 2, emberCore: 0 } / 120,000ms`이고, job의 `remainingMs`는 시작 당시 작업대 `1.0·0.9·0.8·0.7·0.6` multiplier를 반영한 immutable snapshot이다.
 - `advanceCampTimers`는 mode 분기보다 먼저 elapsed를 한 번 적용하므로 제작은 전투·캠프 전경과 offline에서 같은 경계로 진행된다. `remainingMs - elapsedMs > 0`이면 감소하고 그 외에는 소모품을 안전 정수로 하나 추가한 뒤 job을 제거해 초과 elapsed나 이후 tick에서 재완료하지 않는다.
 - `consumeCampConsumable`은 `CAMP` 전용 원자 명령이다. 황금 스튜는 `goldBoostRounds = 1800`, 집중 물약은 unbound sentinel `bossFocusStage = 0`으로 저장하며 동일 효과가 활성·준비 중이면 입력 객체 그대로 거절한다.
+- `healAtCamp`는 `CAMP`에서 잃은 HP 비율로 재의 파편 비용 `1..5`를 파생하고 성공 clone에서만 비용 차감과 완전 회복을 함께 적용한다. `equipQuickConsumable`은 전투·캠프에서 보유한 회복 물약의 장착·해제를 저장하고, `useEquippedConsumable`은 `BATTLE`에서만 최대 HP 35% 회복과 수량 1 차감을 하나의 transaction으로 수행한다. 세 명령은 전투 RNG·보상·event cursor를 소비하지 않는다.
 - 황금 스튜는 `getHeroStats`의 기본 처치 `goldMultiplier`에 `+0.5`를 더하고 매 완성 전투 라운드 뒤 한 번 감소한다. boss milestone 지급 경로는 이 multiplier 밖에 있다. 집중 물약은 다음 보스 라운드에서 stage를 bind하고 `CRITICAL_CHANCE 0.15 + 0.20 = 0.35`만 사용하므로 라운드당 xorshift32 draw 하나와 RNG state는 그대로다. 해당 보스 승리·패배 또는 bound stage 이탈 시 null로 지운다.
 - `purchaseCampMerchantOffer`는 `CAMP`에서만 슬롯 0~2, 현재 cycle의 구매 bit, 구조 지원의 선행 상태, 할인된 비용을 순서대로 검증한다. 성공 clone에서만 골드 차감·지급물 또는 `rescued` 전이·구매 bit 기록을 함께 수행한다. `acceptSeraContract`는 `rescued → contracted`만 허용하고, `increaseSeraTrust`는 계약 뒤 rank 0~5와 고정 비용 `[250, 500, 900, 1500, 2400]`을 원자적으로 적용한다.
 - 상인 제안의 단일 출처는 `camp.ts`의 deep-frozen 3×3 `CAMP_MERCHANT_OFFER_CYCLES`다. `cycle % 3`으로 재료·완성 소모품·세라 구조 지원을 파생하고, 계약된 세라의 trust rank당 2%·최대 10%를 `round(baseCost × (1 - discount))`로 적용한다. 상인·계약 명령은 전투 RNG와 `player.companion`을 읽거나 변경하지 않는다.
@@ -89,7 +93,8 @@ chooseExpeditionEvent(state, eventId, choiceId): CommandResult
 - IRPG-417의 유형 2 이벤트 disclosure는 저장되지 않는 UI 상태다. 열린 상태는 combat `streamGeneration`이 아니라 사용자가 열 때의 pending ID 집합으로 판별하여 reader 탭의 1초 bootstrap 재동기화에도 유지한다. 열린 동안 추가된 pending은 성공 선택 시 현재 집합에 합류시키며, 최초 열기와 제거된 카드의 focus 복구만 자동 수행하고 사용자가 전장 밖으로 이동한 focus는 신규 이벤트가 빼앗지 않는다.
 
 - IRPG-422는 IRPG-414~417에서 비교하던 유형 1·2 레이아웃을 단일 전술 전장으로 대체한다. `GameScreen`은 저장된 `currentMode`만으로 `BATTLE`과 `CAMP`를 분기하며, 과거 `emberwatch.ui.layout.v1` 값은 읽거나 쓰지 않는다. 이 UI preference 폐기는 `GameState`, A/B slot, portable backup의 schema·revision·byte/hash에 영향을 주지 않는다.
-- 전투 surface는 `TacticalStage`와 `TacticalActionBar`를 같은 전장 우선 영역에 합성한다. 액션바는 `equipment.ember-blade`, `equipment.guard-armor`, `equipment.fortune-charm`, `skill.power-strike`, `skill.iron-will`, `skill.loot-sense`의 기존 content/formula selector만 읽고, 허용된 강화·각인 명령을 기존 hook 경계로 전달한다. 황금 스튜와 집중 물약은 Font Awesome 아이콘으로 표시하며 전투 중 소비 명령을 노출하지 않고 `changeMode('CAMP')`만 호출한다.
+- 전투 surface는 `TacticalStage`와 `TacticalActionBar`를 같은 전장 우선 영역에 합성한다. 액션바는 `equipment.ember-blade`, `equipment.guard-armor`, `equipment.fortune-charm`, `skill.power-strike`, `skill.iron-will`, `skill.loot-sense`, 동료, 빠른 소모품의 고정 8슬롯이며 성장·영입·훈련·회복 물약 사용 명령을 기존 hook 경계로 전달한다. 미장착 빠른 슬롯은 `GameScreen`의 비영속 탭 상태를 `inventory`로 바꾼다.
+- `TacticalIntelPanel`은 우측 성장 센터를 대체한다. 현재 적·고정 전리품·보스 최초 보상 상태를 항상 표시하고 `StageMapPanel`, 캐릭터, 가방, 스킬, `highestStage` 파생 도감을 5개 roving tab으로 전환한다. 패널의 유일한 mutation은 가방의 회복 물약 장착·해제이며 지도는 기존 `selectStage` 명령을 재사용한다. 탭 상태와 도감 발견 상태는 별도 저장 필드를 만들지 않는다.
 - `TacticalUtilityDock`은 전투 로그·승패 결과·불씨의 계승·저장 백업을 네 icon button과 동시에 하나만 열리는 non-modal popover로 합성한다. tooltip은 hover/focus 설명이고 실행 control은 click으로 연 popover 안에만 존재한다. Escape·외부 클릭은 닫기와 trigger focus 복귀를 수행하며, 기존 로그·결과·환생·저장 컴포넌트가 명령과 live-region 소유권을 유지한다.
 - 액션바 선택과 유틸리티 popover 열림은 모두 비영속 UI 상태다. 이 합성 계층은 전투 공식, 치명타 RNG draw, 보상·환생 수식, 캠프 효과 및 저장 migration을 추가하거나 변경하지 않는다.
 
@@ -120,13 +125,13 @@ chooseExpeditionEvent(state, eventId, choiceId): CommandResult
 - legacy 키: `emberwatch.save.v1`
 - 현재 슬롯: `emberwatch.save.v2.a`, `emberwatch.save.v2.b`
 - 현재 writer envelope: `{ formatVersion: 3, revision, savedAt, state }`; A/B localStorage key 이름은 호환을 위해 `v2.a/b`를 유지한다.
-- reader는 raw·envelope의 GameState schema1~5를 검증해 메모리에서 schema6으로 변환하고, writer만 반대 슬롯에 revision+1의 envelope v3/schema6 checkpoint를 기록한다. envelope format v3와 현재보다 높은 inner state schema는 구버전 writer의 덮어쓰기를 막는 차단 장벽이다.
+- reader는 raw·envelope의 GameState schema1~6을 검증해 메모리에서 schema7으로 변환하고, writer만 반대 슬롯에 revision+1의 envelope v3/schema7 checkpoint를 기록한다. envelope format v3와 현재보다 높은 inner state schema는 구버전 writer의 덮어쓰기를 막는 차단 장벽이다.
 - 읽은 JSON은 `unknown`에서 시작해 숫자 범위와 필수 중첩 구조를 검사한다.
 - 스테이지, HP, 라운드 나머지와 화염 강타 쿨다운은 현재 콘텐츠 범위로 정규화한다.
 - 유효 envelope 중 가장 높은 revision을 선택한다. 동률이면 `savedAt`, 그래도 같으면 A 슬롯을 우선하며 상태를 필드별로 병합하지 않는다.
 - 저장은 현재 승자의 반대 슬롯에 `revision + 1`을 쓰고 같은 원문을 즉시 재읽어 decode한 뒤에만 성공으로 판정한다. 이전 승자는 건드리지 않는다.
 - 최신 슬롯이 손상되면 이전 유효 슬롯로 복구한 뒤 손상 슬롯을 새 revision으로 치유하고 화면에 경고한다.
-- legacy v1 raw `GameState`는 decode·정규화 후 envelope v3/schema6 A/B 기록이 검증된 경우에만 제거한다.
+- legacy v1 raw `GameState`는 decode·정규화 후 envelope v3/schema7 A/B 기록이 검증된 경우에만 제거한다.
 - 알 수 없는 미래 envelope `formatVersion`, envelope 내부 state schema, legacy raw state schema 중 하나라도 발견하면 구버전·현재 클라이언트가 덮어쓰지 않도록 모든 저장을 차단한다.
 - 저장 실패는 게임 루프를 중단시키지 않고 상태 표시로 노출한다.
 - 브라우저는 `emberwatch.writer.v1` Web Lock을 bootstrap 전에 획득한 한 탭만 writer로 사용한다. 다른 탭은 오프라인 정산·tick·명령·저장 없이 검증된 최신 슬롯을 표시한다.
@@ -154,6 +159,8 @@ IRPG-419는 schema를 올리지 않고 schema6의 `camp.structures`와 `camp.tra
 IRPG-420도 schema6의 미리 예약된 `materials`, `consumables`, `craftJob`, `buffs`를 활성화하므로 schema migration은 추가하지 않는다. decoder는 세 material·두 consumable의 필수 finite key와 음이 아닌 안전 정수, recipe ID와 `remainingMs = 1..해당 recipe의 baseDurationMs`, `goldBoostRounds 0..1800`, `bossFocusStage = null | 0 | 10..300의 10배수`를 검증한다. `bossFocusStage > 0`인 bound 상태는 `battle.stage`와 같고 해당 stage가 현재 활성 boss stage여야 한다. 저장·A/B·portable 복원은 시작 시 snapshot한 job 시간과 준비·bound buff를 그대로 보존한다.
 
 IRPG-421도 schema를 올리지 않고 schema6의 기존 `camp.merchant`와 `camp.residents.sera` ledger를 활성화한다. decoder는 merchant cycle의 비음수 안전 정수, 남은 시간 `1..1,800,000`, 3-bit 구매 mask `0..7`, 세라 status `unmet | rescued | contracted`, trust `0..5`를 검증한다. `unmet`·`rescued`에서는 trust가 반드시 0이다. reload·offline·portable 복원·환생은 ledger를 그대로 보존하며, cycle 경계에서만 구매 mask를 비운다. `cycle`이 `Number.MAX_SAFE_INTEGER`에 처음 도달하면 남은 시간을 30분·mask를 0으로 정규화하고 이후 ledger 전체를 동결해 single/split elapsed가 같은 terminal 상태가 되도록 한다.
+
+IRPG-423은 schema6/camp definition v1을 schema7/camp definition v2로 변환한다. schema6 decoder는 기존 시설·훈련·재료·두 소모품·진행 중 legacy recipe job·버프·상인·거주자·RNG·보상 원장을 그대로 검증한 뒤 `consumables.healingPotion = 0`과 `quickConsumable = null`만 추가한다. schema7 decoder는 세 소모품의 필수 finite key와 `quickConsumable = null | healingPotion`, 세 recipe의 `remainingMs` 상한을 검증한다. 더 높은 camp definition은 schema6에서는 v1, schema7에서는 v2를 기준으로 future fence를 적용한다. envelope format3·A/B key·portable exportVersion1은 유지된다.
 
 Playwright는 저장 키나 도메인 함수를 직접 호출하지 않는다. 격리된 브라우저 context에서 고정된 `Date.now`와 실제 UI 명령을 사용해 신규 시작, 강화, reload, 페이지 종료, 오프라인 정산을 검증한다. 따라서 React 생명주기와 A/B localStorage 경로를 함께 통과한다.
 

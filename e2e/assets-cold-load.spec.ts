@@ -574,8 +574,10 @@ test('production cold load stays within budget while inactive art remains deferr
     expect(initialSkillCardImageRequests).toEqual([...skillCardImageOutputs].sort())
     expect(evidence.initialCardImageRequests).toEqual([...allCardImageOutputs].sort())
 
-    await page.getByRole('button', { name: '3지역 원정 지도 열기' }).click()
-    await page.getByRole('button', { name: '원정 지도 열기', exact: true }).click()
+    await page.getByRole('tab', { name: '지도' }).click()
+    await page.locator('[data-intel-panel="map"]')
+      .getByRole('button', { name: '원정 지도 열기', exact: true })
+      .click()
     const activeRegionArt = page.locator('.stage-map-scene__art')
     await expect(activeRegionArt).toHaveAttribute('data-asset-id', activeRegionId)
     await expect(activeRegionArt).toHaveAttribute('data-state', 'loaded')
@@ -613,28 +615,18 @@ test('production cold load stays within budget while inactive art remains deferr
       'Opening the map requested an inactive region image',
     ).toEqual(expectedActiveRegionRequests)
 
-    const equipmentPanel = page.locator('#growth-tabpanel-equipment')
-    const skillPanel = page.locator('#growth-tabpanel-skill')
-    const equipmentSlots = equipmentPanel.locator('[data-card-asset-id]')
-    const skillSlots = skillPanel.locator('[data-card-asset-id]')
-    await expect(equipmentPanel).toBeVisible()
-    await expect(skillPanel).not.toBeVisible()
-    await expect(equipmentSlots).toHaveCount(3)
-    await expect(skillSlots).toHaveCount(3)
-    expect(
-      await skillSlots.evaluateAll((slots) =>
-        slots.map((slot) => slot.getAttribute('data-art-active')),
-      ),
-    ).toEqual(['false', 'false', 'false'])
-
-    for (let index = 0; index < 3; index += 1) {
-      const slot = equipmentSlots.nth(index)
-      const assetId = await slot.getAttribute('data-card-asset-id')
+    const actionSlotAssets = page.locator(
+      '.tactical-action-bar [data-action-kind="equipment"] .tactical-action-bar__slot-asset, '
+      + '.tactical-action-bar [data-action-kind="skill"] .tactical-action-bar__slot-asset',
+    )
+    await expect(actionSlotAssets).toHaveCount(6)
+    for (let index = 0; index < 6; index += 1) {
+      const slot = actionSlotAssets.nth(index)
+      const assetId = await slot.getAttribute('data-asset-id')
       expect(assetId).not.toBeNull()
       expect(cardImageOutputsById.get(assetId ?? '')?.size).toBe(1)
       await slot.scrollIntoViewIfNeeded()
-      await expect(slot).toHaveAttribute('data-art-active', 'true')
-      await expect(slot.locator('.growth-card__asset')).toHaveAttribute('data-state', 'loaded')
+      await expect(slot).toHaveAttribute('data-state', 'loaded')
     }
     while (pendingResponses.size > 0) await Promise.all([...pendingResponses])
 
@@ -645,20 +637,21 @@ test('production cold load stays within budget while inactive art remains deferr
         )
         .map(({ url }) => resolveRequestedDistFile(url).relative),
     )
-    expect(intersection(skillCardImageOutputs, imageRequestsBeforeSkillTab))
-      .toEqual([...skillCardImageOutputs].sort())
+    expect(intersection(allCardImageOutputs, imageRequestsBeforeSkillTab))
+      .toEqual([...allCardImageOutputs].sort())
 
     await page.getByRole('tab', { name: '스킬', exact: true }).click()
-    await expect(equipmentPanel).not.toBeVisible()
+    const skillPanel = page.locator('[data-intel-panel="skills"]')
     await expect(skillPanel).toBeVisible()
+    const skillSlots = skillPanel.locator('.tactical-intel-panel__skill-art')
+    await expect(skillSlots).toHaveCount(3)
     for (let index = 0; index < 3; index += 1) {
       const slot = skillSlots.nth(index)
-      const assetId = await slot.getAttribute('data-card-asset-id')
+      const assetId = await slot.getAttribute('data-asset-id')
       expect(assetId).not.toBeNull()
       expect(cardImageOutputsById.get(assetId ?? '')?.size).toBe(1)
       await slot.scrollIntoViewIfNeeded()
-      await expect(slot).toHaveAttribute('data-art-active', 'true')
-      await expect(slot.locator('.growth-card__asset')).toHaveAttribute('data-state', 'loaded')
+      await expect(slot).toHaveAttribute('data-state', 'loaded')
     }
     while (pendingResponses.size > 0) await Promise.all([...pendingResponses])
 

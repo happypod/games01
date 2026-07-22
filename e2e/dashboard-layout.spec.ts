@@ -34,7 +34,7 @@ for (const viewport of [
 
     const layout = page.getByTestId('tactical-layout')
     const canvas = page.getByTestId('tactical-canvas')
-    const actionBar = page.getByRole('region', { name: '장비와 스킬 빠른 슬롯' })
+    const actionBar = page.getByRole('region', { name: '전술 명령 빠른 슬롯' })
     const dock = page.getByTestId('tactical-utility-dock')
     await expect(layout).toBeVisible()
     await expect(canvas).toBeVisible()
@@ -92,17 +92,17 @@ for (const viewport of [
     expect(geometry.controls.every(({ width, height }) => width >= 44 && height >= 44))
       .toBe(true)
 
-    const growthTabs = page.getByRole('tablist', { name: '성장 메뉴' })
-    const equipment = growthTabs.getByRole('tab', { name: /장비/ })
-    const skill = growthTabs.getByRole('tab', { name: '스킬', exact: true })
-    const companion = growthTabs.getByRole('tab', { name: '동료', exact: true })
-    await equipment.focus()
+    const intelTabs = page.getByRole('tablist', { name: '전술 정보 메뉴' })
+    const map = intelTabs.getByRole('tab', { name: '지도' })
+    const character = intelTabs.getByRole('tab', { name: '캐릭터' })
+    const bestiary = intelTabs.getByRole('tab', { name: '도감' })
+    await map.focus()
     await page.keyboard.press('ArrowRight')
-    await expect(skill).toBeFocused()
+    await expect(character).toBeFocused()
     await page.keyboard.press('End')
-    await expect(companion).toBeFocused()
+    await expect(bestiary).toBeFocused()
     await page.keyboard.press('Home')
-    await expect(equipment).toBeFocused()
+    await expect(map).toBeFocused()
 
     await dock.getByRole('button', { name: '전투 로그' }).hover()
     await expect(page.getByRole('tooltip', { name: '전투 로그' })).toBeVisible()
@@ -122,7 +122,7 @@ for (const viewport of [
 test.describe('IRPG-422 mobile tactical flow', () => {
   test.use({ viewport: { width: 360, height: 800 } })
 
-  test('keeps slots, utilities, growth panels and reduced motion usable without page overflow', async ({
+  test('keeps slots, utilities, tactical intel and reduced motion usable without page overflow', async ({
     context,
     page,
   }, testInfo) => {
@@ -134,7 +134,7 @@ test.describe('IRPG-422 mobile tactical flow', () => {
     await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
 
     const canvas = page.getByTestId('tactical-canvas')
-    const actionBar = page.getByRole('region', { name: '장비와 스킬 빠른 슬롯' })
+    const actionBar = page.getByRole('region', { name: '전술 명령 빠른 슬롯' })
     const dock = page.getByTestId('tactical-utility-dock')
     await expect(canvas).toBeVisible()
     await expect(actionBar).toBeVisible()
@@ -155,7 +155,7 @@ test.describe('IRPG-422 mobile tactical flow', () => {
     const geometry = await page.evaluate(() => {
       const slots = document.querySelector<HTMLElement>('.tactical-action-bar__slots')!
       const controls = [...document.querySelectorAll<HTMLElement>(
-        '.game-mode-selector [role="radio"], .tactical-action-bar button, .tactical-utility-dock button',
+        '.game-mode-selector [role="radio"], .tactical-action-bar button, .tactical-intel-panel button, .tactical-utility-dock button',
       )].filter((element) => {
         const rect = element.getBoundingClientRect()
         const style = getComputedStyle(element)
@@ -183,10 +183,12 @@ test.describe('IRPG-422 mobile tactical flow', () => {
     expect(geometry.invalidControls).toEqual([])
     expect(geometry.animations).toBe(false)
 
-    await expect(page.locator('.growth-tabs__tablist')).toHaveCount(0)
-    await expect(page.locator('#growth-tabpanel-equipment')).toBeVisible()
-    await expect(page.locator('#growth-tabpanel-skill')).toBeVisible()
-    await expect(page.locator('#growth-tabpanel-companion')).toBeVisible()
+    const intelTabs = page.getByRole('tablist', { name: '전술 정보 메뉴' })
+    await expect(intelTabs).toBeVisible()
+    await expect(intelTabs.getByRole('tab')).toHaveCount(5)
+    await expect(page.locator('[data-intel-panel="map"]')).toBeVisible()
+    await intelTabs.getByRole('tab', { name: '가방' }).click()
+    await expect(page.locator('[data-intel-panel="inventory"]')).toBeVisible()
     await testInfo.attach('irpg-422-tactical-360x800.png', {
       body: await page.screenshot({ animations: 'disabled', fullPage: true }),
       contentType: 'image/png',

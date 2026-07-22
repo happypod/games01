@@ -7,11 +7,11 @@
     {
       "elapsedMs": 28800000,
       "state": {
-        "schemaVersion": 6,
+        "schemaVersion": 7,
         "lastSavedAt": 0,
         "currentMode": "BATTLE",
         "camp": {
-          "definitionVersion": 1,
+          "definitionVersion": 2,
           "structures": {
             "tent": 1,
             "workbench": 1,
@@ -28,8 +28,10 @@
           },
           "consumables": {
             "goldStew": 0,
-            "focusTonic": 0
+            "focusTonic": 0,
+            "healingPotion": 0
           },
+          "quickConsumable": null,
           "craftJob": null,
           "buffs": {
             "goldBoostRounds": 0,
@@ -165,11 +167,11 @@
     {
       "elapsedMs": 57600000,
       "state": {
-        "schemaVersion": 6,
+        "schemaVersion": 7,
         "lastSavedAt": 0,
         "currentMode": "BATTLE",
         "camp": {
-          "definitionVersion": 1,
+          "definitionVersion": 2,
           "structures": {
             "tent": 1,
             "workbench": 1,
@@ -186,8 +188,10 @@
           },
           "consumables": {
             "goldStew": 0,
-            "focusTonic": 0
+            "focusTonic": 0,
+            "healingPotion": 0
           },
+          "quickConsumable": null,
           "craftJob": null,
           "buffs": {
             "goldBoostRounds": 0,
@@ -323,11 +327,11 @@
     {
       "elapsedMs": 86400000,
       "state": {
-        "schemaVersion": 6,
+        "schemaVersion": 7,
         "lastSavedAt": 0,
         "currentMode": "BATTLE",
         "camp": {
-          "definitionVersion": 1,
+          "definitionVersion": 2,
           "structures": {
             "tent": 1,
             "workbench": 1,
@@ -344,8 +348,10 @@
           },
           "consumables": {
             "goldStew": 0,
-            "focusTonic": 0
+            "focusTonic": 0,
+            "healingPotion": 0
           },
+          "quickConsumable": null,
           "craftJob": null,
           "buffs": {
             "goldBoostRounds": 0,

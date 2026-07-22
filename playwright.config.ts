@@ -11,9 +11,9 @@ export default defineConfig({
   forbidOnly: isCi,
   failOnFlakyTests: isCi,
   retries: isCi ? 1 : 0,
-  // Keep local full-suite runs deterministic on developer machines while CI
-  // remains serialized for the canonical visual and accessibility gates.
-  workers: isCi ? 1 : 2,
+  // Serialize the stateful clock, storage, and accessibility flows locally and
+  // in CI so browser startup contention cannot consume per-test timeouts.
+  workers: 1,
   reporter: isCi
     ? [['line'], ['html', { open: 'never', outputFolder: 'playwright-report' }]]
     : [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],

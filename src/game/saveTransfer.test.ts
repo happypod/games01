@@ -9,6 +9,7 @@ import { createExpeditionPendingEvent } from './expedition'
 import { SAVE_SLOT_A_KEY, SAVE_SLOT_B_KEY, parseSaveEnvelope, saveGameAtRevision } from './persistence'
 import {
   MAX_PORTABLE_SAVE_BYTES,
+  PORTABLE_SAVE_KIND,
   PORTABLE_SAVE_VERSION,
   commitPortableSave,
   createPortableSave,
@@ -63,6 +64,23 @@ function asLegacySchema3(state = exportedState()) {
   return { ...legacy, schemaVersion: 3 as const }
 }
 
+function asLegacySchema6(state = exportedState()) {
+  const current = structuredClone(state)
+  const { healingPotion: _healingPotion, ...legacyConsumables } = current.camp.consumables
+  const { quickConsumable: _quickConsumable, ...legacyCamp } = current.camp
+  void _healingPotion
+  void _quickConsumable
+  return {
+    ...current,
+    schemaVersion: 6 as const,
+    camp: {
+      ...legacyCamp,
+      definitionVersion: 1 as const,
+      consumables: legacyConsumables,
+    },
+  }
+}
+
 function createStageTenBossReadyState(now: number) {
   const state = createInitialState(now, 0x207_002)
   state.player.upgrades.weapon = 100
@@ -75,6 +93,45 @@ function createStageTenBossReadyState(now: number) {
 }
 
 describe('portable save transfer', () => {
+  it('previews a schema6 portable save as schema7 without changing its existing camp ledger', () => {
+    const current = exportedState()
+    current.currentMode = 'CAMP'
+    current.camp.materials = { ashShard: 9, beastHide: 4, emberCore: 1 }
+    current.camp.consumables = { goldStew: 2, focusTonic: 1, healingPotion: 8 }
+    current.camp.quickConsumable = 'healingPotion'
+    current.camp.craftJob = { recipeId: 'focusTonic', remainingMs: 45_000 }
+    const legacy = asLegacySchema6(current)
+    const exportedAt = 2_000
+    const serializedState = JSON.stringify(legacy)
+    const raw = JSON.stringify({
+      kind: PORTABLE_SAVE_KIND,
+      exportVersion: PORTABLE_SAVE_VERSION,
+      exportedAt,
+      state: legacy,
+      checksum: checksumText(serializedState),
+    })
+
+    const result = parsePortableSave(raw)
+
+    expect(result).toMatchObject({
+      success: true,
+      preview: {
+        exportedAt,
+        state: {
+          schemaVersion: SAVE_VERSION,
+          currentMode: 'CAMP',
+          camp: {
+            definitionVersion: 2,
+            materials: { ashShard: 9, beastHide: 4, emberCore: 1 },
+            consumables: { goldStew: 2, focusTonic: 1, healingPotion: 0 },
+            quickConsumable: null,
+            craftJob: { recipeId: 'focusTonic', remainingMs: 45_000 },
+          },
+        },
+      },
+    })
+  })
+
   it('round-trips a valid state with an integrity checksum', () => {
     const state = exportedState()
     const raw = createPortableSave(state, 2_000)

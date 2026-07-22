@@ -76,8 +76,8 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
       await expect(root).toHaveAttribute(
         'data-canonical-state-hash',
         damageFixture.id.endsWith('damaged')
-          ? 'fnv1a32-v1:8ab5609d'
-          : 'fnv1a32-v1:007bd4fd',
+          ? 'fnv1a32-v1:86e67c9d'
+          : 'fnv1a32-v1:06dce865',
       )
     })
   }
@@ -139,11 +139,12 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
     await expect(page.getByTestId('camp-dashboard')).toHaveCount(0)
   })
 
-  test('uses roving slot focus and restores focus after entering camp from supplies', async ({ page }) => {
+  test('uses roving slot focus and opens inventory from the unmounted quick slot', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 })
     await expectReady(page)
     const weapon = page.locator('[data-action-slot="weapon"]')
     const armor = page.locator('[data-action-slot="armor"]')
-    const focusTonic = page.locator('[data-action-slot="focusTonic"]')
+    const quickConsumable = page.locator('[data-action-slot="quickConsumable"]')
 
     await expect(weapon).toHaveAttribute('tabindex', '0')
     await expect(armor).toHaveAttribute('tabindex', '-1')
@@ -152,17 +153,24 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
     await expect(armor).toBeFocused()
     await expect(armor).toHaveAttribute('tabindex', '0')
     await armor.press('End')
-    await expect(focusTonic).toBeFocused()
-    await focusTonic.press('Home')
+    await expect(quickConsumable).toBeFocused()
+    await quickConsumable.press('Home')
     await expect(weapon).toBeFocused()
 
-    await page.locator('[data-action-slot="goldStew"]').click()
-    const detail = page.getByRole('dialog', { name: '황금 스튜' })
+    await quickConsumable.click()
+    const detail = page.getByRole('dialog', { name: '빠른 소모품' })
     await expect(detail).toBeVisible()
-    await detail.getByRole('button', { name: '캠프에서 준비' }).click()
+    await detail.getByRole('button', { name: '인벤토리 열기' }).click()
 
-    await expect(page.getByTestId('camp-dashboard')).toBeVisible()
-    await expect(page.getByRole('radio', { name: '캠프 · 관리' })).toBeFocused()
+    const inventoryTab = page.getByRole('tab', { name: '가방' })
+    await expect(inventoryTab).toHaveAttribute('aria-selected', 'true')
+    await expect(inventoryTab).toBeFocused()
+    await expect(page.locator('[data-intel-panel="inventory"]')).toBeVisible()
+    await expect(detail).toHaveCount(0)
+    expect(await inventoryTab.evaluate((element) => {
+      const rect = element.getBoundingClientRect()
+      return rect.top >= 0 && rect.bottom <= window.innerHeight
+    })).toBe(true)
   })
 
   test('keeps game, event, and A/B save state unchanged across slot and utility disclosures', async ({ page }) => {
@@ -208,7 +216,7 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
       await page.getByRole('radio', { name: TACTICAL_OPTION }).click()
 
       const canvas = page.getByTestId('tactical-canvas')
-      const dock = page.getByRole('complementary', { name: '성장과 원정 관리' })
+      const dock = page.getByRole('complementary', { name: '전술 정보와 원정 관리' })
       await expect(canvas).toBeVisible()
       await expect(dock).toBeVisible()
       await expect(canvas.locator('[data-asset-id="region.ashen-border"]')).toHaveAttribute(
@@ -276,7 +284,6 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
       const canvas = document.querySelector('.tactical-canvas')?.getBoundingClientRect()
       const dock = document.querySelector('.tactical-command-dock')?.getBoundingClientRect()
       const status = document.querySelector('.tactical-canvas__status')?.getBoundingClientRect()
-      const timeline = document.querySelector('.tactical-timeline')?.getBoundingClientRect()
       const companion = document.querySelector('.tactical-companion')?.getBoundingClientRect()
       const cue = document.querySelector('.tactical-cue')
       const cueStyle = cue === null ? null : getComputedStyle(cue)
@@ -288,7 +295,6 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
         dockTop: dock?.top ?? 0,
         statusBottom: status?.bottom ?? 0,
         statusTop: status?.top ?? 0,
-        timelineTop: timeline?.top ?? 0,
         companionBottom: companion?.bottom ?? 0,
         cueAnimation: cueStyle?.animationName ?? '',
         cueTransition: cueStyle?.transitionDuration ?? '',
@@ -297,7 +303,6 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
     expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
     expect(geometry.scrollHeight).toBeGreaterThan(800)
     expect(geometry.dockTop).toBeGreaterThanOrEqual(geometry.canvasBottom)
-    expect(geometry.statusBottom).toBeLessThanOrEqual(geometry.timelineTop)
     expect(geometry.companionBottom).toBeLessThanOrEqual(geometry.statusTop)
     expect(geometry.cueAnimation).toBe('none')
     expect(geometry.cueTransition).toBe('0s')
@@ -331,7 +336,6 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
       const canvas = document.querySelector<HTMLElement>('.tactical-canvas')!
       const dock = document.querySelector<HTMLElement>('.tactical-command-dock')!
       const status = document.querySelector<HTMLElement>('.tactical-canvas__status')!
-      const timeline = document.querySelector<HTMLElement>('.tactical-timeline')!
       const companion = document.querySelector<HTMLElement>('.tactical-companion')!
       const clientWidth = document.documentElement.clientWidth
       const targets = Array.from(document.querySelectorAll<HTMLElement>(
@@ -340,7 +344,10 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
         .filter((element) => {
           const style = getComputedStyle(element)
           const rect = element.getBoundingClientRect()
-          return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden'
+          return rect.width > 0
+            && rect.height > 0
+            && style.visibility !== 'hidden'
+            && element.closest('.stage-map-compact__timeline') === null
         })
         .map((element) => {
           const rect = element.getBoundingClientRect()
@@ -359,7 +366,6 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
         dockTop: dock.getBoundingClientRect().top,
         statusBottom: status.getBoundingClientRect().bottom,
         statusTop: status.getBoundingClientRect().top,
-        timelineTop: timeline.getBoundingClientRect().top,
         companionBottom: companion.getBoundingClientRect().bottom,
         invalidTargets: targets.filter(({ left, right, width, height }) =>
           left < -0.5 || right > clientWidth + 0.5 || width < 44 || height < 44),
@@ -371,10 +377,21 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
 
     expect(audit.scrollWidth).toBeLessThanOrEqual(audit.clientWidth)
     expect(audit.dockTop).toBeGreaterThanOrEqual(audit.canvasBottom - 1)
-    expect(audit.statusBottom).toBeLessThanOrEqual(audit.timelineTop)
     expect(audit.companionBottom).toBeLessThanOrEqual(audit.statusTop)
     expect(audit.invalidTargets).toEqual([])
     expect(audit.cueAnimation).toBe('none')
+
+    const compactStages = page.locator('.stage-map-compact__stage')
+    for (let index = 0; index < await compactStages.count(); index += 1) {
+      const stage = compactStages.nth(index)
+      await stage.scrollIntoViewIfNeeded()
+      const box = await stage.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.x).toBeGreaterThanOrEqual(0)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(720)
+      expect(box!.width).toBeGreaterThanOrEqual(44)
+      expect(box!.height).toBeGreaterThanOrEqual(44)
+    }
     await testInfo.attach('irpg-415-tactical-200-percent.png', {
       body: await page.getByTestId('tactical-canvas').screenshot({ animations: 'disabled' }),
       contentType: 'image/png',

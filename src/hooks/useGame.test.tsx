@@ -270,6 +270,93 @@ describe('useGame persistence safety', () => {
     unmount()
   })
 
+  it('persists camp healing, quick equipment, and battle potion use through runCommand', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const initial = createInitialState(Date.now(), 0x4230_0001)
+    initial.currentMode = 'CAMP'
+    initial.player.currentHp = 50
+    initial.camp.materials.ashShard = 5
+    initial.camp.consumables.healingPotion = 1
+    expect(saveGameAtRevision(window.localStorage, initial, null)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(result.current.readOnly).toBe(false)
+
+    act(() => result.current.equipQuickConsumable('healingPotion'))
+    expect(result.current.state.camp.quickConsumable).toBe('healingPotion')
+
+    act(() => result.current.changeMode('BATTLE'))
+    const countBeforeUse = result.current.state.camp.consumables.healingPotion
+
+    act(() => result.current.useEquippedConsumable())
+    expect(result.current.state.player.currentHp).toBe(85)
+    expect(result.current.state.camp.consumables.healingPotion).toBe(countBeforeUse - 1)
+    expect(result.current.state.camp.quickConsumable).toBe('healingPotion')
+
+    act(() => result.current.changeMode('CAMP'))
+    act(() => result.current.healAtCamp())
+    expect(result.current.state.player.currentHp).toBe(100)
+    expect(result.current.state.camp.materials.ashShard).toBe(4)
+
+    const reloaded = bootstrapGame(window.localStorage, Date.now(), 'reader')
+    expect(reloaded.state.player.currentHp).toBe(100)
+    expect(reloaded.state.camp.consumables.healingPotion).toBe(countBeforeUse - 1)
+    expect(reloaded.state.camp.quickConsumable).toBe('healingPotion')
+    unmount()
+  })
+
+  it('does not expose a recovery state mutation when its save commit fails', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const initial = createInitialState(Date.now(), 0x4230_0002)
+    initial.currentMode = 'CAMP'
+    initial.player.currentHp = 50
+    initial.camp.materials.ashShard = 3
+    expect(saveGameAtRevision(window.localStorage, initial, null)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    const before = structuredClone(result.current.state)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('simulated recovery write failure')
+    })
+
+    act(() => result.current.healAtCamp())
+
+    expect(result.current.state).toEqual(before)
+    expect(result.current.readOnly).toBe(true)
+    expect(result.current.saveHealthy).toBe(false)
+    unmount()
+  })
+
   it('latches writes off after a bootstrap read error', async () => {
     const originalGetItem = Storage.prototype.getItem
     vi.spyOn(Storage.prototype, 'getItem')
@@ -310,6 +397,14 @@ describe('useGame persistence safety', () => {
       message: '읽기 전용 탭에서는 진행을 변경할 수 없습니다.',
       reason: 'read-only',
     })
+
+    const stateBeforeRecoveryCommands = structuredClone(result.current.state)
+    act(() => {
+      result.current.healAtCamp()
+      result.current.equipQuickConsumable('healingPotion')
+      result.current.useEquippedConsumable()
+    })
+    expect(result.current.state).toEqual(stateBeforeRecoveryCommands)
 
     await act(async () => vi.advanceTimersByTimeAsync(10_000))
     expect(setItem).not.toHaveBeenCalled()

@@ -1,4 +1,4 @@
-export const SAVE_VERSION = 6 as const
+export const SAVE_VERSION = 7 as const
 export const RNG_ALGORITHM = 'xorshift32-v1' as const
 
 export const GAME_MODES = ['BATTLE', 'CAMP'] as const
@@ -13,11 +13,14 @@ export type CampTrainingId = (typeof CAMP_TRAINING_IDS)[number]
 export const CAMP_MATERIAL_IDS = ['ashShard', 'beastHide', 'emberCore'] as const
 export type CampMaterialId = (typeof CAMP_MATERIAL_IDS)[number]
 
-export const CAMP_CONSUMABLE_IDS = ['goldStew', 'focusTonic'] as const
+export const CAMP_CONSUMABLE_IDS = ['goldStew', 'focusTonic', 'healingPotion'] as const
 export type CampConsumableId = (typeof CAMP_CONSUMABLE_IDS)[number]
 
-export const CAMP_RECIPE_IDS = ['goldStew', 'focusTonic'] as const
+export const CAMP_RECIPE_IDS = ['goldStew', 'focusTonic', 'healingPotion'] as const
 export type CampRecipeId = (typeof CAMP_RECIPE_IDS)[number]
+
+export const CAMP_QUICK_CONSUMABLE_IDS = ['healingPotion'] as const
+export type CampQuickConsumableId = (typeof CAMP_QUICK_CONSUMABLE_IDS)[number]
 
 export const CAMP_RESIDENT_IDS = ['sera'] as const
 export type CampResidentId = (typeof CAMP_RESIDENT_IDS)[number]
@@ -55,6 +58,7 @@ export interface CampState {
   training: CampTrainingRanks
   materials: CampMaterialInventory
   consumables: CampConsumableInventory
+  quickConsumable: CampQuickConsumableId | null
   craftJob: CampCraftJob | null
   buffs: CampBuffState
   merchant: CampMerchantState

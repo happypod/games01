@@ -1,4 +1,4 @@
-import { toSafeInteger } from './formulas'
+import { getHeroStats, toSafeInteger } from './formulas'
 import type {
   CampMaterialInventory,
   CampRecipeId,
@@ -6,12 +6,15 @@ import type {
   CampStructureId,
   CampTrainingId,
   EnemyDefinition,
+  GameState,
 } from './types'
 
-export const CAMP_DEFINITION_VERSION = 1 as const
+export const CAMP_DEFINITION_VERSION = 2 as const
 export const CAMP_MERCHANT_REFRESH_MS = 30 * 60 * 1_000
 export const CAMP_STRUCTURE_MAX_LEVEL = 5
 export const CAMP_TRAINING_RANKS_PER_LEVEL = 5
+export const CAMP_HEALING_MAX_ASH_COST = 5
+export const CAMP_HEALING_POTION_RECOVERY_RATIO = 0.35
 
 const HOUR_MS = 60 * 60 * 1_000
 
@@ -120,7 +123,30 @@ export const CAMP_RECIPE_DEFINITIONS: Readonly<Record<CampRecipeId, CampRecipeDe
     baseDurationMs: 10 * 60 * 1_000,
     ingredients: Object.freeze({ ashShard: 6, beastHide: 2, emberCore: 1 }),
   }),
+  healingPotion: Object.freeze({
+    id: 'healingPotion',
+    name: '회복 물약',
+    baseDurationMs: 2 * 60 * 1_000,
+    ingredients: Object.freeze({ ashShard: 4, beastHide: 2, emberCore: 0 }),
+  }),
 })
+
+export function getCampHealingAshCost(state: GameState): number | null {
+  const maxHp = getHeroStats(state).maxHp
+  const missingHp = Math.max(0, maxHp - state.player.currentHp)
+  if (missingHp === 0) return null
+  return Math.min(
+    CAMP_HEALING_MAX_ASH_COST,
+    Math.max(1, Math.ceil((missingHp / maxHp) * CAMP_HEALING_MAX_ASH_COST)),
+  )
+}
+
+export function getHealingPotionRecoveryAmount(state: GameState): number {
+  return toSafeInteger(
+    getHeroStats(state).maxHp * CAMP_HEALING_POTION_RECOVERY_RATIO,
+    1,
+  )
+}
 
 export function getCampMaterialYield(
   enemy: Pick<EnemyDefinition, 'assetId' | 'isBoss'>,
@@ -203,7 +229,9 @@ export function createInitialCampState(): CampState {
     consumables: {
       goldStew: 0,
       focusTonic: 0,
+      healingPotion: 0,
     },
+    quickConsumable: null,
     craftJob: null,
     buffs: {
       goldBoostRounds: 0,

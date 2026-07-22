@@ -29,6 +29,7 @@ import {
   COMPANION_IDS,
   CAMP_CONSUMABLE_IDS,
   CAMP_MATERIAL_IDS,
+  CAMP_QUICK_CONSUMABLE_IDS,
   CAMP_RECIPE_IDS,
   CAMP_STRUCTURE_IDS,
   CAMP_TRAINING_IDS,
@@ -138,6 +139,29 @@ type LegacyGameStateV5 = Omit<
   'schemaVersion' | 'currentMode' | 'camp'
 > & {
   schemaVersion: 5
+}
+
+const LEGACY_CAMP_DEFINITION_VERSION = 1 as const
+const LEGACY_CAMP_CONSUMABLE_IDS = ['goldStew', 'focusTonic'] as const
+const LEGACY_CAMP_RECIPE_IDS = ['goldStew', 'focusTonic'] as const
+type LegacyCampConsumableId = (typeof LEGACY_CAMP_CONSUMABLE_IDS)[number]
+type LegacyCampRecipeId = (typeof LEGACY_CAMP_RECIPE_IDS)[number]
+
+type LegacyCampStateV1 = Omit<
+  CampState,
+  'definitionVersion' | 'consumables' | 'quickConsumable' | 'craftJob'
+> & {
+  definitionVersion: typeof LEGACY_CAMP_DEFINITION_VERSION
+  consumables: Record<LegacyCampConsumableId, number>
+  craftJob: {
+    recipeId: LegacyCampRecipeId
+    remainingMs: number
+  } | null
+}
+
+type LegacyGameStateV6 = Omit<GameState, 'schemaVersion' | 'camp'> & {
+  schemaVersion: 6
+  camp: LegacyCampStateV1
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -299,8 +323,14 @@ function hasValidExpeditionEvents(
   )
 }
 
-function hasValidCampState(value: unknown): value is CampState {
-  if (!isRecord(value) || value.definitionVersion !== CAMP_DEFINITION_VERSION) {
+function hasValidCampStateForDefinition(
+  value: unknown,
+  definitionVersion: number,
+  consumableIds: readonly string[],
+  recipeIds: readonly string[],
+  requireQuickConsumable: boolean,
+): boolean {
+  if (!isRecord(value) || value.definitionVersion !== definitionVersion) {
     return false
   }
   const structures = value.structures
@@ -332,7 +362,7 @@ function hasValidCampState(value: unknown): value is CampState {
         training[id] <= Number(structures.trainingGround) * 5,
     ) ||
     !CAMP_MATERIAL_IDS.every((id) => isSafeNonNegativeInteger(materials[id])) ||
-    !CAMP_CONSUMABLE_IDS.every((id) => isSafeNonNegativeInteger(consumables[id]))
+    !consumableIds.every((id) => isSafeNonNegativeInteger(consumables[id]))
   ) {
     return false
   }
@@ -342,6 +372,7 @@ function hasValidCampState(value: unknown): value is CampState {
     const recipeId = CAMP_RECIPE_IDS.find((id) => id === craftJob.recipeId)
     if (
       recipeId === undefined ||
+      !recipeIds.some((id) => id === recipeId) ||
       !isSafeNonNegativeInteger(craftJob.remainingMs) ||
       craftJob.remainingMs < 1 ||
       craftJob.remainingMs > CAMP_RECIPE_DEFINITIONS[recipeId].baseDurationMs
@@ -370,11 +401,34 @@ function hasValidCampState(value: unknown): value is CampState {
       residents.sera.status !== 'contracted') ||
     !isSafeNonNegativeInteger(residents.sera.trust) ||
     residents.sera.trust > 5 ||
-    (residents.sera.status !== 'contracted' && residents.sera.trust !== 0)
+    (residents.sera.status !== 'contracted' && residents.sera.trust !== 0) ||
+    (requireQuickConsumable &&
+      value.quickConsumable !== null &&
+      !CAMP_QUICK_CONSUMABLE_IDS.some((id) => id === value.quickConsumable))
   ) {
     return false
   }
   return true
+}
+
+function hasValidCampState(value: unknown): value is CampState {
+  return hasValidCampStateForDefinition(
+    value,
+    CAMP_DEFINITION_VERSION,
+    CAMP_CONSUMABLE_IDS,
+    CAMP_RECIPE_IDS,
+    true,
+  )
+}
+
+function hasValidLegacyCampStateV1(value: unknown): value is LegacyCampStateV1 {
+  return hasValidCampStateForDefinition(
+    value,
+    LEGACY_CAMP_DEFINITION_VERSION,
+    LEGACY_CAMP_CONSUMABLE_IDS,
+    LEGACY_CAMP_RECIPE_IDS,
+    false,
+  )
 }
 
 function isLegacyGameStateV5(value: unknown): value is LegacyGameStateV5 {
@@ -396,6 +450,45 @@ function isLegacyGameStateV5(value: unknown): value is LegacyGameStateV5 {
   )
 }
 
+function hasValidCampBattleRelation(
+  camp: Pick<CampState, 'buffs'> | Pick<LegacyCampStateV1, 'buffs'>,
+  battle: BattleState,
+): boolean {
+  const bossFocusStage = camp.buffs.bossFocusStage
+  return (
+    bossFocusStage === null ||
+    bossFocusStage === 0 ||
+    (bossFocusStage === battle.stage &&
+      battle.stage % 10 === 0 &&
+      battle.stage <= battle.highestStage)
+  )
+}
+
+function isLegacyGameStateV6(value: unknown): value is LegacyGameStateV6 {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 6 ||
+    !hasValidSharedState(value) ||
+    (value.currentMode !== 'BATTLE' && value.currentMode !== 'CAMP') ||
+    !hasValidLegacyCampStateV1(value.camp) ||
+    !isBossMilestoneMask(value.claimedBossMilestoneMask) ||
+    !hasValidCompanionState(value) ||
+    !hasValidRng(value.rng)
+  ) {
+    return false
+  }
+  const battle = value.battle as BattleState
+  return (
+    hasValidCampBattleRelation(value.camp, battle) &&
+    hasValidExpeditionEvents(
+      value.expeditionEvents,
+      value.stats as LifetimeStats,
+      value.rng,
+      battle,
+    )
+  )
+}
+
 export function isGameState(value: unknown): value is GameState {
   if (!isRecord(value) || value.schemaVersion !== SAVE_VERSION || !hasValidSharedState(value)) {
     return false
@@ -403,16 +496,9 @@ export function isGameState(value: unknown): value is GameState {
   const camp = value.camp
   const battle = value.battle as BattleState
   if (!hasValidCampState(camp)) return false
-  const bossFocusStage = camp.buffs.bossFocusStage
-  const hasValidCampBattleRelation =
-    bossFocusStage === null ||
-    bossFocusStage === 0 ||
-    (bossFocusStage === battle.stage &&
-      battle.stage % 10 === 0 &&
-      battle.stage <= battle.highestStage)
   return (
     (value.currentMode === 'BATTLE' || value.currentMode === 'CAMP') &&
-    hasValidCampBattleRelation &&
+    hasValidCampBattleRelation(camp, battle) &&
     isBossMilestoneMask(value.claimedBossMilestoneMask) &&
     hasValidCompanionState(value) &&
     hasValidRng(value.rng) &&
@@ -597,8 +683,27 @@ function migrateLegacyGameStateV5(state: LegacyGameStateV5): GameState {
   return normalizeGameState(migrated)
 }
 
+function migrateLegacyGameStateV6(state: LegacyGameStateV6): GameState {
+  const legacy = structuredClone(state)
+  const migrated: GameState = {
+    ...legacy,
+    schemaVersion: SAVE_VERSION,
+    camp: {
+      ...legacy.camp,
+      definitionVersion: CAMP_DEFINITION_VERSION,
+      consumables: {
+        ...legacy.camp.consumables,
+        healingPotion: 0,
+      },
+      quickConsumable: null,
+    },
+  }
+  return normalizeGameState(migrated)
+}
+
 export function decodeGameState(value: unknown): GameState | null {
   if (isGameState(value)) return normalizeGameState(value)
+  if (isLegacyGameStateV6(value)) return migrateLegacyGameStateV6(value)
   if (
     isRecord(value) &&
     value.schemaVersion === 5 &&
@@ -695,7 +800,7 @@ export function isFutureGameStateValue(value: unknown): boolean {
 
 function hasFutureExpeditionDefinitionVersion(value: Record<string, unknown>): boolean {
   if (
-    (value.schemaVersion !== 5 && value.schemaVersion !== SAVE_VERSION) ||
+    (value.schemaVersion !== 5 && value.schemaVersion !== 6 && value.schemaVersion !== SAVE_VERSION) ||
     !isRecord(value.expeditionEvents)
   ) {
     return false
@@ -717,11 +822,17 @@ function hasFutureExpeditionDefinitionVersion(value: Record<string, unknown>): b
 }
 
 function hasFutureCampDefinitionVersion(value: Record<string, unknown>): boolean {
+  if (!isRecord(value.camp) || !isSafeNonNegativeInteger(value.camp.definitionVersion)) {
+    return false
+  }
+  const supportedDefinitionVersion = value.schemaVersion === 6
+    ? LEGACY_CAMP_DEFINITION_VERSION
+    : value.schemaVersion === SAVE_VERSION
+      ? CAMP_DEFINITION_VERSION
+      : null
   return (
-    value.schemaVersion === SAVE_VERSION &&
-    isRecord(value.camp) &&
-    isSafeNonNegativeInteger(value.camp.definitionVersion) &&
-    value.camp.definitionVersion > CAMP_DEFINITION_VERSION
+    supportedDefinitionVersion !== null &&
+    value.camp.definitionVersion > supportedDefinitionVersion
   )
 }
 

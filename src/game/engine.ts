@@ -43,6 +43,7 @@ import {
   CAMP_MERCHANT_REFRESH_MS,
   CAMP_RECIPE_DEFINITIONS,
   CAMP_TRAINING_EFFECTS,
+  getCampHealingAshCost,
   getCampCraftDurationMs,
   getCampMaterialYield,
   getCampMerchantOfferCost,
@@ -51,11 +52,16 @@ import {
   getCampStructureUpgradeCost,
   getCampTrainingCost,
   getCampTrainingRankCap,
+  getHealingPotionRecoveryAmount,
   getSeraTrustCost,
   createInitialCampState,
   type CampMerchantOfferSlot,
 } from './camp'
-import { CAMP_MATERIAL_IDS, SAVE_VERSION } from './types'
+import {
+  CAMP_MATERIAL_IDS,
+  CAMP_QUICK_CONSUMABLE_IDS,
+  SAVE_VERSION,
+} from './types'
 import type {
   AdvanceReport,
   AdvanceResult,
@@ -66,6 +72,7 @@ import type {
   BossMilestoneRewardSnapshot,
   CampConsumableId,
   CampRecipeId,
+  CampQuickConsumableId,
   CampStructureId,
   CampTrainingId,
   CompanionId,
@@ -740,6 +747,32 @@ export function trainAtCamp(
   }
 }
 
+export function healAtCamp(input: GameState): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프 치유 화로에서만 회복할 수 있습니다.' }
+  }
+  const ashCost = getCampHealingAshCost(input)
+  if (ashCost === null) {
+    return { state: input, success: false, message: '이미 최대 체력입니다.' }
+  }
+  if (input.camp.materials.ashShard < ashCost) {
+    return {
+      state: input,
+      success: false,
+      message: `치유 화로에 재의 파편 ${ashCost}개가 필요합니다.`,
+    }
+  }
+
+  const state = cloneState(input)
+  state.camp.materials.ashShard -= ashCost
+  state.player.currentHp = getHeroStats(state).maxHp
+  return {
+    state,
+    success: true,
+    message: `재의 파편 ${ashCost}개로 체력을 완전히 회복했습니다.`,
+  }
+}
+
 export function startCampCraft(
   input: GameState,
   recipeId: CampRecipeId,
@@ -775,6 +808,13 @@ export function consumeCampConsumable(
   if (input.currentMode !== 'CAMP') {
     return { state: input, success: false, message: '캠프에서만 전투 보급품을 준비할 수 있습니다.' }
   }
+  if (id === 'healingPotion') {
+    return {
+      state: input,
+      success: false,
+      message: '회복 물약은 빠른 슬롯에 장착해 전투 중 사용해야 합니다.',
+    }
+  }
   if (input.camp.consumables[id] < 1) {
     return { state: input, success: false, message: '사용할 보급품이 없습니다.' }
   }
@@ -789,7 +829,7 @@ export function consumeCampConsumable(
   state.camp.consumables[id] -= 1
   if (id === 'goldStew') {
     state.camp.buffs.goldBoostRounds = CAMP_GOLD_STEW_ROUNDS
-  } else {
+  } else if (id === 'focusTonic') {
     state.camp.buffs.bossFocusStage = 0
   }
   return {
@@ -798,6 +838,66 @@ export function consumeCampConsumable(
     message: id === 'goldStew'
       ? '다음 1,800 전투 라운드의 골드 획득량이 50% 증가합니다.'
       : '다음 보스전의 치명타 확률이 35%로 준비되었습니다.',
+  }
+}
+
+export function equipQuickConsumable(
+  input: GameState,
+  id: CampQuickConsumableId | null,
+): CommandResult {
+  if (
+    id !== null &&
+    !CAMP_QUICK_CONSUMABLE_IDS.some((candidate) => candidate === id)
+  ) {
+    return { state: input, success: false, message: '빠른 슬롯에 장착할 수 없는 소모품입니다.' }
+  }
+  if (input.camp.quickConsumable === id) {
+    return {
+      state: input,
+      success: false,
+      message: id === null ? '빠른 소모품 슬롯이 이미 비어 있습니다.' : '회복 물약이 이미 장착되어 있습니다.',
+    }
+  }
+  if (id !== null && input.camp.consumables[id] < 1) {
+    return { state: input, success: false, message: '장착할 회복 물약이 없습니다.' }
+  }
+
+  const state = cloneState(input)
+  state.camp.quickConsumable = id
+  return {
+    state,
+    success: true,
+    message: id === null ? '빠른 소모품 슬롯을 비웠습니다.' : '회복 물약을 빠른 슬롯에 장착했습니다.',
+  }
+}
+
+export function useEquippedConsumable(input: GameState): CommandResult {
+  if (input.currentMode !== 'BATTLE') {
+    return { state: input, success: false, message: '전투 중에만 빠른 회복 물약을 사용할 수 있습니다.' }
+  }
+  const id = input.camp.quickConsumable
+  if (id === null) {
+    return { state: input, success: false, message: '빠른 슬롯에 회복 물약이 장착되지 않았습니다.' }
+  }
+  if (input.camp.consumables[id] < 1) {
+    return { state: input, success: false, message: '사용할 회복 물약이 없습니다.' }
+  }
+  const maxHp = getHeroStats(input).maxHp
+  if (input.player.currentHp >= maxHp) {
+    return { state: input, success: false, message: '이미 최대 체력입니다.' }
+  }
+
+  const state = cloneState(input)
+  const hpBefore = state.player.currentHp
+  state.camp.consumables[id] -= 1
+  state.player.currentHp = Math.min(
+    maxHp,
+    addSafeIntegers(state.player.currentHp, getHealingPotionRecoveryAmount(state)),
+  )
+  return {
+    state,
+    success: true,
+    message: `회복 물약으로 체력을 ${state.player.currentHp - hpBefore} 회복했습니다.`,
   }
 }
 
@@ -983,6 +1083,9 @@ export function trainCompanion(input: GameState): CommandResult {
 }
 
 export function selectStage(input: GameState, rawStage: number): CommandResult {
+  if (!Number.isFinite(rawStage)) {
+    return { state: input, success: false, message: '아직 선택할 수 없는 스테이지입니다.' }
+  }
   const stage = Math.floor(rawStage)
   if (stage < 1 || stage > input.battle.highestStage || stage > MAX_STAGE) {
     return { state: input, success: false, message: '아직 선택할 수 없는 스테이지입니다.' }
@@ -997,8 +1100,7 @@ export function selectStage(input: GameState, rawStage: number): CommandResult {
   }
   state.battle.stage = stage
   state.battle.enemyHp = getEnemyDefinition(stage).maxHp
-  state.player.currentHp = getHeroStats(state).maxHp
-  state.battle.powerStrikeCooldownMs = 0
+  state.player.currentHp = Math.min(state.player.currentHp, getHeroStats(state).maxHp)
   return { state, success: true, message: `${stage} 스테이지로 이동` }
 }
 

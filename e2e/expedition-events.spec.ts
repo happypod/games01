@@ -5,15 +5,34 @@ const EVENT_FILE_PATTERN = /\/event-(?:ember-shrine|wandering-smith|ash-camp)[^/
 
 test.describe.configure({ mode: 'serial', timeout: 60_000 })
 
-async function spendEnabledButtons(page: Page, panelId: string) {
-  const tabName = panelId === 'upgrade-title' ? /^장비/ : panelId === 'skill-title' ? /^스킬/ : null
-  if (tabName !== null) {
-    const tab = page.getByRole('tab', { name: tabName })
-    if (await tab.isVisible()) await tab.click()
+async function spendAvailableSlots(page: Page, slotIds: readonly string[]) {
+  const actionBar = page.getByRole('region', { name: '전술 명령 빠른 슬롯' })
+
+  for (let purchase = 0; purchase < 30; purchase += 1) {
+    let spent = false
+
+    for (const slotId of slotIds) {
+      const detail = actionBar.locator(`[data-action-detail="${slotId}"]`)
+      if (!(await detail.isVisible())) {
+        await actionBar.locator(`[data-action-slot="${slotId}"]`).click()
+      }
+
+      const action = detail.locator('.tactical-action-bar__detail-action')
+      if (await action.isEnabled()) {
+        await action.click()
+        spent = true
+        break
+      }
+
+      await detail.getByRole('button', { name: /상세 닫기$/ }).click()
+    }
+
+    if (!spent) break
   }
-  const enabled = page.locator(`section[aria-labelledby="${panelId}"] button:enabled`)
-  for (let purchase = 0; purchase < 30 && (await enabled.count()) > 0; purchase += 1) {
-    await enabled.first().click()
+
+  const openDetail = actionBar.locator('[data-action-detail]')
+  if (await openDetail.isVisible()) {
+    await openDetail.getByRole('button', { name: /상세 닫기$/ }).click()
   }
 }
 
@@ -24,8 +43,8 @@ async function reachFirstExpeditionEvent(page: Page, startedAt: Date): Promise<L
       new Date(startedAt.getTime() + second * 1_000),
     )
     await page.waitForTimeout(300)
-    await spendEnabledButtons(page, 'upgrade-title')
-    await spendEnabledButtons(page, 'skill-title')
+    await spendAvailableSlots(page, ['weapon', 'armor', 'charm'])
+    await spendAvailableSlots(page, ['powerStrike', 'ironWill', 'fortune'])
     const eventToggle = page.getByRole('button', { name: /원정 이벤트 \d+건 보기/ })
     if (await eventToggle.isVisible()) await eventToggle.click()
   }

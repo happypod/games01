@@ -4,6 +4,8 @@ import {
   advanceGame,
   acceptSeraContract,
   chooseExpeditionEvent,
+  equipQuickConsumable,
+  healAtCamp,
   mergeCombatEventBatches,
   performPrestige,
   purchaseCampMerchantOffer,
@@ -17,6 +19,7 @@ import {
   trainCompanion,
   upgradeCampStructure,
   consumeCampConsumable,
+  useEquippedConsumable,
   upgradeSkill,
 } from '../game/engine'
 import { bootstrapGame } from '../game/persistence'
@@ -205,6 +208,15 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     },
     useCampConsumable: (id) => {
       void runCommand((current) => consumeCampConsumable(current, id))
+    },
+    healAtCamp: () => {
+      void runCommand(healAtCamp)
+    },
+    equipQuickConsumable: (id) => {
+      void runCommand((current) => equipQuickConsumable(current, id))
+    },
+    useEquippedConsumable: () => {
+      void runCommand(useEquippedConsumable)
     },
     purchaseCampMerchantOffer: (slot) => {
       void runCommand((current) => purchaseCampMerchantOffer(current, slot))

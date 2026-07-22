@@ -13,14 +13,14 @@
 
 | 계층 | 현재 | 검증 내용 |
 |---|---:|---|
-| 엔진 단위 | 구현 | 최초 상태, 보상, 결정론, 텐트별 경과 시간 상한, 구매 원자성, 캠프 시설·영구 훈련·고정 재료·단일 제작·소모 버프·30분 상인·구조/계약/신뢰, 스킬·동료 잠금, 동료 영입·훈련·협공, 전투/캠프 전환·전경 정지·오프라인 mode 복원, 스테이지, 환생, 숫자 불변식 |
+| 엔진 단위 | 구현 | 최초 상태, 보상, 결정론, 텐트별 경과 시간 상한, 구매 원자성, 캠프 시설·영구 훈련·치유 화로·고정 재료·단일 제작·회복 물약 빠른 슬롯·소모 버프·30분 상인·구조/계약/신뢰, 스킬·동료 잠금, 동료 영입·훈련·협공, 전투/캠프 전환·전경 정지·오프라인 mode 복원, 스테이지, 환생, 숫자 불변식 |
 | RNG·치명타 | 구현 | xorshift32 vector, 1 draw/round, 치명타 수식, 동일 seed·분할 실행·환생 연속성 |
 | 전투 이벤트 스트림 | 구현 | skill·critical·companionAssist·kill·bossVictory·defeat 고정 순서, 단일·분할 ID, 최근 100개, MAX_SAFE 초과 cursor, 저장 비영속 |
-| 저장 통합 | 구현 | A/B 교대, revision 선택·동률, 부분 쓰기, 손상 fallback, 미래 포맷·camp definition 차단, schema1~5→6 migration, 캠프 포함 오프라인 진행 1회 적용, reader 무쓰기, 초기화 |
+| 저장 통합 | 구현 | A/B 교대, revision 선택·동률, 부분 쓰기, 손상 fallback, 미래 포맷·camp definition 차단, schema1~6→7 migration, 캠프·회복 물약 빠른 슬롯 포함 오프라인 진행 1회 적용, reader 무쓰기, 초기화 |
 | 저장 전송 | 구현 | portable checksum·버전·크기, preview no-write, stale CAS, target rollback, export/import 브라우저 왕복 |
-| UI 컴포넌트 | 구현 | 첫 화면 landmark, 전투/캠프 radiogroup·단일 활성 surface, 캠프 offer·갱신·세라 상태·자발적 계약 copy, 구매 불가 상태, 비영속 승패 queue·dedupe·pinned snapshot·focus 복원 |
+| UI 컴포넌트 | 구현 | 첫 화면 landmark, 전투/캠프 radiogroup·단일 활성 surface, 치유 화로·회복 물약 제작/장착/사용, 하단 고정 8슬롯, 현재 적과 지도·캐릭터·가방·스킬·도감 roving tab, 캠프 offer·갱신·세라 상태·자발적 계약 copy, 구매 불가 상태, 비영속 승패 queue·dedupe·pinned snapshot·focus 복원 |
 | 밸런스 회귀 | 구현 | 고정 seed·3개 장비 전략·5~20초 판단 주기의 첫 환생 10세션과 비동료·동료 각 10개 paired 재도달 ratio, milestone, 정체, 숫자 불변식, 최종 상태 해시 |
-| 브라우저 E2E | 구현 | 신규 시작, UI 강화, 전투→캠프 정지, 시설·훈련·제작·상인·자발적 계약, 실제 페이지 종료·오프라인 제작 완료·캠프 복원, 같은 구간 중복 방지, page/console error |
+| 브라우저 E2E | 구현 | 신규 시작, UI 강화, 전투→캠프 정지, 시설·훈련·치유·회복 물약 제작/장착/전투 사용·상인·자발적 계약, 실제 페이지 종료·오프라인 제작 완료·캠프 복원, 같은 구간 중복 방지, page/console error |
 | 다중 탭 E2E | 구현 | 두 번째 탭 읽기 전용, 열린 reader 동기화, writer 종료 뒤 lock 인계 |
 | 접근성 E2E | 구현 | 360px overflow·44px target·skip link·키보드 mode 명령·progressbar·modal focus·200% 확대·모션 감소 |
 | 시각 자산 | 구현 | 필수 30 ID·로컬 경로·실제 포맷/픽셀/바이트·권리 metadata, fallback 2단계, production cold-load 600 KiB와 lazy namespace |
@@ -74,14 +74,15 @@ IRPG-414 Done 기준선은 Vitest 36파일·297테스트, 자산 validator 32테
 | 결정론적 원정 이벤트 | v1 shuffle golden hash, 30-bit prefix, pending 3·overflow, 320개 선택 RNG 불변, 중복 no-write, 환생 폐기·MAX 거부, IRPG-412 pointer·keyboard·reload exact-once | 실제 보조공학 조합의 외부 전문 감사 |
 | 전투·캠프 활동 모드 | mode-only transaction, 캠프 60초 전경 정지, offline normal-engine 동치·mode 복원, 환생 시 캠프 기반 보존과 `BATTLE` 복귀 | 360×800·1440×900 전환 흐름의 수동 체감 확인 |
 | 캠프 시설·영구 훈련 | 시설별 고정 비용, 캠프 전용 원자 transaction, 텐트 8~12시간 상한, 작업대 100~60%, 단련소 rank cap, +2 공격·+20 HP, vitality 회복, 환생 보존 | 비용·현재/다음 효과·잠금 사유와 44px 조작의 브라우저 확인 |
-| 캠프 재료·제작·버프 | 모든 처치 ash +1, 늑대 hide +1, 보스 core +1, RNG 불변, 두 고정 레시피, 단일 job·시작 시간 snapshot·1ms 완료, 1,800-round gold +0.5, 다음 보스 crit 15→35% | 실제 offline 종료·복원과 360px 키보드 제작·사용 흐름 |
+| 캠프 재료·제작·버프 | 모든 처치 ash +1, 늑대 hide +1, 보스 core +1, RNG 불변, 세 고정 레시피, 단일 job·시작 시간 snapshot·1ms 완료, 1,800-round gold +0.5, 다음 보스 crit 15→35% | 실제 offline 종료·복원과 360px 키보드 제작·사용 흐름 |
+| IRPG-423 캠프 회복 | 잃은 HP 비율별 화로 비용 1~5, 캠프 전용 원자 완전 회복, 회복 물약 `{4,2,0}`·120초 exact-once 제작, 전투 최대 HP 35% 회복·수량 1 차감, 스테이지 선택 무료 회복/쿨다운 초기화 차단, schema6→7 원장 보존, Playwright 치유→제작→장착→피격→1회 사용 | 없음 — 화면 canonical은 IRPG-424가 소유 |
 | 캠프 이벤트 상인·세라 | 30분 경계·분할 동치·RNG 불변, 3×3 고정 offer, cycle별 3-bit exact-once 구매, 비용-1·정확 일치, 구조→별도 계약, 신뢰 0~5 비용·0~10% 할인, reload·offline·portable·환생 원장 보존 | 360×800·1440×900에서 키보드 거래, 갱신·구매 완료·골드 부족·지원 완료·신뢰 MAX 상태와 비강압 copy 확인 |
 | 저장 복구 | A/B fallback·부분 쓰기·미래 포맷·v1 migration | 실제 저장 차단 환경 |
 | 저장 백업 | checksum·크기·schema·stale revision·read-back rollback, Playwright 다운로드·취소·복원 | 다른 기기 파일 이동 |
 | 오프라인 중복 방지 | 같은 시각 재부팅, Playwright 닫기·재접속·재새로고침 | 탭 숨김과 OS 절전 복귀 |
 | 다중 탭 충돌 | stale revision 원문 불변, reader 무쓰기, 동일 revision 충돌 차단, 두 페이지 lock 인계 | 비정상 브라우저 종료 복구 |
 | 반응형·접근성 | progressbar·modal focus 컴포넌트 테스트, 360px·키보드·reduced-motion Playwright | 실제 보조공학 조합의 외부 전문 감사 |
-| IRPG-422 단일 전술 화면 | 과거 layout preference 무시, `.tactical-layout` 단일 분기, 8슬롯 고정 순서·6개 manifest ID·2개 캠프 소모품 아이콘, 강화/각인 exact-once | 360·1024·1440px 및 200%에서 전장 우선순위와 슬롯 상세 체감 확인 |
+| IRPG-424 전술 정보·명령 화면 | 과거 layout preference 무시, `.tactical-layout` 단일 분기, 장비3·스킬3·동료·회복 물약의 8슬롯 고정 순서, 강화/각인·동료·소모품 exact-once, 현재 적 고정 요약, 지도·캐릭터·가방·스킬·도감 controlled roving tab, 360·1024·1440px·200%·모션 감소·가방 focus E2E | Ubuntu canonical `72/72`·3회 `216/216` artifact diff와 실제 보조공학 감사 |
 | IRPG-422 유틸리티 도크 | 4개 accessible icon name, tooltip·단일 popover, 상세 heading focus, Escape/명시적 닫기 뒤 trigger focus 복귀, 외부 클릭 대상 focus 보존, 중첩 modal Escape 소유권, 기존 로그·결과·환생·백업 동작 | 실제 스크린리더에서 tooltip과 popover reading order 확인 |
 | 시각 자산 | manifest validator fixture, production URL·gzip·lazy-load, 적·보스 8종·결과 2종·원정 이벤트 3종 stable mapping, 카드별 lazy-load, 360px·200%·fallback·A/B 저장 지속, IRPG-412 Ubuntu event baseline 8개 승인 | 외부 미술 방향 검토 |
 | 첫 환생 목표 | 10회 결정론적 가속 세션과 대표 브라우저 상태 | IRPG-205 외부 사용자 10회 실제 플레이 |
@@ -117,6 +118,8 @@ IRPG-414 Done 기준선은 Vitest 36파일·297테스트, 자산 validator 32테
 - 제작 job 1,000/999/1ms와 초과 elapsed의 단일 완료, `BATTLE`·`CAMP`·offline timer 동치
 - 황금 스튜 라운드 1·1,800·1,801, 캠프 전경 불소비, 기본 처치 골드 +50%와 boss milestone 불변, 활성 중 재사용 거절
 - 집중 물약 unbound 일반 적 통과·다음 보스 bind, 동일 RNG draw에서 15% 실패/35% 성공 vector, 보스 승리·패배·stage 이탈·환생 종료, 준비/활성 중 재사용 거절
+- 치유 화로 잃은 HP 0·1·20·21·100%의 비용 경계, 비용보다 재의 파편 1 부족·정확 일치, `BATTLE`·최대 HP·reader 거절과 RNG·보상 불변
+- 회복 물약 `{4,2,0}`·120초의 비용보다 1 부족·정확 일치·119,999/120,000ms, 미장착·수량 0·최대 HP·`CAMP` 사용 거절, 전투 최대 HP 35% 반올림·상한·1개 차감
 - 상인 cycle 0~2의 9개 고정 지급물·기본 비용, 슬롯별 mask 1·2·4와 중복 구매, 비용보다 1 부족·정확히 일치, cycle 경계의 mask 0 초기화
 - 세라 `unmet → rescued → contracted`, 구조 지원 800G와 계약 분리, 신뢰 비용 `250·500·900·1,500·2,400G`, rank별 0·2·4·6·8·10% 할인과 rank 5 재시도
 - 최대 안전 정수의 보상·경험치·처치·패배·스킬 포인트·환생 포화와 저장 가능 상태 유지
@@ -130,6 +133,7 @@ IRPG-414 Done 기준선은 Vitest 36파일·297테스트, 자산 validator 32테
 - 미래 envelope·state schema, schema1·2·3 A/B·portable migration, 잘못된 동료 ID·rank, 잘못된 RNG algorithm/state/draws, revision overflow, 과대 쿨다운 정규화, 저장소 read/write/remove 예외
 - schema4→5 무소급 migration, stage/highest 불일치, 비연속 milestone mask, pending 0~3, overflow 0~27, future definitionVersion, resolved effect 변조, portable 과거 계보 rollback
 - schema5→6 무소급 캠프 migration, reader 무쓰기·writer revision+1 checkpoint, 잘못된 mode·camp 필수 키·시설 1..5·훈련 `0..trainingGround × 5`, future camp definition의 A/B·legacy·portable 원문 보존과 write 차단
+- schema6→7 원장 보존 migration, `healingPotion: 0`·`quickConsumable: null` 기본값, 세 소모품 필수 key, quick slot `null | healingPotion`, schema별 camp future fence
 - 재료·소모품 필수 key 누락·음수·소수·MAX 초과, 알 수 없는 recipe, craft remaining 0·1·MAX, gold rounds 0·1,800·1,801, boss focus `null`·0·10·300과 일반 stage·범위 초과
 - merchant cycle 음수·소수·MAX 초과, refresh remaining 0·1·1,800,000·초과, purchase mask 0·7·8, resident status 변조, 비계약 trust 1, 계약 trust 0·5·6
 
@@ -148,7 +152,8 @@ G4에서 아래 조합을 기록한다.
 - 전투 로그를 키보드로 펼쳐 최근 20개·overflow·6종 label을 확인하고 filter 중 focus가 이동하지 않는지 확인
 - 키보드로 전투↔캠프를 왕복해 한 surface만 표시되는지, 캠프의 정지 설명·마지막 전투 stage가 읽히는지, 360×800·200%에서 overflow와 가려진 44px 조작이 없는지 확인
 - 캠프에서 텐트·작업대·단련소 확장과 공격·체력 훈련을 키보드로 실행해 골드·단계·현재/다음 효과가 함께 갱신되는지, 골드 부족·상한·reader에서 명확히 비활성화되는지 확인
-- 캠프 보관함에서 세 재료 수량과 두 레시피 비용·남은 시간을 읽고, 키보드로 단일 제작과 완성 소모품 사용을 실행해 재료·job·버프 상태와 중복 거절 사유가 즉시 갱신되는지 확인
+- 캠프 보관함에서 세 재료 수량과 세 레시피 비용·남은 시간을 읽고, 키보드로 치유 화로·단일 제작·회복 물약 장착을 실행한 뒤 전투 하단 슬롯에서 1회 사용해 HP·수량·저장이 즉시 갱신되는지 확인
+- 우측 현재 적 요약과 지도·캐릭터·가방·스킬·도감을 Arrow/Home/End로 전환하고, 미장착 빠른 슬롯의 `인벤토리 열기`가 가방 탭을 선택하는지 확인
 - 저장된 제작 job을 둔 채 페이지를 닫고 경계 시간 뒤 다시 열어 offline에서 소모품이 정확히 한 번 완성되는지, 같은 시각 reload에서 재완료·오프라인 보고 중복이 없는지 확인
 - 캠프 상인의 세 슬롯을 키보드로 구매해 완료 상태가 재입력을 막는지, 30분 갱신 뒤 새 cycle·가격·남은 시간이 표시되는지, 구조 지원 뒤에도 계약이 자동 체결되지 않고 별도 자발적 의사 확인과 보류 설명이 보이는지 확인
 - 세라 계약 뒤 신뢰 0~5 비용과 2% 단위 할인이 모든 제안에 반영되고 신뢰 MAX·골드 부족·reader 상태가 명확히 비활성화되는지, 전투 동료 루미의 편성이 변하지 않는지 확인
@@ -206,6 +211,10 @@ IRPG-422 게이트는 유형 1 대시보드와 레이아웃 선택 상태를 제
 일반 Playwright는 360×800·1024×768·1440×900과 effective 360px/200%에서 페이지 가로 overflow 없음, 최소 44px 조작 대상, DOM/키보드 읽기 순서, 전장·액션바·도크 배치, 캠프 왕복, 전투 로그·승패 결과·환생·내보내기·가져오기 실제 동작을 검증한다. reduced-motion에서는 상시 이동·flash를 제거한 정적 대체를 요구한다. production 자산 검사는 최초 전투에서 영웅·현재 적과 액션바의 6개 실제 자산만 eager이고, 소모품 이미지 요청과 비활성 지역·이벤트·damage/result 자산 요청은 disclosure 전 0개인지 확인한다. visual gate는 기존 18개 fixture·72개 canonical 이름과 variant 수를 유지하되 전투 fixture를 단일 전술 surface로 의도적으로 재승인하고, 캠프 fixture 및 저장 canonical의 비의도 변경이 없음을 hash·artifact metadata로 분리해 검토한다. `npm run verify` 뒤 push/PR quality와 Ubuntu visual 결과를 IRPG-422 `Test evidence`에 기록하기 전에는 Done으로 전환하지 않는다.
 
 IRPG-422 병합 리뷰 보정 head `726f3ce2a25a5fa12646ae7ca247e75678fcb533`에서 모달 portal 실제 hit-test, reset/import tick 기준 재설정, 읽기 전용 CAMP export, 8슬롯 roving focus와 CAMP 전환 focus return을 추가로 고정했다. 로컬 게이트는 Vitest `404/404`, 일반 Playwright `61/61`, production asset `5/5`를 통과했고, [push quality `29887435986`](https://github.com/happypod/games01/actions/runs/29887435986), [PR quality `29887437893`](https://github.com/happypod/games01/actions/runs/29887437893), [Ubuntu visual `29887435978`](https://github.com/happypod/games01/actions/runs/29887435978)이 성공했다. visual artifact `8517169076`의 canonical `72/72`와 3회 반복 `216/216`은 기존 baseline을 보존한다.
+
+IRPG-423 Done 증거는 치유 화로의 손실 HP별 비용 `1..5`, 재료 부족·최대 HP·BATTLE·reader no-write, 회복 물약 `{4,2,0}`·120초 제작의 1ms 경계와 exact-once, 빠른 슬롯 장착·해제·수량 0 유지, 전투 최대 HP 35% 회복·1개 차감, 스테이지 재선택의 HP·스킬·동료 cooldown 보존을 고정한다. schema6 raw·A/B·portable fixture는 기존 캠프·job·RNG·보상 원장을 보존하고 schema7의 `healingPotion: 0`과 `quickConsumable: null`만 추가한다. 독립 결정론·저장 리뷰에서 P0/P1은 없었고 `e2e/camp-recovery.spec.ts`의 치유→제작→장착→피격→전투 사용 흐름을 포함한 일반 Playwright `62/62`가 통과했다.
+
+IRPG-424 Verify 증거는 우측 성장 센터를 현재 적 고정 요약과 지도·캐릭터·가방·스킬·도감의 조회 중심 정보 레일로 바꾸고, 장비 3·스킬 3·동료 1·빠른 소모품 1의 mutation을 하단 8슬롯으로 단일화한 계약을 고정한다. 독립 React·접근성 리뷰의 모바일 가방 viewport P2를 활성 탭 focus·scroll 연동으로 수정했고 360×800, 1024×768, 1440×900, effective 360px/200%, reduced-motion과 keyboard roving 흐름이 일반 Playwright `62/62`에서 통과했다. 2026-07-22 최종 `npm run verify`는 production asset Playwright `5/5`, Vitest `49파일/432개`, manifest validator `33/33`, production manifest `30 ID`, lint·typecheck·build까지 통과했다. Windows의 `npm run test:e2e:visual`은 계약대로 Ubuntu 전용 비교를 skip했으므로, 변경된 18 fixture×4 variant canonical `72/72`와 3회 반복 `216/216` artifact diff를 GitHub Actions에서 확인하기 전까지 Done으로 올리지 않는다.
 
 ## 8. 현재 브라우저 증거
 

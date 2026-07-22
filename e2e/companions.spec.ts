@@ -45,16 +45,15 @@ test('첫 보스 뒤 동료를 영입·훈련하고 협공과 저장을 확인�
   await page.goto('/')
   await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
 
-  const panel = page.getByRole('region', { name: '동료 원정대' })
-  const recruit = panel.getByRole('button', { name: '불씨 여우 루미 영입, 무료' })
+  await page.locator('[data-action-slot="companion"]').click()
+  const panel = page.locator('[data-action-detail="companion"]')
+  const recruit = panel.getByRole('button', { name: '무료 영입' })
   await expect(recruit).toBeEnabled()
   await recruit.focus()
   await page.keyboard.press('Enter')
   await expect(page.getByText('불씨 여우 루미가 원정에 합류했습니다.', { exact: true })).toBeVisible()
 
-  const trainRankOne = panel.getByRole('button', {
-    name: '불씨 여우 루미 훈련, 비용 100 골드',
-  })
+  const trainRankOne = panel.getByRole('button', { name: /동료 훈련.*100 G/ })
   await expect(trainRankOne).toBeFocused()
   const battleCompanion = page.locator('.tactical-companion')
   await expect(battleCompanion).toContainText('불씨 여우 루미')
@@ -66,10 +65,9 @@ test('첫 보스 뒤 동료를 영입·훈련하고 협공과 저장을 확인�
   const afterOneRound = advanceGame(recruited.state, 1_000).state
   await context.clock.setFixedTime(new Date(STARTED_AT.getTime() + 1_000))
   await page.waitForTimeout(300)
-  await expect(page.getByRole('progressbar', { name: '적 체력' })).toHaveAttribute(
-    'aria-valuenow',
-    String(afterOneRound.battle.enemyHp),
-  )
+  await expect(
+    page.getByTestId('tactical-canvas').getByRole('progressbar', { name: '적 체력' }),
+  ).toHaveAttribute('aria-valuenow', String(afterOneRound.battle.enemyHp))
 
   await trainRankOne.click()
   await expect(page.getByText('불씨 여우 루미 랭크 상승', { exact: true })).toBeVisible()
@@ -82,20 +80,18 @@ test('첫 보스 뒤 동료를 영입·훈련하고 협공과 저장을 확인�
   await page.reload()
   await expect(page.locator('.tactical-companion')).toContainText('Rank 2')
   await expect(page.locator('.tactical-companion')).toContainText('협공 3')
-  const writerTrain = page.getByRole('region', { name: '동료 원정대' }).getByRole('button', {
-    name: '불씨 여우 루미 훈련, 비용 180 골드',
-  })
+  await page.locator('[data-action-slot="companion"]').click()
+  const writerTrain = page.locator('[data-action-detail="companion"]')
+    .getByRole('button', { name: /동료 훈련.*180 G/ })
   await expect(writerTrain).toBeEnabled()
 
   const reader = await context.newPage()
   collectBrowserErrors(reader, browserErrors)
   await reader.goto('/')
   await expect(reader.getByText('● 읽기 전용', { exact: true })).toBeVisible()
-  await expect(
-    reader.getByRole('region', { name: '동료 원정대' }).getByRole('button', {
-      name: '불씨 여우 루미 훈련, 비용 180 골드',
-    }),
-  ).toBeDisabled()
+  await reader.locator('[data-action-slot="companion"]').click()
+  await expect(reader.locator('[data-action-detail="companion"]')
+    .getByRole('button', { name: /동료 훈련.*180 G/ })).toBeDisabled()
 
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,

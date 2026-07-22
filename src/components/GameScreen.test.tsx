@@ -39,6 +39,9 @@ function createController(): GameController {
     trainAtCamp: vi.fn(),
     startCampCraft: vi.fn(),
     useCampConsumable: vi.fn(),
+    healAtCamp: vi.fn(),
+    equipQuickConsumable: vi.fn(),
+    useEquippedConsumable: vi.fn(),
     purchaseCampMerchantOffer: vi.fn(),
     acceptSeraContract: vi.fn(),
     increaseSeraTrust: vi.fn(),
@@ -73,7 +76,7 @@ describe('GameScreen expedition prestige warning', () => {
     expect(screen.getByRole('radio', { name: '전투 · 전술 전장' }))
       .toHaveAttribute('aria-checked', 'true')
 
-    const actionBar = screen.getByRole('region', { name: '장비와 스킬 빠른 슬롯' })
+    const actionBar = screen.getByRole('region', { name: '전술 명령 빠른 슬롯' })
     for (const assetId of [
       'equipment.ember-blade',
       'equipment.guard-armor',
@@ -114,25 +117,23 @@ describe('GameScreen expedition prestige warning', () => {
       .toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('moves focus to the selected camp mode after entering from a consumable detail', () => {
+  it('opens the inventory intel tab from an unmounted quick-consumable slot', () => {
     const game = createController()
-    const view = render(
+    render(
       <GameScreen game={game} showReadOnlyWarning={false} showSaveTransfer={false} />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /^황금 스튜,/ }))
-    const enterCamp = within(screen.getByRole('dialog', { name: '황금 스튜' }))
-      .getByRole('button', { name: '캠프에서 준비' })
-    enterCamp.focus()
-    fireEvent.click(enterCamp)
-    expect(game.changeMode).toHaveBeenCalledWith('CAMP')
-
-    game.state.currentMode = 'CAMP'
-    view.rerender(
-      <GameScreen game={game} showReadOnlyWarning={false} showSaveTransfer={false} />,
+    fireEvent.click(screen.getByRole('button', { name: /^빠른 소모품, 미장착,/ }))
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: '빠른 소모품' }))
+        .getByRole('button', { name: '인벤토리 열기' }),
     )
 
-    expect(screen.getByRole('radio', { name: '캠프 · 관리' })).toHaveFocus()
+    expect(screen.getByRole('tab', { name: '가방' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByRole('tabpanel', { name: '가방' })).toBeVisible()
   })
 
   it('routes the camp choice through the persisted game command', () => {

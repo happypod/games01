@@ -138,8 +138,10 @@ export async function openVisualFixture(
   }
 
   if (fixture.setupAction === 'open-stage-map') {
-    await page.getByRole('button', { name: '3지역 원정 지도 열기' }).click()
-    await page.getByRole('button', { name: '원정 지도 열기', exact: true }).click()
+    await page.getByRole('tab', { name: '지도' }).click()
+    await page.locator('[data-intel-panel="map"]')
+      .getByRole('button', { name: '원정 지도 열기', exact: true })
+      .click()
     await expect(page.getByRole('tab', { name: /월락 고개/ })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -326,6 +328,7 @@ export async function verifyResponsiveVisualSurface(
         return style.display !== 'none'
           && style.visibility !== 'hidden'
           && button.closest('.tactical-action-bar__slots') === null
+          && button.closest('.stage-map-compact__timeline') === null
       })
       .map((button) => {
         const rect = button.getBoundingClientRect()

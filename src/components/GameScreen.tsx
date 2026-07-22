@@ -1,10 +1,13 @@
-import { useRef, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { CampDashboard } from './CampDashboard'
 import { GameModeSelector } from './GameModeSelector'
-import { GrowthTabs } from './GrowthTabs'
 import { OfflineReport } from './OfflineReport'
 import { SaveTransferPanel } from './SaveTransferPanel'
 import { TacticalActionBar } from './TacticalActionBar'
+import {
+  TacticalIntelPanel,
+  type TacticalIntelTabId,
+} from './TacticalIntelPanel'
 import { TacticalStage } from './TacticalStage'
 import { TacticalUtilityDock } from './TacticalUtilityDock'
 import { formatNumber } from '../game/format'
@@ -38,7 +41,7 @@ export function GameScreen({
   showSaveTransfer = true,
   footerSuffix = '',
 }: GameScreenProps) {
-  const shellRef = useRef<HTMLDivElement>(null)
+  const [activeIntelTab, setActiveIntelTab] = useState<TacticalIntelTabId>('map')
   const controlsDisabled = !game.ready || game.readOnly
   const combatResults = useCombatResults(
     game.combatEventBatch,
@@ -63,15 +66,8 @@ export function GameScreen({
       game.prestige()
     }
   }
-  const enterCampFromActionBar = () => {
-    game.changeMode('CAMP')
-    shellRef.current
-      ?.querySelector<HTMLButtonElement>('[data-game-mode="CAMP"]')
-      ?.focus()
-  }
-
   return (
-    <div ref={shellRef} className="app-shell">
+    <div className="app-shell">
       <a className="skip-link" href="#main-content">본문 바로가기</a>
       <div className="ambient ambient--one" aria-hidden="true" />
       <div className="ambient ambient--two" aria-hidden="true" />
@@ -164,6 +160,8 @@ export function GameScreen({
               disabled={controlsDisabled}
               onUpgradeStructure={game.upgradeCampStructure}
               onTrain={game.trainAtCamp}
+              onHealAtCamp={game.healAtCamp}
+              onEquipQuickConsumable={game.equipQuickConsumable}
               onStartCraft={game.startCampCraft}
               onUseConsumable={game.useCampConsumable}
               onPurchaseMerchantOffer={game.purchaseCampMerchantOffer}
@@ -187,7 +185,6 @@ export function GameScreen({
                 batch={game.combatEventBatch}
                 streamGeneration={game.combatEventGeneration}
                 notice={game.notice}
-                onChooseStage={game.chooseStage}
                 onChooseExpeditionEvent={game.chooseExpeditionEvent}
                 disabled={controlsDisabled}
                 {...(disabledReason ? { disabledReason } : {})}
@@ -197,20 +194,24 @@ export function GameScreen({
                 state={game.state}
                 onBuyUpgrade={game.buyUpgrade}
                 onBuySkill={game.buySkill}
-                onEnterCamp={enterCampFromActionBar}
+                onRecruitCompanion={game.recruitCompanion}
+                onTrainCompanion={game.trainCompanion}
+                onUseEquippedConsumable={game.useEquippedConsumable}
+                onOpenInventory={() => setActiveIntelTab('inventory')}
                 disabled={controlsDisabled}
                 {...(disabledReason ? { disabledReason } : {})}
               />
             </div>
 
-            <aside className="tactical-command-dock" aria-label="성장과 원정 관리">
-              <GrowthTabs
+            <aside className="tactical-command-dock" aria-label="전술 정보와 원정 관리">
+              <TacticalIntelPanel
                 state={game.state}
-                onBuyUpgrade={game.buyUpgrade}
-                onBuySkill={game.buySkill}
-                onRecruitCompanion={game.recruitCompanion}
-                onTrainCompanion={game.trainCompanion}
+                activeTab={activeIntelTab}
+                onActiveTabChange={setActiveIntelTab}
+                onChooseStage={game.chooseStage}
+                onEquipQuickConsumable={game.equipQuickConsumable}
                 disabled={controlsDisabled}
+                {...(disabledReason ? { disabledReason } : {})}
               />
 
               <TacticalUtilityDock

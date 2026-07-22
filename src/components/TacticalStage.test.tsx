@@ -36,17 +36,15 @@ const success = {
   reason: 'committed',
 } as const
 
-describe('IRPG-415/416/417 TacticalStage', () => {
-  it('maps the current region, hero, boss, companion and ten-stage timeline', () => {
+describe('IRPG-415/416/417/424 TacticalStage', () => {
+  it('maps the current region, hero, boss and companion without duplicate navigation', () => {
     const state = createVisualFixtureState('visual.dashboard.tactical-canvas')
-    const onChooseStage = vi.fn()
     render(
       <TacticalStage
         state={state}
         batch={createVisualFixtureCombatEventBatch('visual.dashboard.tactical-canvas')}
         streamGeneration={1}
         notice="fixture 준비"
-        onChooseStage={onChooseStage}
         onChooseExpeditionEvent={vi.fn(() => success)}
       />,
     )
@@ -63,44 +61,10 @@ describe('IRPG-415/416/417 TacticalStage', () => {
     }
     expect(within(canvas).getByRole('progressbar', { name: '영웅 체력' })).toBeVisible()
     expect(within(canvas).getByRole('progressbar', { name: '적 체력' })).toBeVisible()
-    const timeline = within(canvas).getByRole('navigation', { name: '재의 변경 현재 10단계' })
-    expect(within(timeline).getAllByRole('button', { name: /^스테이지/ })).toHaveLength(10)
-    fireEvent.click(within(timeline).getByRole('button', { name: /스테이지 9/ }))
-    expect(onChooseStage).toHaveBeenCalledOnce()
-    expect(onChooseStage).toHaveBeenCalledWith(9)
-  })
-
-  it('opens the preserved three-region map over the battlefield and returns focus on Escape', () => {
-    const state = createVisualFixtureState('visual.dashboard.tactical-canvas')
-    render(
-      <TacticalStage
-        state={state}
-        batch={createVisualFixtureCombatEventBatch('visual.dashboard.tactical-canvas')}
-        streamGeneration={1}
-        notice="fixture 준비"
-        onChooseStage={vi.fn()}
-        onChooseExpeditionEvent={vi.fn(() => success)}
-      />,
-    )
-
-    const canvas = screen.getByTestId('tactical-canvas')
-    const mapTrigger = within(canvas).getByRole('button', {
+    expect(within(canvas).queryByRole('navigation')).not.toBeInTheDocument()
+    expect(within(canvas).queryByRole('button', {
       name: '3지역 원정 지도 열기',
-    })
-    fireEvent.click(mapTrigger)
-
-    const overlay = within(canvas).getByRole('complementary', {
-      name: '3지역 원정 지도',
-    })
-    expect(canvas.querySelector('.tactical-canvas__base')).toHaveAttribute('inert')
-    const disclosure = within(overlay).getByRole('button', { name: '원정 지도 열기' })
-    expect(disclosure).toHaveFocus()
-
-    fireEvent.keyDown(disclosure, { key: 'Escape' })
-    expect(within(canvas).queryByRole('complementary', {
-      name: '3지역 원정 지도',
     })).not.toBeInTheDocument()
-    expect(mapTrigger).toHaveFocus()
   })
 
   it('presents an active combat scene from its event-time snapshot while commands stay live', () => {
@@ -165,8 +129,7 @@ describe('IRPG-415/416/417 TacticalStage', () => {
       .toHaveAttribute('aria-valuenow', '77')
     expect(within(canvas).getByRole('progressbar', { name: '적 체력' }))
       .toHaveAttribute('aria-valuenow', '88')
-    expect(within(canvas).getByRole('navigation', { name: /현재 10단계/ }))
-      .toHaveTextContent('10')
+    expect(within(canvas).queryByRole('navigation')).not.toBeInTheDocument()
     expect(within(canvas).getByText('적 처치')).toBeVisible()
   })
 

@@ -920,6 +920,17 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
 .camp-supply-grid button { display: grid; gap: 4px; padding: 9px; text-align: left; }
 .camp-supply-grid strong { font-size: 9px; }
 .camp-supply-grid small { color: #958b83; font-size: 8px; }
+.camp-supply-grid--healing { grid-template-columns: 1fr; }
+.camp-supply-grid .camp-healing-device {
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.camp-healing-device__art { width: 58px; height: 58px; border-radius: 7px; }
+.camp-healing-device > span,
+.camp-healing-device > span > strong,
+.camp-healing-device > span > small { min-width: 0; display: block; }
+.camp-healing-device > span > small { margin-top: 5px; line-height: 1.45; }
 .camp-recipe-card button:disabled,
 .camp-supply-grid button:disabled { opacity: .46; }
 .camp-merchant { margin-top: 18px; }
@@ -1821,4 +1832,392 @@ footer { display: flex; justify-content: space-between; color: #9e948c; font-siz
     height: auto !important;
     overflow: hidden !important;
   }
+}
+
+/* IRPG-424 · read-only tactical intelligence replaces duplicated growth surfaces. */
+.tactical-intel-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(35,29,26,.96), rgba(20,17,15,.97));
+  box-shadow: 0 24px 70px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.025);
+}
+.tactical-intel-panel__header {
+  flex: 0 0 auto;
+  padding: 14px 15px 0;
+}
+.tactical-intel-panel__header h2 { margin-top: 3px; font-size: 17px; }
+.tactical-intel-panel__enemy {
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 11px 11px 0;
+  padding: 11px;
+  border: 1px solid rgba(217,93,84,.18);
+  border-radius: 9px;
+  background: linear-gradient(135deg, rgba(70,29,27,.18), rgba(10,9,8,.34));
+}
+.tactical-intel-panel__enemy-heading {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tactical-intel-panel__enemy-heading > div { min-width: 0; }
+.tactical-intel-panel__enemy-heading h3 {
+  min-width: 0;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.tactical-intel-panel__enemy-heading h3 .boss-tag { margin-left: 6px; }
+.tactical-intel-panel__enemy-heading > span {
+  flex: 0 0 auto;
+  color: #d98b70;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+.tactical-intel-panel__enemy-body {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 9px;
+}
+.tactical-intel-panel__enemy-art {
+  width: 64px;
+  height: 72px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 7px;
+}
+.tactical-intel-panel__enemy-vitals { min-width: 0; }
+.tactical-intel-panel__enemy-vitals .stat-bar__line { font-size: 8px; }
+.tactical-intel-panel__stat-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin: 8px 0 0;
+}
+.tactical-intel-panel__stat-grid > div,
+.tactical-intel-panel__inventory-counts > div {
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,.055);
+  border-radius: 6px;
+  background: rgba(255,255,255,.018);
+}
+.tactical-intel-panel__stat-grid dt,
+.tactical-intel-panel__inventory-counts dt {
+  color: #8f867f;
+  font-size: 7px;
+}
+.tactical-intel-panel__stat-grid dd,
+.tactical-intel-panel__inventory-counts dd {
+  min-width: 0;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  color: #ded2c6;
+  font-size: 9px;
+  font-weight: 700;
+}
+.tactical-intel-panel__drops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 0 0;
+}
+.tactical-intel-panel__drops > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border-radius: 999px;
+  background: rgba(104,201,180,.07);
+  font-size: 7px;
+}
+.tactical-intel-panel__drops dt { color: #8fa79f; }
+.tactical-intel-panel__drops dd { margin: 0; color: #9ddccd; font-weight: 800; }
+.tactical-intel-panel__milestone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 6px 7px;
+  border: 1px solid rgba(230,184,93,.16);
+  border-radius: 6px;
+  background: rgba(230,184,93,.055);
+  color: #baada0;
+  font-size: 8px;
+}
+.tactical-intel-panel__milestone strong { color: #e6c27b; }
+.tactical-intel-panel__milestone[data-status='claimed'] { opacity: .66; }
+.tactical-intel-panel__tablist {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(44px, 1fr));
+  gap: 4px;
+  margin: 9px 9px 0;
+  padding: 4px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 8px;
+  background: rgba(8,7,6,.34);
+}
+.tactical-intel-panel__tablist button {
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 3px;
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #938a82;
+  cursor: pointer;
+}
+.tactical-intel-panel__tablist button svg { font-size: 12px; }
+.tactical-intel-panel__tablist button span { font-size: 7px; font-weight: 700; }
+.tactical-intel-panel__tablist button:hover,
+.tactical-intel-panel__tablist button[aria-selected='true'] {
+  border-color: rgba(230,184,93,.25);
+  background: rgba(230,184,93,.085);
+  color: #f0cb80;
+}
+.tactical-intel-panel__tablist button[aria-selected='true'] {
+  box-shadow: inset 0 -2px rgba(230,184,93,.42);
+}
+.tactical-intel-panel__tablist button:focus-visible {
+  outline: 2px solid #f0cb80;
+  outline-offset: 2px;
+}
+.tactical-intel-panel__tabpanel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 11px;
+}
+.tactical-intel-panel__section-stack { min-width: 0; display: grid; gap: 11px; }
+.tactical-intel-panel__subheading { margin-bottom: 7px; }
+.tactical-intel-panel__subheading h3 { margin: 3px 0 0; font-size: 12px; }
+.tactical-intel-panel__disabled-reason {
+  margin: 0;
+  padding: 9px;
+  border: 1px solid rgba(238,125,61,.2);
+  border-radius: 6px;
+  background: rgba(104,43,25,.2);
+  color: #efb28e;
+  font-size: 9px;
+  line-height: 1.45;
+}
+.tactical-intel-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  gap: 10px;
+  padding: 9px;
+  border: 1px solid rgba(255,255,255,.065);
+  border-radius: 8px;
+  background: rgba(255,255,255,.018);
+}
+.tactical-intel-card__portrait,
+.tactical-intel-card__companion-art {
+  width: 78px;
+  height: 104px;
+  border-radius: 7px;
+}
+.tactical-intel-card__companion-art { height: 78px; }
+.tactical-intel-card__body { min-width: 0; }
+.tactical-intel-card__body h3 { margin: 3px 0 7px; overflow-wrap: anywhere; font-size: 12px; }
+.tactical-intel-card__body p:not(.eyebrow) { margin: 5px 0 0; color: #9f958c; font-size: 8px; line-height: 1.5; }
+.tactical-intel-card__body .stat-bar + .stat-bar { margin-top: 8px; }
+.tactical-intel-card__body .stat-bar__line { font-size: 8px; }
+.tactical-intel-card__empty {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  color: #817870;
+}
+.tactical-intel-card__empty svg { justify-self: center; font-size: 22px; }
+.tactical-intel-card__empty h3 { margin: 0; color: #b9aea4; font-size: 12px; }
+.tactical-intel-card__empty p { margin: 5px 0 0; font-size: 8px; line-height: 1.5; }
+.tactical-intel-panel__stat-grid--hero { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tactical-intel-panel__inline-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin: 8px 0 0;
+  font-size: 8px;
+}
+.tactical-intel-panel__inline-stats > div { display: inline-flex; gap: 5px; }
+.tactical-intel-panel__inline-stats dt { color: #8f867f; }
+.tactical-intel-panel__inline-stats dd { margin: 0; color: #cfc2b6; font-weight: 700; }
+.tactical-intel-panel__equipment-grid,
+.tactical-intel-panel__consumables,
+.tactical-intel-panel__skill-list,
+.tactical-intel-panel__bestiary { min-width: 0; display: grid; gap: 7px; }
+.tactical-intel-panel__equipment-grid article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(255,255,255,.055);
+  border-radius: 7px;
+  background: rgba(255,255,255,.016);
+}
+.tactical-intel-panel__item-art { width: 46px; height: 46px; border-radius: 6px; }
+.tactical-intel-panel__equipment-grid strong,
+.tactical-intel-panel__equipment-grid span { min-width: 0; display: block; overflow-wrap: anywhere; }
+.tactical-intel-panel__equipment-grid strong { color: #d8ccc0; font-size: 9px; }
+.tactical-intel-panel__equipment-grid span { margin-top: 3px; color: #8f867f; font-size: 7px; }
+.tactical-intel-panel__inventory-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin: 0;
+}
+.tactical-intel-panel__consumables article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 8px;
+  border: 1px solid rgba(104,201,180,.09);
+  border-radius: 7px;
+  background: rgba(104,201,180,.025);
+}
+.tactical-intel-panel__consumable-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(104,201,180,.14);
+  border-radius: 7px;
+  color: #8dcdbf;
+}
+.tactical-intel-panel__consumables h4 { margin: 0; font-size: 9px; }
+.tactical-intel-panel__consumables p { margin: 4px 0 0; color: #958b83; font-size: 7px; line-height: 1.45; }
+.tactical-intel-panel__consumables article > div > small { display: block; margin-top: 4px; color: #8fc7bb; font-size: 7px; }
+.tactical-intel-panel__consumables button {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid rgba(104,201,180,.2);
+  border-radius: 6px;
+  background: rgba(104,201,180,.07);
+  color: #a9ddd2;
+  font-size: 8px;
+  cursor: pointer;
+}
+.tactical-intel-panel__consumables button[aria-pressed='true'] {
+  border-color: rgba(230,184,93,.34);
+  background: rgba(230,184,93,.08);
+  color: #ebca88;
+}
+.tactical-intel-panel__consumables button:disabled { opacity: .45; cursor: not-allowed; }
+.tactical-intel-panel__skill-list article,
+.tactical-intel-panel__bestiary article {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 9px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 7px;
+  background: rgba(255,255,255,.017);
+}
+.tactical-intel-panel__skill-list article[data-unlocked='false'],
+.tactical-intel-panel__bestiary article[data-discovered='false'] { opacity: .58; }
+.tactical-intel-panel__skill-art,
+.tactical-intel-panel__bestiary-art,
+.tactical-intel-panel__bestiary-locked {
+  width: 58px;
+  height: 66px;
+  border-radius: 6px;
+}
+.tactical-intel-panel__bestiary-locked {
+  display: grid;
+  place-items: center;
+  border: 1px dashed rgba(255,255,255,.12);
+  background: rgba(0,0,0,.18);
+  color: #766e67;
+  font-size: 18px;
+  font-weight: 900;
+}
+.tactical-intel-panel__skill-list article > div,
+.tactical-intel-panel__bestiary article > div { min-width: 0; }
+.tactical-intel-panel__skill-list span,
+.tactical-intel-panel__bestiary span { color: #bd8462; font-size: 7px; font-weight: 800; letter-spacing: .06em; }
+.tactical-intel-panel__skill-list h3,
+.tactical-intel-panel__bestiary h3 { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 10px; }
+.tactical-intel-panel__skill-list p,
+.tactical-intel-panel__bestiary p { margin: 5px 0 0; color: #968c84; font-size: 7px; line-height: 1.45; }
+.tactical-intel-panel__skill-list small { display: block; margin-top: 6px; color: #9ddccd; font-size: 7px; }
+
+.tactical-intel-panel .stage-map-disclosure {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.tactical-intel-panel .stage-map-disclosure::after { display: none; }
+.tactical-intel-panel .stage-map-disclosure__header {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 9px;
+}
+.tactical-intel-panel .stage-map-disclosure__header h2 { font-size: 13px; }
+.tactical-intel-panel .stage-map-disclosure__header p:last-child { font-size: 8px; }
+.tactical-intel-panel .stage-map-disclosure__toggle { width: 100%; min-height: 44px; }
+.tactical-intel-panel .stage-map-compact { margin-top: 11px; }
+.tactical-intel-panel .stage-map-compact__timeline { max-width: 100%; }
+.tactical-intel-panel .stage-map-panel { margin-top: 12px; }
+.tactical-intel-panel .stage-map-tabs button { min-height: 44px; padding-inline: 3px; }
+.tactical-intel-panel .stage-map-scene__copy { left: 10px; right: 10px; bottom: 9px; }
+.tactical-intel-panel .stage-map-scene__copy h3 { font-size: 15px; }
+.tactical-intel-panel .stage-map-scene__copy p { display: none; }
+.tactical-intel-panel .stage-map-node-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.tactical-intel-panel .stage-map-node { min-height: 44px; }
+
+@media (min-width: 1024px) {
+  .tactical-intel-panel { height: 100%; }
+  .tactical-intel-panel__tabpanel {
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+}
+
+@media (max-width: 900px) {
+  .tactical-intel-panel { overflow: visible; }
+  .tactical-intel-panel__tabpanel { flex: none; overflow: visible; }
+}
+
+@media (max-width: 360px) {
+  .tactical-intel-panel__enemy { margin-inline: 8px; }
+  .tactical-intel-panel__tablist { margin-inline: 8px; gap: 2px; }
+  .tactical-intel-panel__tablist button { padding-inline: 0; }
+  .tactical-intel-card { grid-template-columns: 66px minmax(0, 1fr); }
+  .tactical-intel-card__portrait,
+  .tactical-intel-card__companion-art { width: 66px; }
+  .tactical-intel-panel__inventory-counts { grid-template-columns: 1fr; }
 }
