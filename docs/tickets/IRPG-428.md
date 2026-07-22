@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Verify
+- Status: Test
 - Skill tags: FE-GAME, UX-FEEDBACK, A11Y, QA-E2E, REL-CI, ART-2D
 - Owner / Reviewer: Codex / independent React, accessibility and visual review
 
@@ -53,11 +53,12 @@
 - 독립 리뷰에서 보상 모달이 시각 캡처에서 누락되던 P1을 찾아 모달을 열린 채 `.bond-reward-backdrop` 전체와 실제 보상 아트 로드를 캡처하도록 수정했다.
 - 같은 리뷰에서 18세 자기 확인, 계약 전 접근 해제, 공유 tabpanel, 보이는 fallback focus와 안정된 modal callback을 보강했고 재검토 결과 남은 코드 P0/P1/P2는 없다.
 - 1440×900·360×800 실제 브라우저 감사에서 overflow 0, 44px 미만 시설 조작 0, 이미지 잘림·겹침 없음과 모바일 1열 재배치를 확인했다.
-- `visual.camp.bond-synthesis-reward` 신규 4개 후보를 로컬에서 생성해 원본 검토로 승인했고 모바일·데스크톱 × 기본·모션 감소 3회 반복 12/12를 통과했다. Ubuntu canonical artifact와 전체 76/76·228/228 전까지 Verify를 유지한다.
+- `visual.camp.bond-synthesis-reward` 신규 4개 variant를 포함한 Ubuntu 24.04 전체 canonical `76/76`과 3회 반복 `228/228`이 통과했다. tracked 기준선 비교와 artifact 검토까지 완료해 실행 검증 단계인 `Test`로 전환한다.
 
 ## Test evidence
 
 - 2026-07-23 로컬 게이트에서 lint·typecheck, Vitest 51파일/482개, 일반 Playwright 65/65, production 자산 Playwright 6/6, 자산 계약 40/40, manifest 31 ID와 build가 통과했다.
 - `e2e/bond-facilities.spec.ts` 3/3이 360px·키보드·A/B reload·exact-once·계약 전 접근 해제·reduced-motion을 통과했고 production cold-load는 동의 전 요청 0→의상실 공개 뒤 샘플 1개만 요청했다.
-- fixture registry는 19개 × 4 variant = canonical 76장, 3회 반복 228장 계약을 고정한다. Windows `npm run test:e2e:visual`은 계약대로 Ubuntu 비교를 skip했다.
-- 잔여 게이트: 승인한 신규 후보 4개를 커밋한 뒤 Ubuntu 24.04 산출물과 다시 대조하고 전체 76/76과 반복 228/228 CI 성공을 확인한다.
+- fixture registry는 19개 × 4 variant = canonical 76장, 3회 반복 228장 계약을 고정한다. [Ubuntu visual `29944190250`](https://github.com/happypod/games01/actions/runs/29944190250)은 `76/76`·`228/228`을 통과했고 artifact `8539741608`의 digest는 `sha256:40cdaa05b99334a4965d1622dd6b353c212c30ac5d9d6648064b6bd063e2bd4f`다.
+- canonical 생성 실행 `29942940050`의 artifact `8539290545`를 내려받아 SHA-256을 검증하고 76개 PNG를 수동 검토했다. 기존 저장소 대비 동일 16개·의도 변경 60개·추가/누락 0개였으며, 채택 commit `059d42a`와 76/76 byte-identical이다.
+- [PR quality `29944192954`](https://github.com/happypod/games01/actions/runs/29944192954)의 tracked Ubuntu visual `76/76`과 전체 품질 게이트가 통과했다. 자산 validator `40/40`은 CHAPTER II·III 자산·fixture 0개 계약을 유지한다.

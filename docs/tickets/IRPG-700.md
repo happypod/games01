@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Verify
+- Status: Test
 - Skill tags: PROD-LOOP, ENG-STATE, GD-BAL, ENG-SAVE
 - Owner / Reviewer: Project Owner / Lead Builder
 
@@ -56,10 +56,12 @@
 
 - 2026-07-23 독립 제품·저장·엔진 리뷰에서 발견한 migration 슬롯 유실, prototype 명령 경계와 계약 불일치를 보정했고 재검토 결과 P0/P1/P2 잔여가 없어 `Verify`로 승인했다.
 - 로컬 게이트: `npm run verify:code`에서 Vitest 51파일·482/482, asset validator 40/40, manifest 31 ID, lint·typecheck·production build를 통과했다. Chromium Playwright는 일반 65/65와 production asset 6/6을 통과했다.
-- 누락됐던 `visual.camp.bond-synthesis-reward` 4개 후보를 생성해 원본 검토로 승인했고 신규 4개 × 3회 비교 12/12를 통과했다. 기존 72개는 수정하지 않았다.
-- Windows 강제 전체 비교는 비canonical raster 차이를 재현하므로 승인 증거로 쓰지 않는다. Ubuntu tracked 76/76·3회 반복 228/228와 artifact 검토가 끝나기 전에는 `Test`/`Done`으로 전환하지 않는다.
+- 누락됐던 `visual.camp.bond-synthesis-reward` 4개 로컬 후보를 생성해 원본 검토로 승인하고 신규 4개 × 3회 비교 12/12를 통과시켰다. 이후 Ubuntu canonical artifact를 기준으로 전체 76개를 재대조해 동일 16개·의도 변경 60개·추가/누락 0개를 확정했다.
+- Windows 강제 전체 비교는 비canonical raster 차이를 재현하므로 승인 증거로 쓰지 않는다. Ubuntu tracked `76/76`, canonical 생성 `76/76`, 3회 반복 `228/228`과 artifact 수동 검토를 완료해 `Test`로 전환한다. IRPG-424·428의 잔여 수동 감사와 최종 병합 검토 전에는 `Done`으로 전환하지 않는다.
 
 ## Test evidence
 
 - `src/game/persistence.test.ts`
 - `src/game/engine.test.ts`
+- [PR quality `29944192954`](https://github.com/happypod/games01/actions/runs/29944192954): Vitest `482/482`, 일반 Playwright `65/65`, production asset `6/6`, Ubuntu tracked visual `76/76` 통과
+- [Ubuntu visual `29944190250`](https://github.com/happypod/games01/actions/runs/29944190250): canonical `76/76`, 3회 반복 `228/228`, artifact `8539741608`

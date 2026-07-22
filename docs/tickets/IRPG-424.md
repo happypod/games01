@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Verify
+- Status: Test
 - Skill tags: FE-GAME, UX-FEEDBACK, A11Y, QA-E2E, REL-CI
 - Owner / Reviewer: Codex / independent React, accessibility and visual review
 
@@ -62,10 +62,11 @@
 - 기존 화면 캡처 감사: 우측 성장 센터가 하단 장비·스킬 슬롯과 명령을 중복하고 좁은 폭에서 핵심 전장보다 높은 시각 밀도를 차지함을 확인했다.
 - 독립 React·접근성·반응형 리뷰에서 P0/P1은 없었고, 모바일에서 빠른 슬롯의 `인벤토리 열기`가 가방 탭을 선택해도 viewport가 따라오지 않던 P2를 focus·scroll 연동과 360px 회귀로 수정했다.
 - 데스크톱·태블릿·360px·200%·reduced-motion 브라우저 비교에서 전장→8슬롯→전술 정보 레일 순서, 가로 overflow 없음, roving tab과 44px 조작을 확인했다.
-- Windows 로컬 canonical 명령은 계약대로 skip됐다. 변경된 전투 fixture 18개 × 4 variant의 Ubuntu `72/72`, 3회 반복 `216/216`, artifact 수동 diff 검토가 남아 있어 Done이 아닌 Verify로 유지한다.
+- Ubuntu 24.04 `visual-baseline #63`에서 IRPG-424 전투 fixture를 포함한 전체 19 fixture × 4 variant `76/76` 생성과 3회 반복 `228/228`이 통과했다. tracked 기준선 비교도 `quality-gate #146`에서 `76/76` 통과해 실행 검증 단계인 `Test`로 전환한다.
 
 ## Test evidence
 
 - `TacticalActionBar.test.tsx`, `TacticalIntelPanel.test.tsx`, `GameScreen.test.tsx`와 dashboard·accessibility·cards·layout·map·save Playwright에 8슬롯, 5탭, 가방 연결, 키보드·반응형 수용 기준을 고정했다.
 - 2026-07-22 최종 `npm run verify`에서 일반 Playwright `62/62`, production asset Playwright `5/5`, Vitest `49파일/432개`, manifest validator `33/33`, production manifest `30 ID`, lint·typecheck·build가 통과했다.
-- `npm run test:e2e:visual`은 `[IRPG-506] Canonical screenshot comparison runs on Ubuntu GitHub Actions; local comparison skipped.`로 정상 종료했다. Ubuntu canonical artifact와 실제 보조공학 감사는 Verify 잔여 증거다.
+- [Ubuntu visual `29944190250`](https://github.com/happypod/games01/actions/runs/29944190250)은 `76/76` 생성·`228/228` 반복에 성공했다. artifact `8539741608`은 24,943,869 bytes이고 digest는 `sha256:40cdaa05b99334a4965d1622dd6b353c212c30ac5d9d6648064b6bd063e2bd4f`다.
+- [PR quality `29944192954`](https://github.com/happypod/games01/actions/runs/29944192954)는 Vitest `51파일/482`, asset validator `40/40`, manifest `31 ID`, build, 일반 Playwright `65/65`, production asset `6/6`, tracked Ubuntu visual `76/76`을 통과했다. 실제 보조공학 조합의 외부 전문 감사는 `Done` 전 잔여 증거다.

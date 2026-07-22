@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Verify
+- Status: Test
 - Skill tags: ENG-SIM, ENG-STATE, GD-BAL
 - Owner / Reviewer: Lead Builder / Project Owner
 
@@ -59,7 +59,7 @@
 
 - `npx vitest run src/game/engine.test.ts --maxWorkers=2`: 38/38 통과.
 - 저장·엔진·집중 물약 표적 묶음은 4파일·127/127, 전체 로컬 코드 게이트는 51파일·482/482를 통과했다. 일반 Playwright 65/65와 production asset 6/6도 통과했다.
-- 독립 리뷰에서 발견한 `moveItem` prototype ID 손상, 잘못된 이동 경로, `unequipItem` runtime slot 우회를 보정했다. 재검토 결과 P0/P1/P2 잔여가 없어 `Verify`로 승인했으며 원격 Ubuntu quality gate 전에는 `Test`/`Done`으로 전환하지 않는다.
+- 독립 리뷰에서 발견한 `moveItem` prototype ID 손상, 잘못된 이동 경로, `unequipItem` runtime slot 우회를 보정했다. 재검토 결과 P0/P1/P2 잔여가 없어 `Verify`로 승인했고 [PR quality `29944192954`](https://github.com/happypod/games01/actions/runs/29944192954)가 Ubuntu 전체 게이트를 통과해 `Test`로 전환한다. 간접 선행인 IRPG-424의 외부 보조공학 감사와 최종 병합 검토 전에는 `Done`으로 전환하지 않는다.
 
 ## Test evidence
 
