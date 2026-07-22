@@ -205,6 +205,8 @@ IRPG-422 게이트는 유형 1 대시보드와 레이아웃 선택 상태를 제
 
 일반 Playwright는 360×800·1024×768·1440×900과 effective 360px/200%에서 페이지 가로 overflow 없음, 최소 44px 조작 대상, DOM/키보드 읽기 순서, 전장·액션바·도크 배치, 캠프 왕복, 전투 로그·승패 결과·환생·내보내기·가져오기 실제 동작을 검증한다. reduced-motion에서는 상시 이동·flash를 제거한 정적 대체를 요구한다. production 자산 검사는 최초 전투에서 영웅·현재 적과 액션바의 6개 실제 자산만 eager이고, 소모품 이미지 요청과 비활성 지역·이벤트·damage/result 자산 요청은 disclosure 전 0개인지 확인한다. visual gate는 기존 18개 fixture·72개 canonical 이름과 variant 수를 유지하되 전투 fixture를 단일 전술 surface로 의도적으로 재승인하고, 캠프 fixture 및 저장 canonical의 비의도 변경이 없음을 hash·artifact metadata로 분리해 검토한다. `npm run verify` 뒤 push/PR quality와 Ubuntu visual 결과를 IRPG-422 `Test evidence`에 기록하기 전에는 Done으로 전환하지 않는다.
 
+IRPG-422 병합 리뷰 보정 head `726f3ce2a25a5fa12646ae7ca247e75678fcb533`에서 모달 portal 실제 hit-test, reset/import tick 기준 재설정, 읽기 전용 CAMP export, 8슬롯 roving focus와 CAMP 전환 focus return을 추가로 고정했다. 로컬 게이트는 Vitest `404/404`, 일반 Playwright `61/61`, production asset `5/5`를 통과했고, [push quality `29887435986`](https://github.com/happypod/games01/actions/runs/29887435986), [PR quality `29887437893`](https://github.com/happypod/games01/actions/runs/29887437893), [Ubuntu visual `29887435978`](https://github.com/happypod/games01/actions/runs/29887435978)이 성공했다. visual artifact `8517169076`의 canonical `72/72`와 3회 반복 `216/216`은 기존 baseline을 보존한다.
+
 ## 8. 현재 브라우저 증거
 
 - [데스크톱 전체 화면](../artifacts/desktop.png): 주요 패널, 보스 전투, 성장 버튼 렌더링 확인

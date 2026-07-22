@@ -7,7 +7,7 @@
 ## Priority / Status / Skill tags
 
 - Priority: P1
-- Status: Test
+- Status: Done
 - Skill tags: FE-GAME, UX-FEEDBACK, A11Y, QA-E2E, REL-CI
 - Owner / Reviewer: Codex / independent UI, accessibility and regression review
 
@@ -65,6 +65,7 @@
 - 접근성 리뷰: 8슬롯과 4아이콘에 accessible name과 44px target을 제공하고, tooltip과 실행 popover를 분리하며 한 popover만 열리게 한다. 상세 진입 시 heading focus, Escape·명시적 닫기 뒤 trigger focus 복귀, 외부 클릭 대상 focus 보존, 중첩 modal Escape 소유권, 읽기 순서와 reduced-motion 정적 대체를 확인한다.
 - 호환성 리뷰: 과거 `emberwatch.ui.layout.v1` 값은 무시하지만 삭제를 위해 저장 게임을 다시 쓰지 않으며, A/B slot·portable backup의 schema·revision·canonical hash가 그대로 유지되는지 검증한다.
 - 회귀 리뷰: IRPG-414~417의 유형 1·2 비교는 과거 완료 증거로 보존하고, IRPG-422부터 단일 전술 화면 baseline이 해당 화면 수용 기준을 대체한다.
+- 병합 리뷰 보정 (2026-07-22): 저장 복원·승패 결과 modal을 `document.body` portal로 격리하고 실제 좌표 hit-test로 배경 명령 차단을 확인했다. 초기화·복원 성공 시 A/B 저장에 사용한 시각과 foreground tick 기준을 원자적으로 맞췄으며, 읽기 전용 CAMP 저장도 쓰기 없이 portable export할 수 있게 했다. 8슬롯 toolbar는 단일 roving tab stop과 Arrow/Home/End를 지원하고 소모품 슬롯에서 CAMP로 이동한 포커스는 영속적인 CAMP mode radio로 복귀한다.
 
 ## Test evidence
 
@@ -75,4 +76,5 @@
 - Review 완료 (2026-07-20): 단일 `currentMode` 분기, 8슬롯 명령 재사용, 4아이콘 disclosure, 저장·RNG·보상 불변 범위를 독립 React/E2E 감사로 확인했다. 감사에서 발견한 슬롯 heading focus, 명시적 닫기 focus return, 외부 클릭 focus 보존, 중첩 modal Escape 소유권과 백업 availability reset을 구현·회귀 테스트로 보강했다.
 - Verify 완료 (2026-07-20, local): `IRPG_FORCE_VISUAL_COMPARE=1 npm run verify` 성공. ESLint·TypeScript·production build 통과, Vitest `46 files / 399 tests`, manifest `33 tests`, manifest validator `30 IDs`가 모두 통과했다. build 결과는 CSS `68.86 kB`와 App JS `266.99 kB`였다.
 - Test 완료 (2026-07-20, local): 일반 Playwright `60/60`, production asset Playwright `5/5`, canonical visual comparison `18 fixtures × 4 variants = 72/72`가 통과했다. 1440px·360px one-view, 8슬롯 자산, 전투 로그 popover를 육안 검수해 가로 overflow·잘림·겹침이 없음을 확인했다.
-- GitHub 증거 대기: branch push 뒤 PR quality와 Ubuntu visual run/artifact를 확인하고 링크를 기록한 다음에만 Done으로 전환한다.
+- 병합 리뷰 재검증 (2026-07-22, `726f3ce2a25a5fa12646ae7ca247e75678fcb533`): 최종 `npm run verify`에서 ESLint·TypeScript·production build, Vitest `46 files / 404 tests`, manifest `33 tests / 30 IDs`, 일반 Playwright `61/61`, production asset Playwright `5/5`가 통과했다. 모달 hit-test, 읽기 전용 CAMP export, roving focus·CAMP focus, 60초 suspended reset/restore를 독립 UI·저장·테스트 리뷰로 재검토했고 추가 결함과 3회 반복 flake가 없었다.
+- GitHub 완료 증거 (2026-07-22): [push quality `29887435986`](https://github.com/happypod/games01/actions/runs/29887435986), [PR quality `29887437893`](https://github.com/happypod/games01/actions/runs/29887437893), [Ubuntu visual `29887435978`](https://github.com/happypod/games01/actions/runs/29887435978)이 모두 성공했다. Playwright artifacts는 push `8517100256` (`sha256:0db550198757dd62415c1ff070e1b18036235f8f88b9b5c14bb3adb13d09ad83`), PR `8517067058` (`sha256:67f94912bbf3efbf436bfa8c62e8dd186cc17919ace112f9fefba9fe648839d1`)이고, visual artifact `8517169076` (`sha256:74c25e7fc8a1d69587660a3ecf45f3b8fbab471d511e68e7f6d7a6d029d3c3f1`)은 canonical `72/72` 생성과 3회 반복 `216/216`을 보존한다.
