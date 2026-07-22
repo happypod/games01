@@ -54,6 +54,14 @@ async function waitForVisualResources(page: Page, target: Locator) {
     return document.fonts.check('16px "Emberwatch Sans"', '한글 Emberwatch 123')
   })
 
+  // GameAsset renders its fixed-size CSS fallback before the async resolver
+  // creates an <img>. Waiting for only the images already in the DOM can
+  // therefore capture a transient fallback even though every image is valid.
+  await expect.poll(
+    async () => target.locator('.game-asset[data-state="loading"]').count(),
+    { message: 'wait for every visual GameAsset to finish resolving and decoding' },
+  ).toBe(0)
+
   await expect.poll(async () => target.locator('img').evaluateAll((images) =>
     images.every((element) => {
       const image = element as HTMLImageElement
