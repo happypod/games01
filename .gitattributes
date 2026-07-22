@@ -1,0 +1,2 @@
+# The asset manifest records canonical LF byte counts for text fallbacks.
+src/assets/game/files/fallback/*.svg text eol=lf

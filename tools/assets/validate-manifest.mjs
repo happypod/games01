@@ -642,7 +642,13 @@ async function validateAssetFile(entry, context) {
     addError(errors, ERROR_CODES.FORMAT_MISMATCH, 'declared format, extension, and use contract must agree', id, 'format')
   }
 
-  if (!isPositiveInteger(entry.bytes) || entry.bytes !== targetStat.size) {
+  let actualBytes = targetStat.size
+  if (entry.format === 'svg') {
+    const text = buffer.toString('utf8').replace(/\r\n/g, '\n')
+    actualBytes = Buffer.byteLength(text, 'utf8')
+  }
+
+  if (!isPositiveInteger(entry.bytes) || entry.bytes !== actualBytes) {
     addError(errors, ERROR_CODES.BYTES_MISMATCH, 'declared bytes do not match the file', id, 'bytes')
   }
   if (entry.sha256 !== undefined) {

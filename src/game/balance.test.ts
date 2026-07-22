@@ -771,16 +771,16 @@ describe('first prestige balance playtest', () => {
     const first = PLAYTEST_PROFILES.map((profile) => runPlaytest(profile))
     expect(PLAYTEST_PROFILES.map((profile) => runPlaytest(profile))).toEqual(first)
     expect(first.map(({ finalState }) => hashState(finalState))).toEqual([
-      '74a98082',
-      'd5aba065',
-      '2072d33c',
-      'fa0168bd',
-      '41e6426f',
-      'a687197c',
-      '2dd5e0b8',
-      '914fbe4e',
-      '798b0ad1',
-      'b22a0973',
+      '4e3dc5ab',
+      '953572ec',
+      '36cc2bcb',
+      'b85b75ee',
+      'ee5399d4',
+      '812bcb09',
+      '525bc4ae',
+      '813b7e49',
+      'e74f5ffd',
+      'd08b652a',
     ])
   })
 
@@ -806,16 +806,16 @@ describe('first prestige balance playtest', () => {
       { name: 'C20-M', recruitSeconds: 96, prestigeGateSeconds: 1644, trainingPurchases: 4, companionAttacks: 528, companionDamage: 14843, finalRank: 5, milestoneRewardCount: 2, milestoneConfiguredGold: 45, milestoneAppliedGold: 45 },
     ])
     expect(results.map(({ finalState }) => hashState(finalState))).toEqual([
-      '72ba8093',
-      'ed4c6b63',
-      'b0549c48',
-      '9583cd8d',
-      '77f4f3d7',
-      'f6e83881',
-      'b7e5ce81',
-      '0c8ced6a',
-      '6189c035',
-      'aa56da81',
+      'fc2875b0',
+      '740b7f85',
+      '6b578c93',
+      'afe7bc18',
+      'bfecc1ee',
+      'aea82296',
+      'd5c47954',
+      'b3f03010',
+      'c5899ce5',
+      '886b62d5',
     ])
     expect(medianSeconds).toBeGreaterThanOrEqual(30 * 60)
     expect(medianSeconds).toBeLessThanOrEqual(45 * 60)
@@ -963,28 +963,28 @@ describe('post-prestige stage 30 reattainment', () => {
 
   it('replays every paired final state and RNG sequence exactly', () => {
     expect(soloResults.map(({ secondFinalHash }) => secondFinalHash)).toEqual([
-      'b3fa32d5',
-      '0f070d22',
-      '8baa3f2b',
-      'bf328a68',
-      'dd75bfe1',
-      'ff01ea9f',
-      '1d01853a',
-      '101a719d',
-      'f64c165d',
-      '226ebffa',
+      '6575e2f5',
+      'a64d28c5',
+      'bc293aad',
+      'e2881669',
+      '3a3d173a',
+      '9254963b',
+      '94535285',
+      'f1a9d910',
+      'c3396c67',
+      'fa96e786',
     ])
     expect(companionResults.map(({ secondFinalHash }) => secondFinalHash)).toEqual([
-      '319fb3eb',
-      '5be20eee',
-      '4a0f7db9',
-      '03ba293c',
-      '4d50e2c0',
-      '8713409b',
-      '92f2d029',
-      '2b489bcb',
-      '9363cc0b',
-      '450e8b0b',
+      '2d9e383e',
+      '85150dc3',
+      '01958ac4',
+      'd74e50f2',
+      'f3929c09',
+      '9b1d9f70',
+      'f7f67ce6',
+      '92f2d84c',
+      'fdcf3e16',
+      'f06283b6',
     ])
     expect(PLAYTEST_PROFILES.map((profile) =>
       runPairedReattainment(profile, 'solo'))).toEqual(soloResults)
@@ -1158,7 +1158,7 @@ describe('IRPG-107 expedition choice balance matrix', () => {
   it('replays all 80 paired sessions with one canonical aggregate hash', () => {
     const canonicalSummary = summarizeExpeditionChoiceMatrix(matrix)
     const canonicalHash = hashValue(canonicalSummary)
-    expect(canonicalHash).toBe('e2636ba8')
+    expect(canonicalHash).toBe('128edf4a')
 
     const replaySummary = summarizeExpeditionChoiceMatrix(runExpeditionChoiceMatrix())
     expect(hashValue(replaySummary)).toBe(canonicalHash)

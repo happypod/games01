@@ -1,5 +1,49 @@
-export const SAVE_VERSION = 8 as const
+export const SAVE_VERSION = 9 as const
+export const INVENTORY_DEFINITION_VERSION = 1 as const
 export const RNG_ALGORITHM = 'xorshift32-v1' as const
+
+export const EQUIPMENT_SLOTS = ['weapon', 'armor', 'helmet', 'accessory'] as const
+export type EquipmentSlot = (typeof EQUIPMENT_SLOTS)[number]
+
+export const ITEM_RARITIES = ['COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY'] as const
+export type ItemRarity = (typeof ITEM_RARITIES)[number]
+
+export const ITEM_TYPES = ['EQUIPMENT', 'MATERIAL', 'CONSUMABLE'] as const
+export type ItemType = (typeof ITEM_TYPES)[number]
+
+export interface ItemStats {
+  readonly atk?: number
+  readonly hp?: number
+  readonly def?: number
+  readonly critChanceBasisPoints?: number
+}
+
+export interface ItemDefinition {
+  readonly id: string
+  readonly name: string
+  readonly rarity: ItemRarity
+  readonly type: ItemType
+  readonly slot?: EquipmentSlot
+  readonly stats?: Readonly<ItemStats>
+  readonly assetId: string
+  readonly description: string
+}
+
+export type ItemInventory = Record<string, number>
+
+export interface InventoryState {
+  definitionVersion: typeof INVENTORY_DEFINITION_VERSION
+  lootBag: ItemInventory
+  heroInventory: ItemInventory
+  campStorage: ItemInventory
+}
+
+export type PlayerEquippedState = Record<EquipmentSlot, string | null>
+export type SkillSlotState = [
+  SkillId | null,
+  SkillId | null,
+  SkillId | null,
+]
 
 export const ACTIVE_CONTENT_CHAPTER = 'chapter1' as const
 
@@ -187,6 +231,8 @@ export interface PlayerState {
   upgrades: UpgradeLevels
   skills: SkillRanks
   companion: CompanionState
+  equipped: PlayerEquippedState
+  skillSlots: SkillSlotState
 }
 
 export interface BattleState {
@@ -211,6 +257,7 @@ export interface GameState {
   lastSavedAt: number
   currentMode: GameMode
   camp: CampState
+  inventory: InventoryState
   claimedBossMilestoneMask: number
   expeditionEvents: ExpeditionEventState
   rng: RngState
@@ -225,6 +272,7 @@ export interface HeroStats {
   defense: number
   goldMultiplier: number
   powerStrikeMultiplier: number
+  critChance: number
 }
 
 export interface EnemyDefinition {

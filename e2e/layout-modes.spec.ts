@@ -76,8 +76,8 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
       await expect(root).toHaveAttribute(
         'data-canonical-state-hash',
         damageFixture.id.endsWith('damaged')
-          ? 'fnv1a32-v1:f4b67600'
-          : 'fnv1a32-v1:f30730c8',
+          ? 'fnv1a32-v1:74dc3e27'
+          : 'fnv1a32-v1:bbdc8c2f',
       )
     })
   }

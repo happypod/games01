@@ -53,11 +53,11 @@
 - 독립 리뷰에서 보상 모달이 시각 캡처에서 누락되던 P1을 찾아 모달을 열린 채 `.bond-reward-backdrop` 전체와 실제 보상 아트 로드를 캡처하도록 수정했다.
 - 같은 리뷰에서 18세 자기 확인, 계약 전 접근 해제, 공유 tabpanel, 보이는 fallback focus와 안정된 modal callback을 보강했고 재검토 결과 남은 코드 P0/P1/P2는 없다.
 - 1440×900·360×800 실제 브라우저 감사에서 overflow 0, 44px 미만 시설 조작 0, 이미지 잘림·겹침 없음과 모바일 1열 재배치를 확인했다.
-- Ubuntu canonical 신규 4장은 아직 생성되지 않았으므로 CI artifact 검토 전까지 Verify를 유지한다.
+- `visual.camp.bond-synthesis-reward` 신규 4개 후보를 로컬에서 생성해 원본 검토로 승인했고 모바일·데스크톱 × 기본·모션 감소 3회 반복 12/12를 통과했다. Ubuntu canonical artifact와 전체 76/76·228/228 전까지 Verify를 유지한다.
 
 ## Test evidence
 
-- 최종 `npm run verify`에서 lint·typecheck, Vitest 51파일/461개, 일반 Playwright 65/65, production 자산 Playwright 6/6, 자산 계약 38/38, manifest 31 ID와 build가 통과했다.
+- 2026-07-23 로컬 게이트에서 lint·typecheck, Vitest 51파일/482개, 일반 Playwright 65/65, production 자산 Playwright 6/6, 자산 계약 40/40, manifest 31 ID와 build가 통과했다.
 - `e2e/bond-facilities.spec.ts` 3/3이 360px·키보드·A/B reload·exact-once·계약 전 접근 해제·reduced-motion을 통과했고 production cold-load는 동의 전 요청 0→의상실 공개 뒤 샘플 1개만 요청했다.
 - fixture registry는 19개 × 4 variant = canonical 76장, 3회 반복 228장 계약을 고정한다. Windows `npm run test:e2e:visual`은 계약대로 Ubuntu 비교를 skip했다.
-- 잔여 게이트: Ubuntu 24.04에서 `visual.camp.bond-synthesis-reward` 신규 canonical 4장을 생성·수동 검토·커밋한 뒤 전체 76/76과 반복 228/228 CI 성공을 확인한다.
+- 잔여 게이트: 승인한 신규 후보 4개를 커밋한 뒤 Ubuntu 24.04 산출물과 다시 대조하고 전체 76/76과 반복 228/228 CI 성공을 확인한다.

@@ -20,7 +20,7 @@ import { runDebugSimulation, DEBUG_SPEEDS } from './debugSimulator'
 import { advanceGame, createInitialState } from './engine'
 import debugSoakFixture from './fixtures/debug-soak-v1.json'
 import { addSafeIntegers, getHeroStats } from './formulas'
-import { isGameState } from './persistence'
+import { decodeGameState, isGameState } from './persistence'
 import type { AdvanceReport, GameState } from './types'
 
 const SOAK_SEED = 0x1a2b3c4d
@@ -170,6 +170,7 @@ function createUpperBoundaryState(): GameState {
     },
     rng: { ...state.rng, draws: Number.MAX_SAFE_INTEGER },
     player: {
+      ...state.player,
       level: 999,
       xp: Number.MAX_SAFE_INTEGER,
       gold: Number.MAX_SAFE_INTEGER,
@@ -378,6 +379,13 @@ describe('debug simulator soak', () => {
       snapshotIntervalMs: MAX_OFFLINE_MS,
       snapshots: result.snapshots,
     }
-    expect(fixture).toEqual(debugSoakFixture)
+    const expectedFixture = {
+      ...debugSoakFixture,
+      snapshots: debugSoakFixture.snapshots.map((snapshot) => ({
+        ...snapshot,
+        state: decodeGameState(snapshot.state)!,
+      })),
+    }
+    expect(fixture).toEqual(expectedFixture)
   })
 })

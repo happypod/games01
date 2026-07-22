@@ -7,7 +7,7 @@
     {
       "elapsedMs": 28800000,
       "state": {
-        "schemaVersion": 8,
+        "schemaVersion": 9,
         "lastSavedAt": 0,
         "currentMode": "BATTLE",
         "camp": {
@@ -56,6 +56,18 @@
             "unlockedCostumeMask": 1,
             "claimedSynthesisRewardMask": 0
           }
+        },
+        "inventory": {
+          "definitionVersion": 1,
+          "lootBag": {
+            "helmet.novice-helm": 55,
+            "accessory.novice-ring": 46,
+            "weapon.novice-sword": 42,
+            "armor.novice-vest": 46,
+            "weapon.ember-blade": 1
+          },
+          "heroInventory": {},
+          "campStorage": {}
         },
         "claimedBossMilestoneMask": 1,
         "expeditionEvents": {
@@ -140,7 +152,18 @@
           "companion": {
             "id": null,
             "rank": 0
-          }
+          },
+          "equipped": {
+            "weapon": null,
+            "armor": null,
+            "helmet": null,
+            "accessory": null
+          },
+          "skillSlots": [
+            "powerStrike",
+            null,
+            null
+          ]
         },
         "battle": {
           "stage": 20,
@@ -175,7 +198,7 @@
     {
       "elapsedMs": 57600000,
       "state": {
-        "schemaVersion": 8,
+        "schemaVersion": 9,
         "lastSavedAt": 0,
         "currentMode": "BATTLE",
         "camp": {
@@ -224,6 +247,19 @@
             "unlockedCostumeMask": 1,
             "claimedSynthesisRewardMask": 0
           }
+        },
+        "inventory": {
+          "definitionVersion": 1,
+          "lootBag": {
+            "helmet.novice-helm": 96,
+            "accessory.novice-ring": 83,
+            "weapon.novice-sword": 81,
+            "armor.novice-vest": 80,
+            "weapon.ember-blade": 1,
+            "armor.guard-armor": 1
+          },
+          "heroInventory": {},
+          "campStorage": {}
         },
         "claimedBossMilestoneMask": 3,
         "expeditionEvents": {
@@ -308,7 +344,18 @@
           "companion": {
             "id": null,
             "rank": 0
-          }
+          },
+          "equipped": {
+            "weapon": null,
+            "armor": null,
+            "helmet": null,
+            "accessory": null
+          },
+          "skillSlots": [
+            "powerStrike",
+            null,
+            null
+          ]
         },
         "battle": {
           "stage": 28,
@@ -343,7 +390,7 @@
     {
       "elapsedMs": 86400000,
       "state": {
-        "schemaVersion": 8,
+        "schemaVersion": 9,
         "lastSavedAt": 0,
         "currentMode": "BATTLE",
         "camp": {
@@ -392,6 +439,19 @@
             "unlockedCostumeMask": 1,
             "claimedSynthesisRewardMask": 0
           }
+        },
+        "inventory": {
+          "definitionVersion": 1,
+          "lootBag": {
+            "helmet.novice-helm": 122,
+            "accessory.novice-ring": 124,
+            "weapon.novice-sword": 112,
+            "armor.novice-vest": 121,
+            "weapon.ember-blade": 1,
+            "armor.guard-armor": 1
+          },
+          "heroInventory": {},
+          "campStorage": {}
         },
         "claimedBossMilestoneMask": 3,
         "expeditionEvents": {
@@ -500,7 +560,18 @@
           "companion": {
             "id": null,
             "rank": 0
-          }
+          },
+          "equipped": {
+            "weapon": null,
+            "armor": null,
+            "helmet": null,
+            "accessory": null
+          },
+          "skillSlots": [
+            "powerStrike",
+            null,
+            null
+          ]
         },
         "battle": {
           "stage": 30,

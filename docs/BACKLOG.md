@@ -75,6 +75,11 @@
 | IRPG-507 | 브라우저 개발자 디버그 패널 | P2 | Done | 403,505 | FE-GAME, QA-DOMAIN | 개발 모드에서 배속·stage·자원·오프라인 시간을 저장과 격리해 조절한다. |
 | IRPG-508 | 7일 장기 stress 회귀 | P2 | Draft | 505 | ENG-SIM, QA-DOMAIN | 7일 가속에서 숫자·정체·snapshot 크기 회귀를 고정 fixture로 탐지한다. |
 | IRPG-601 | 계정·클라우드 저장 ADR | P2 | Blocked | 온라인 요구 확정 | ENG-SAVE, PROD-LOOP | 서버 권위와 충돌 정책이 제품 요구와 함께 승인된다. |
+| IRPG-700 | 인벤토리·장비·스킬 제품 범위 및 상태 계약 | P1 | Verify | 424,428 | PROD-LOOP, ENG-STATE | 삼원 인벤토리·부위 장착·스킬 슬롯 제품 범위와 밸런스·저장 계약이 승인된다. |
+| IRPG-701 | Schema 9·ITEM_REGISTRY·독립 마이그레이션 | P1 | Verify | 700 | ENG-STATE, ENG-SAVE | Schema 9 타입, 고정 아이템 레지스트리, V1~V8 독립 decoder가 검증된다. |
+| IRPG-702 | 장비 드롭·이관·이동·장착·스탯 엔진 | P1 | Verify | 701 | ENG-SIM, ENG-STATE | 전리품 자동 이관, 1개 단위 장착·반환, 파생 스탯 및 체력 클램핑이 보장된다. |
+| IRPG-704 | 능동 스킬 슬롯 실행 및 연동 계약 | P1 | Draft | 702 | GD-SKILL, ENG-SIM | 3개 슬롯 장착 스킬이 전투 시계 및 자동 전투와 완벽히 연동된다. |
+| IRPG-703 | 캐릭터 장비창·인벤토리·스킬 슬롯 UI | P1 | Draft | 701,702,704 | FE-GAME, UX-FEEDBACK | 부위별 장비창, 가방 Grid, 스킬 슬롯 UI가 접근성과 visual gate를 충족한다. |
 
 `Blocked`는 기술 문제가 아니라 제품 요구가 아직 없는 의도적 보류다. 신규 기능은 선행 티켓과 G4 게이트를 우회하지 않는다.
 

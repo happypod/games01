@@ -274,6 +274,41 @@ test('compares declared bytes to the real file', async () => {
   assert.equal(hasError(result, ERROR_CODES.BYTES_MISMATCH, 'hero.ashen-knight.default'), true)
 })
 
+test('uses canonical LF byte counts for SVG files checked out with CRLF', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.resolve(gameDir, entry.src)
+    const canonical = (await readFile(target, 'utf8')).replace(/\r\n/g, '\n')
+    assert.match(canonical, /\n/)
+    await writeFile(target, canonical.replace(/\n/g, '\r\n'), 'utf8')
+  })
+
+  assert.equal(
+    hasError(result, ERROR_CODES.BYTES_MISMATCH, 'fallback.character'),
+    false,
+  )
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.valid, true)
+})
+
+test('still rejects SVG content changes after line-ending normalization', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.resolve(gameDir, entry.src)
+    const canonical = (await readFile(target, 'utf8')).replace(/\r\n/g, '\n')
+    await writeFile(
+      target,
+      canonical.replace('</svg>', '<!-- changed -->\n</svg>').replace(/\n/g, '\r\n'),
+      'utf8',
+    )
+  })
+
+  assert.equal(
+    hasError(result, ERROR_CODES.BYTES_MISMATCH, 'fallback.character'),
+    true,
+  )
+})
+
 test('requires final content art to be ready with a content hash', async () => {
   const result = await runFixture(async ({ manifest }) => {
     const entry = findEntry(manifest, 'region.ashen-border')

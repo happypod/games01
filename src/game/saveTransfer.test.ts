@@ -621,6 +621,17 @@ describe('portable save transfer', () => {
       message: expect.stringContaining('더 새로운'),
     })
 
+    const futureInventory = JSON.parse(raw) as Record<string, unknown>
+    const futureInventoryState = futureInventory.state as {
+      inventory: { definitionVersion: number }
+    }
+    futureInventoryState.inventory.definitionVersion += 1
+    futureInventory.checksum = checksumText(JSON.stringify(futureInventory.state))
+    expect(parsePortableSave(JSON.stringify(futureInventory))).toMatchObject({
+      success: false,
+      message: expect.stringContaining('더 새로운'),
+    })
+
     const missingExpedition = JSON.parse(raw) as Record<string, unknown>
     const missingExpeditionState = missingExpedition.state as Record<string, unknown>
     delete missingExpeditionState.expeditionEvents

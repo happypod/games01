@@ -11,8 +11,11 @@ import { deriveLegacyExpeditionMilestoneMask } from './expedition'
 import {
   SAVE_SLOT_KEYS,
   bootstrapGame,
+  createInitialInventoryState,
+  createInitialPlayerEquippedState,
   decodeGameState,
   isFutureGameStateValue,
+  isGameState,
   parseSaveEnvelope,
   saveGameAtRevision,
 } from './persistence'
@@ -36,6 +39,12 @@ class MemoryStorage implements StorageLike {
 
 function asLegacySchema6(state: GameState) {
   const current = structuredClone(state)
+  const { inventory: _inventory, player: currentPlayer, ...legacyState } = current
+  const {
+    equipped: _equipped,
+    skillSlots: _skillSlots,
+    ...legacyPlayer
+  } = currentPlayer
   const { healingPotion: _healingPotion, ...legacyConsumables } = current.camp.consumables
   const {
     quickConsumable: _quickConsumable,
@@ -45,9 +54,13 @@ function asLegacySchema6(state: GameState) {
   void _healingPotion
   void _quickConsumable
   void _bond
+  void _inventory
+  void _equipped
+  void _skillSlots
   return {
-    ...current,
+    ...legacyState,
     schemaVersion: 6 as const,
+    player: legacyPlayer,
     camp: {
       ...legacyCamp,
       definitionVersion: 1 as const,
@@ -58,16 +71,62 @@ function asLegacySchema6(state: GameState) {
 
 function asLegacySchema7(state: GameState) {
   const current = structuredClone(state)
+  const { inventory: _inventory, player: currentPlayer, ...legacyState } = current
+  const {
+    equipped: _equipped,
+    skillSlots: _skillSlots,
+    ...legacyPlayer
+  } = currentPlayer
   const { bond: _bond, ...legacyCamp } = current.camp
+  void _inventory
+  void _equipped
+  void _skillSlots
   void _bond
   return {
-    ...current,
+    ...legacyState,
     schemaVersion: 7 as const,
+    player: legacyPlayer,
     camp: {
       ...legacyCamp,
       definitionVersion: 2 as const,
     },
   }
+}
+
+function asLegacySchema5(state: GameState) {
+  const current = structuredClone(state)
+  const {
+    currentMode: _mode,
+    camp: _camp,
+    inventory: _inventory,
+    player: currentPlayer,
+    ...legacyState
+  } = current
+  const {
+    equipped: _equipped,
+    skillSlots: _skillSlots,
+    ...legacyPlayer
+  } = currentPlayer
+  void _mode
+  void _camp
+  void _inventory
+  void _equipped
+  void _skillSlots
+  return { ...legacyState, schemaVersion: 5 as const, player: legacyPlayer }
+}
+
+function asLegacySchema8(state: GameState) {
+  const current = structuredClone(state)
+  const { inventory: _inventory, player: currentPlayer, ...legacyState } = current
+  const {
+    equipped: _equipped,
+    skillSlots: _skillSlots,
+    ...legacyPlayer
+  } = currentPlayer
+  void _inventory
+  void _equipped
+  void _skillSlots
+  return { ...legacyState, schemaVersion: 8 as const, player: legacyPlayer }
 }
 
 describe('IRPG-418 schema6 camp persistence', () => {
@@ -144,10 +203,16 @@ describe('IRPG-418 schema6 camp persistence', () => {
         definitionVersion: 3,
         bond: createInitialCampBondState(),
       },
+      inventory: createInitialInventoryState(),
+      player: {
+        ...legacySaveV7.player,
+        equipped: createInitialPlayerEquippedState(),
+        skillSlots: ['powerStrike', null, null],
+      },
     })
   })
 
-  it('keeps schema7 migration in memory for readers and checkpoints schema8 only for writers', () => {
+  it('keeps schema7 migration in memory for readers and checkpoints schema9 only for writers', () => {
     const storage = new MemoryStorage()
     storage.setItem(SAVE_SLOT_KEYS[0], JSON.stringify({
       formatVersion: 3,
@@ -173,7 +238,7 @@ describe('IRPG-418 schema6 camp persistence', () => {
       .toEqual(writer.state)
   })
 
-  it('keeps schema6 migration in memory for readers and checkpoints schema8 only for writers', () => {
+  it('keeps schema6 migration in memory for readers and checkpoints schema9 only for writers', () => {
     const storage = new MemoryStorage()
     const current = createInitialState(500, 0x4230_1002)
     current.currentMode = 'CAMP'
@@ -211,10 +276,7 @@ describe('IRPG-418 schema6 camp persistence', () => {
   it('migrates schema5 without retroactive camp progress', () => {
     const current = createInitialState(123, 0x4180_0010)
     current.player.gold = 456
-    const { currentMode: _mode, camp: _camp, ...legacyFields } = current
-    void _mode
-    void _camp
-    const legacy = { ...legacyFields, schemaVersion: 5 }
+    const legacy = asLegacySchema5(current)
 
     const migrated = decodeGameState(legacy)
 
@@ -226,6 +288,47 @@ describe('IRPG-418 schema6 camp persistence', () => {
       battle: { highestStage: 1 },
     })
     expect(migrated?.camp).toEqual(createInitialCampState())
+  })
+
+  it('initializes Schema 9 fields instead of propagating injected fields from schema5 and schema6', () => {
+    const schema5Source = createInitialState(123, 0x7010_0005)
+    const schema6Source = createInitialState(456, 0x7010_0006)
+    schema6Source.currentMode = 'CAMP'
+    schema6Source.camp.materials.ashShard = 9
+
+    const legacyStates = [asLegacySchema5(schema5Source), asLegacySchema6(schema6Source)]
+    for (const legacyState of legacyStates) {
+      expect('inventory' in legacyState).toBe(false)
+      expect('equipped' in legacyState.player).toBe(false)
+      expect('skillSlots' in legacyState.player).toBe(false)
+
+      const injected = structuredClone(legacyState) as unknown as Record<string, unknown>
+      injected.inventory = {
+        definitionVersion: 1,
+        lootBag: { 'weapon.ember-blade': 3 },
+        heroInventory: { 'armor.guard-armor': 2 },
+        campStorage: { 'accessory.fortune-charm': 1 },
+      }
+      const injectedPlayer = injected.player as Record<string, unknown>
+      injectedPlayer.equipped = {
+        weapon: 'weapon.ember-blade',
+        armor: 'armor.guard-armor',
+        helmet: null,
+        accessory: 'accessory.fortune-charm',
+      }
+      injectedPlayer.skillSlots = ['ironWill', 'fortune', null]
+
+      const migrated = decodeGameState(injected)
+      expect(migrated).not.toBeNull()
+      expect(isGameState(migrated)).toBe(true)
+      expect(migrated?.inventory).toEqual(createInitialInventoryState())
+      expect(migrated?.player.equipped).toEqual(createInitialPlayerEquippedState())
+      expect(migrated?.player.skillSlots).toEqual(['powerStrike', null, null])
+      expect(migrated?.rng).toEqual(legacyState.rng)
+      if (legacyState.schemaVersion === 6) {
+        expect(migrated?.camp.materials.ashShard).toBe(9)
+      }
+    }
   })
 
   it('checkpoints offline progress once while preserving a saved camp mode', () => {
@@ -254,10 +357,7 @@ describe('IRPG-418 schema6 camp persistence', () => {
   it('keeps schema5 migration in memory for readers and checkpoints only for writers', () => {
     const storage = new MemoryStorage()
     const current = createInitialState(500, 0x4180_0012)
-    const { currentMode: _mode, camp: _camp, ...legacyFields } = current
-    void _mode
-    void _camp
-    const legacyState = { ...legacyFields, schemaVersion: 5 }
+    const legacyState = asLegacySchema5(current)
     storage.setItem(SAVE_SLOT_KEYS[0], JSON.stringify({
       formatVersion: 3,
       revision: 7,
@@ -294,6 +394,62 @@ describe('IRPG-418 schema6 camp persistence', () => {
     ;(future.camp as { definitionVersion: number }).definitionVersion = 3
     expect(isFutureGameStateValue(future)).toBe(true)
     expect(decodeGameState(future)).toBeNull()
+  })
+
+  it('falls back from malformed schema8 camp v3 instead of classifying it as future', () => {
+    const storage = new MemoryStorage()
+    const stable = createInitialState(100, 0x7010_0008)
+    stable.player.gold = 77
+    expect(saveGameAtRevision(storage, stable, null)).toEqual({ status: 'saved', revision: 1 })
+
+    const malformed = asLegacySchema8(createInitialState(200, stable.rng.seed))
+    malformed.player.gold = 999
+    malformed.battle.stage = 10
+    malformed.battle.highestStage = 9
+    expect(malformed.camp.definitionVersion).toBe(3)
+    expect(isFutureGameStateValue(malformed)).toBe(false)
+    expect(decodeGameState(malformed)).toBeNull()
+
+    const malformedRaw = JSON.stringify({
+      formatVersion: 3,
+      revision: 2,
+      savedAt: malformed.lastSavedAt,
+      state: malformed,
+    })
+    storage.setItem(SAVE_SLOT_KEYS[1], malformedRaw)
+
+    expect(bootstrapGame(storage, 200, 'reader')).toMatchObject({
+      revision: 1,
+      recoveredFromInvalidSave: true,
+      saveBlocked: false,
+      state: { player: { gold: 77 } },
+    })
+    expect(storage.getItem(SAVE_SLOT_KEYS[1])).toBe(malformedRaw)
+  })
+
+  it('keeps schema8 camp v4 fenced as future data without overwriting it', () => {
+    const storage = new MemoryStorage()
+    const stable = createInitialState(100, 0x7010_0009)
+    expect(saveGameAtRevision(storage, stable, null)).toEqual({ status: 'saved', revision: 1 })
+
+    const future = asLegacySchema8(createInitialState(200, stable.rng.seed))
+    ;(future.camp as { definitionVersion: number }).definitionVersion = 4
+    expect(isFutureGameStateValue(future)).toBe(true)
+    expect(decodeGameState(future)).toBeNull()
+
+    const futureRaw = JSON.stringify({
+      formatVersion: 3,
+      revision: 2,
+      savedAt: future.lastSavedAt,
+      state: future,
+    })
+    storage.setItem(SAVE_SLOT_KEYS[1], futureRaw)
+
+    expect(bootstrapGame(storage, 500, 'writer').saveBlocked).toBe(true)
+    expect(saveGameAtRevision(storage, createInitialState(500), 1)).toMatchObject({
+      status: 'blocked',
+    })
+    expect(storage.getItem(SAVE_SLOT_KEYS[1])).toBe(futureRaw)
   })
 
   it('classifies a higher bond definition as future but keeps missing/lower markers invalid', () => {

@@ -21,97 +21,97 @@ import {
 const EXPECTED_FIXTURES = {
   'visual.combat.hero-default': {
     stage: 1,
-    hash: 'fnv1a32-v1:58beacac',
+    hash: 'fnv1a32-v1:f0fc1df3',
     seed: 1137774350,
   },
   'visual.combat.enemy-default': {
     stage: 5,
-    hash: 'fnv1a32-v1:555500f9',
+    hash: 'fnv1a32-v1:e8b46a48',
     seed: 184967352,
   },
   'visual.combat.boss-default': {
     stage: 10,
-    hash: 'fnv1a32-v1:43b5725e',
+    hash: 'fnv1a32-v1:32be2781',
     seed: 2839317265,
   },
   'visual.combat.fallback': {
     stage: 1,
-    hash: 'fnv1a32-v1:638bc89a',
+    hash: 'fnv1a32-v1:43c4a601',
     seed: 847540328,
   },
   'visual.map.stage-frontier': {
     stage: 105,
-    hash: 'fnv1a32-v1:2b9471d5',
+    hash: 'fnv1a32-v1:7b5e1224',
     seed: 2652276946,
   },
   'visual.cards.mixed-states': {
     stage: 3,
-    hash: 'fnv1a32-v1:b06fca58',
+    hash: 'fnv1a32-v1:d8b02d9d',
     seed: 2691896847,
   },
   'visual.cards.fallback': {
     stage: 3,
-    hash: 'fnv1a32-v1:d1677e46',
+    hash: 'fnv1a32-v1:45968cf3',
     seed: 1091907769,
   },
   'visual.events.pending-three': {
     stage: 30,
-    hash: 'fnv1a32-v1:f54e1efd',
+    hash: 'fnv1a32-v1:0b55a0b0',
     seed: 1635907649,
   },
   'visual.events.fallback': {
     stage: 30,
-    hash: 'fnv1a32-v1:62cddbc9',
+    hash: 'fnv1a32-v1:f4c720ec',
     seed: 3134554997,
   },
   'visual.combat.event-log': {
     stage: 10,
-    hash: 'fnv1a32-v1:c99b70c0',
+    hash: 'fnv1a32-v1:aa4b2d03',
     seed: 4251790753,
   },
   'visual.result.boss-victory': {
     stage: 10,
-    hash: 'fnv1a32-v1:c849cfdc',
+    hash: 'fnv1a32-v1:144542cf',
     seed: 2519199221,
   },
   'visual.result.defeat': {
     stage: 10,
-    hash: 'fnv1a32-v1:149742c0',
+    hash: 'fnv1a32-v1:3ad3b953',
     seed: 1543179630,
   },
   'visual.dashboard.one-view': {
     stage: 10,
-    hash: 'fnv1a32-v1:0f9a99b3',
+    hash: 'fnv1a32-v1:e3c8c2aa',
     seed: 1799040046,
   },
   'visual.dashboard.tactical-canvas': {
     stage: 10,
-    hash: 'fnv1a32-v1:eddde7bd',
+    hash: 'fnv1a32-v1:879536d4',
     seed: 878861757,
   },
   'visual.dashboard.tactical-damaged': {
     stage: 20,
-    hash: 'fnv1a32-v1:f4b67600',
+    hash: 'fnv1a32-v1:74dc3e27',
     seed: 863484587,
   },
   'visual.dashboard.tactical-severe': {
     stage: 20,
-    hash: 'fnv1a32-v1:f30730c8',
+    hash: 'fnv1a32-v1:bbdc8c2f',
     seed: 1109974916,
   },
   'visual.events.tactical-overlay': {
     stage: 30,
-    hash: 'fnv1a32-v1:e4904b31',
+    hash: 'fnv1a32-v1:ad01d0c0',
     seed: 2255225468,
   },
   'visual.camp.resting': {
     stage: 10,
-    hash: 'fnv1a32-v1:537ada7c',
+    hash: 'fnv1a32-v1:c0cde077',
     seed: 3095968417,
   },
   'visual.camp.bond-synthesis-reward': {
     stage: 10,
-    hash: 'fnv1a32-v1:d1c47739',
+    hash: 'fnv1a32-v1:4e0fe406',
     seed: 3115221620,
   },
 } as const
@@ -600,7 +600,7 @@ describe('IRPG-506 visual fixture UI adapter', () => {
 
     const root = screen.getByTestId('visual-fixture-root')
     expect(root).toHaveAttribute('data-visual-fixture-id', 'visual.dashboard.one-view')
-    expect(root).toHaveAttribute('data-canonical-state-hash', 'fnv1a32-v1:0f9a99b3')
+    expect(root).toHaveAttribute('data-canonical-state-hash', EXPECTED_FIXTURES['visual.dashboard.one-view'].hash)
     expect(root).toHaveAttribute('data-canonical-event-hash', 'fnv1a32-v1:aa4f41fb')
     expect(root.querySelector('.tactical-layout')).toBeInTheDocument()
     expect(root.querySelector('.game-dashboard')).not.toBeInTheDocument()
