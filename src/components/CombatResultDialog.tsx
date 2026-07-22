@@ -1,4 +1,5 @@
 import type { RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { useModalFocus } from '../hooks/useModalFocus'
 import type { CombatResultSnapshot } from './combatResultView'
 import { GameAsset } from './GameAsset'
@@ -30,8 +31,12 @@ export function CombatResultDialog({
     ? `스테이지 ${formatResultNumber(result.defeatedStage)} 보스 승리`
     : `스테이지 ${formatResultNumber(result.defeatedAtStage)} 패배`
 
-  return (
-    <div className="modal-backdrop combat-result-backdrop" role="presentation">
+  return createPortal(
+    <div
+      className="modal-backdrop combat-result-backdrop"
+      role="presentation"
+      data-modal-layer="true"
+    >
       <section
         ref={dialogRef}
         className={`combat-result-dialog combat-result-dialog--${victory ? 'victory' : 'defeat'}`}
@@ -129,6 +134,7 @@ export function CombatResultDialog({
           </button>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   )
 }

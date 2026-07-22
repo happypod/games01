@@ -76,6 +76,74 @@ describe('useGame persistence safety', () => {
     unmount()
   })
 
+  it('starts a new tick baseline when resetting after a suspended timer gap', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(result.current.readOnly).toBe(false)
+
+    const resetAt = Date.now() + 60_000
+    vi.setSystemTime(resetAt)
+    act(() => result.current.reset())
+    const resetState = structuredClone(result.current.state)
+    expect(resetState.lastSavedAt).toBe(resetAt)
+
+    await act(async () => vi.advanceTimersByTimeAsync(250))
+    const expected = advanceGame(resetState, 250).state
+    expect(result.current.state.battle).toEqual(expected.battle)
+    expect(result.current.state.rng).toEqual(expected.rng)
+    unmount()
+  })
+
+  it('starts a new tick baseline when restoring after a suspended timer gap', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+    expect(result.current.readOnly).toBe(false)
+
+    const importedState = createInitialState(Date.now(), 0x1234_5678)
+    importedState.player.gold = 777
+    const parsed = parsePortableSave(createPortableSave(importedState, Date.now()) ?? '')
+    if (!parsed.success) throw new Error(parsed.message)
+
+    const restoredAt = Date.now() + 60_000
+    vi.setSystemTime(restoredAt)
+    act(() => {
+      expect(result.current.restoreSave(parsed.preview).success).toBe(true)
+    })
+    const restoredState = structuredClone(result.current.state)
+    expect(restoredState.lastSavedAt).toBe(restoredAt)
+    expect(restoredState.player.gold).toBe(777)
+
+    await act(async () => vi.advanceTimersByTimeAsync(250))
+    const expected = advanceGame(restoredState, 250).state
+    expect(result.current.state.battle).toEqual(expected.battle)
+    expect(result.current.state.rng).toEqual(expected.rng)
+    unmount()
+  })
+
   it('persists camp mode and pauses foreground rounds while autosave checkpoints time', async () => {
     const request = vi.fn(
       async (

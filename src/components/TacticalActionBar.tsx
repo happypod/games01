@@ -1,6 +1,13 @@
 import { faBowlFood, faFlask } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react'
 import { SKILL_DEFINITIONS, UPGRADE_DEFINITIONS } from '../game/content'
 import {
   getSkillEffectComparison,
@@ -211,6 +218,9 @@ export function TacticalActionBar({
   disabledReason,
 }: TacticalActionBarProps) {
   const [selectedSlot, setSelectedSlot] = useState<TacticalActionSlotId | null>(null)
+  const [tabStopSlot, setTabStopSlot] = useState<TacticalActionSlotId>(
+    TACTICAL_ACTION_SLOT_IDS[0],
+  )
   const barRef = useRef<HTMLElement>(null)
   const detailHeadingRef = useRef<HTMLHeadingElement>(null)
   const triggerRefs = useRef(new Map<TacticalActionSlotId, HTMLButtonElement>())
@@ -261,6 +271,40 @@ export function TacticalActionBar({
     ? selectedSlot
     : null
 
+  const handleSlotKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    id: TacticalActionSlotId,
+  ) => {
+    const currentIndex = TACTICAL_ACTION_SLOT_IDS.indexOf(id)
+    let nextIndex: number
+
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        nextIndex = (currentIndex - 1 + TACTICAL_ACTION_SLOT_IDS.length)
+          % TACTICAL_ACTION_SLOT_IDS.length
+        break
+      case 'ArrowRight':
+      case 'ArrowDown':
+        nextIndex = (currentIndex + 1) % TACTICAL_ACTION_SLOT_IDS.length
+        break
+      case 'Home':
+        nextIndex = 0
+        break
+      case 'End':
+        nextIndex = TACTICAL_ACTION_SLOT_IDS.length - 1
+        break
+      default:
+        return
+    }
+
+    event.preventDefault()
+    const nextSlot = TACTICAL_ACTION_SLOT_IDS[nextIndex]
+    if (nextSlot === undefined) return
+    setTabStopSlot(nextSlot)
+    triggerRefs.current.get(nextSlot)?.focus()
+  }
+
   return (
     <section ref={barRef} className="tactical-action-bar" aria-label="장비와 스킬 빠른 슬롯">
       <div className="tactical-action-bar__slots" role="toolbar" aria-label="전술 슬롯바">
@@ -286,13 +330,19 @@ export function TacticalActionBar({
                 else triggerRefs.current.set(id, node)
               }}
               type="button"
+              tabIndex={tabStopSlot === id ? 0 : -1}
               className={`tactical-action-bar__slot tactical-action-bar__slot--${kind}`}
               data-action-slot={id}
               data-action-kind={kind}
               aria-expanded={selected}
               aria-controls={selected ? detailId : undefined}
               aria-label={`${name}, ${meta}, 상세 ${selected ? '닫기' : '열기'}`}
-              onClick={() => setSelectedSlot((current) => current === id ? null : id)}
+              onFocus={() => setTabStopSlot(id)}
+              onKeyDown={(event) => handleSlotKeyDown(event, id)}
+              onClick={() => {
+                setTabStopSlot(id)
+                setSelectedSlot((current) => current === id ? null : id)
+              }}
             >
               <span className="tactical-action-bar__slot-visual" aria-hidden="true">
                 {isUpgradeId(id) || isSkillId(id) ? (

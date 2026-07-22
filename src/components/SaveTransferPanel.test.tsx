@@ -82,6 +82,7 @@ describe('SaveTransferPanel', () => {
     fireEvent.change(input, { target: { files: [backup] } })
 
     const dialog = await screen.findByRole('dialog', { name: '이 진행으로 복원할까요?' })
+    expect(dialog.closest('[data-modal-layer="true"]')?.parentElement).toBe(document.body)
     const cancel = within(dialog).getByRole('button', { name: '취소' })
     const restore = within(dialog).getByRole('button', { name: '검증된 저장 복원' })
     await waitFor(() => expect(cancel).toHaveFocus())

@@ -15,6 +15,21 @@ async function openSaveBackup(page: Page) {
   )
 }
 
+async function expectModalToBlockActionSlot(page: Page) {
+  const slot = page.locator('[data-action-slot="armor"]')
+  await expect(slot).toHaveAttribute('aria-expanded', 'false')
+  const box = await slot.boundingBox()
+  if (box === null) throw new Error('armor action slot is not visible')
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  const hitIsModal = await page.evaluate(({ x, y }) => (
+    document.elementFromPoint(x, y)?.closest('[data-modal-layer="true"]') !== null
+  ), point)
+  expect(hitIsModal).toBe(true)
+
+  await page.mouse.click(point.x, point.y)
+  await expect(slot).toHaveAttribute('aria-expanded', 'false')
+}
+
 test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업만 복원한다', async ({
   context,
   page,
@@ -71,6 +86,8 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
     buffer: Buffer.from(exported),
   })
   let preview = page.getByRole('dialog', { name: '이 진행으로 복원할까요?' })
+  await expect(preview).toBeVisible()
+  await expectModalToBlockActionSlot(page)
   await expect(preview).toBeVisible()
   await preview.getByRole('button', { name: '취소' }).click()
   await expect(preview).toHaveCount(0)

@@ -65,6 +65,21 @@ function resultFact(dialog: Locator, label: string) {
   }).locator('dd')
 }
 
+async function expectModalToBlockActionSlot(page: Page) {
+  const slot = page.locator('[data-action-slot="armor"]')
+  await expect(slot).toHaveAttribute('aria-expanded', 'false')
+  const box = await slot.boundingBox()
+  if (box === null) throw new Error('armor action slot is not visible')
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+  const hitIsModal = await page.evaluate(({ x, y }) => (
+    document.elementFromPoint(x, y)?.closest('[data-modal-layer="true"]') !== null
+  ), point)
+  expect(hitIsModal).toBe(true)
+
+  await page.mouse.click(point.x, point.y)
+  await expect(slot).toHaveAttribute('aria-expanded', 'false')
+}
+
 test.describe('IRPG-410 foreground result status', () => {
   test.use({ viewport: { width: 360, height: 800 } })
 
@@ -123,6 +138,11 @@ test.describe('IRPG-410 deterministic result details', () => {
     const dialog = page.getByTestId('combat-result-dialog')
     await expect(dialog).toHaveAttribute('data-result-type', 'bossVictory')
     await expect(dialog).toHaveAccessibleName('스테이지 10 보스 승리')
+    const close = dialog.getByRole('button', { name: '결과 닫기' })
+    await expect(close).toBeFocused()
+    await expectModalToBlockActionSlot(page)
+    await expect(dialog).toBeVisible()
+    await close.focus()
     await expect(dialog.locator('[data-asset-id="result.boss-victory"]'))
       .toHaveAttribute('data-state', 'loaded')
     await expect(resultFact(dialog, '기본 골드 정산값')).toHaveText('+240')
@@ -132,7 +152,6 @@ test.describe('IRPG-410 deterministic result details', () => {
     await expect(dialog.getByText(/실제 지급/)).toContainText('+15 골드')
     await expect(root).toHaveAttribute('data-canonical-state-hash', canonicalHash!)
 
-    const close = dialog.getByRole('button', { name: '결과 닫기' })
     await expect(close).toBeFocused()
     await dialog.focus()
     await page.keyboard.press('Shift+Tab')

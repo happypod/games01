@@ -163,6 +163,14 @@ export function useGame(): GameController {
     setState(next)
   }, [])
 
+  const commitReplacement = useCallback(
+    (next: GameState, committedAt: number) => {
+      tickBaselineRef.current = committedAt
+      commit(next)
+    },
+    [commit],
+  )
+
   const resetCombatEvents = useCallback(() => {
     const empty = createEmptyCombatEventBatch()
     combatEventCursorRef.current = empty.nextCursor
@@ -500,7 +508,8 @@ export function useGame(): GameController {
       setNotice('읽기 전용 탭에서는 진행을 초기화할 수 없습니다.')
       return
     }
-    const next = createInitialState()
+    const committedAt = Date.now()
+    const next = createInitialState(committedAt)
     const first = saveGameAtRevision(window.localStorage, next, revisionRef.current)
     if (first.status !== 'saved') {
       stopWriting(
@@ -520,13 +529,13 @@ export function useGame(): GameController {
     }
     revisionRef.current = second.revision
     saveBlockedRef.current = false
-    commit(next)
+    commitReplacement(next, committedAt)
     resetCombatEvents()
     setOfflineReport(null)
     setRecoveredFromInvalidSave(false)
     setNotice('새 원정을 시작했습니다.')
     setSaveHealthy(true)
-  }, [commit, readOnly, ready, resetCombatEvents, stopWriting])
+  }, [commitReplacement, readOnly, ready, resetCombatEvents, stopWriting])
 
   const restoreSave = useCallback(
     (preview: SaveImportPreview) => {
@@ -536,11 +545,12 @@ export function useGame(): GameController {
         return { success: false, message }
       }
       const expectedRevision = revisionRef.current
+      const committedAt = Date.now()
       const imported = commitPortableSave(
         window.localStorage,
         preview,
         expectedRevision,
-        Date.now(),
+        committedAt,
       )
       if (imported.status !== 'saved') {
         const message =
@@ -555,7 +565,7 @@ export function useGame(): GameController {
       }
       revisionRef.current = imported.revision
       saveBlockedRef.current = false
-      commit(imported.state)
+      commitReplacement(imported.state, committedAt)
       resetCombatEvents()
       setOfflineReport(null)
       setRecoveredFromInvalidSave(false)
@@ -563,7 +573,7 @@ export function useGame(): GameController {
       setNotice('백업 저장을 안전하게 가져왔습니다.')
       return { success: true, message: '백업 저장을 안전하게 가져왔습니다.' }
     },
-    [commit, readOnly, ready, resetCombatEvents, stopWriting],
+    [commitReplacement, readOnly, ready, resetCombatEvents, stopWriting],
   )
   const dismissOfflineReport = useCallback(() => setOfflineReport(null), [])
 

@@ -85,6 +85,37 @@ describe('IRPG-422 TacticalActionBar', () => {
       asset.getAttribute('data-loading') === 'eager',
     )).toBe(true)
     expect(container.querySelectorAll('.tactical-action-bar__slot-icon')).toHaveLength(2)
+    expect(getSlot('weapon')).toHaveAttribute('tabindex', '0')
+    expect(TACTICAL_ACTION_SLOT_IDS.slice(1).every((id) => getSlot(id).tabIndex === -1))
+      .toBe(true)
+  })
+
+  it('uses one roving tab stop with wrapping arrow and Home/End navigation', () => {
+    renderActionBar()
+    const weapon = getSlot('weapon')
+    const armor = getSlot('armor')
+    const focusTonic = getSlot('focusTonic')
+
+    weapon.focus()
+    fireEvent.keyDown(weapon, { key: 'ArrowLeft' })
+    expect(focusTonic).toHaveFocus()
+    expect(focusTonic).toHaveAttribute('tabindex', '0')
+    expect(weapon).toHaveAttribute('tabindex', '-1')
+
+    fireEvent.keyDown(focusTonic, { key: 'ArrowRight' })
+    expect(weapon).toHaveFocus()
+
+    fireEvent.keyDown(weapon, { key: 'ArrowDown' })
+    expect(armor).toHaveFocus()
+    fireEvent.keyDown(armor, { key: 'ArrowUp' })
+    expect(weapon).toHaveFocus()
+
+    fireEvent.keyDown(weapon, { key: 'End' })
+    expect(focusTonic).toHaveFocus()
+    fireEvent.keyDown(focusTonic, { key: 'Home' })
+    expect(weapon).toHaveFocus()
+    expect(TACTICAL_ACTION_SLOT_IDS.filter((id) => getSlot(id).tabIndex === 0))
+      .toEqual(['weapon'])
   })
 
   it('keeps one non-modal detail open and calls upgrade and skill commands exactly once', () => {
@@ -215,6 +246,8 @@ describe('IRPG-422 TacticalActionBar', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
+    expect(trigger).toHaveAttribute('tabindex', '0')
+    expect(getSlot('weapon')).toHaveAttribute('tabindex', '-1')
 
     fireEvent.click(trigger)
     expect(screen.getByRole('dialog', { name: '수호 갑옷' })).toBeInTheDocument()

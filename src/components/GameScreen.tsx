@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { CampDashboard } from './CampDashboard'
 import { GameModeSelector } from './GameModeSelector'
 import { GrowthTabs } from './GrowthTabs'
 import { OfflineReport } from './OfflineReport'
+import { SaveTransferPanel } from './SaveTransferPanel'
 import { TacticalActionBar } from './TacticalActionBar'
 import { TacticalStage } from './TacticalStage'
 import { TacticalUtilityDock } from './TacticalUtilityDock'
@@ -37,6 +38,7 @@ export function GameScreen({
   showSaveTransfer = true,
   footerSuffix = '',
 }: GameScreenProps) {
+  const shellRef = useRef<HTMLDivElement>(null)
   const controlsDisabled = !game.ready || game.readOnly
   const combatResults = useCombatResults(
     game.combatEventBatch,
@@ -61,9 +63,15 @@ export function GameScreen({
       game.prestige()
     }
   }
+  const enterCampFromActionBar = () => {
+    game.changeMode('CAMP')
+    shellRef.current
+      ?.querySelector<HTMLButtonElement>('[data-game-mode="CAMP"]')
+      ?.focus()
+  }
 
   return (
-    <div className="app-shell">
+    <div ref={shellRef} className="app-shell">
       <a className="skip-link" href="#main-content">본문 바로가기</a>
       <div className="ambient ambient--one" aria-hidden="true" />
       <div className="ambient ambient--two" aria-hidden="true" />
@@ -149,18 +157,28 @@ export function GameScreen({
         {developerTools}
 
         {game.state.currentMode === 'CAMP' ? (
-          <CampDashboard
-            state={game.state}
-            notice={game.notice}
-            disabled={controlsDisabled}
-            onUpgradeStructure={game.upgradeCampStructure}
-            onTrain={game.trainAtCamp}
-            onStartCraft={game.startCampCraft}
-            onUseConsumable={game.useCampConsumable}
-            onPurchaseMerchantOffer={game.purchaseCampMerchantOffer}
-            onAcceptSeraContract={game.acceptSeraContract}
-            onIncreaseSeraTrust={game.increaseSeraTrust}
-          />
+          <>
+            <CampDashboard
+              state={game.state}
+              notice={game.notice}
+              disabled={controlsDisabled}
+              onUpgradeStructure={game.upgradeCampStructure}
+              onTrain={game.trainAtCamp}
+              onStartCraft={game.startCampCraft}
+              onUseConsumable={game.useCampConsumable}
+              onPurchaseMerchantOffer={game.purchaseCampMerchantOffer}
+              onAcceptSeraContract={game.acceptSeraContract}
+              onIncreaseSeraTrust={game.increaseSeraTrust}
+            />
+            {showSaveTransfer && game.ready && game.readOnly && (
+              <SaveTransferPanel
+                state={game.state}
+                exportDisabled={false}
+                importDisabled
+                onRestore={game.restoreSave}
+              />
+            )}
+          </>
         ) : (
           <div className="tactical-layout" data-testid="tactical-layout">
             <div className="tactical-battlefield">
@@ -179,7 +197,7 @@ export function GameScreen({
                 state={game.state}
                 onBuyUpgrade={game.buyUpgrade}
                 onBuySkill={game.buySkill}
-                onEnterCamp={() => game.changeMode('CAMP')}
+                onEnterCamp={enterCampFromActionBar}
                 disabled={controlsDisabled}
                 {...(disabledReason ? { disabledReason } : {})}
               />

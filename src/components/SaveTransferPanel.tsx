@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState, type ChangeEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { formatNumber } from '../game/format'
 import {
   MAX_PORTABLE_SAVE_BYTES,
@@ -118,8 +119,12 @@ export function SaveTransferPanel({
         {message}
       </p>
 
-      {preview && (
-        <div className="modal-backdrop" role="presentation">
+      {preview && createPortal(
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          data-modal-layer="true"
+        >
           <section
             ref={dialogRef}
             className="offline-modal import-preview"
@@ -150,7 +155,8 @@ export function SaveTransferPanel({
               <button type="button" onClick={confirmImport}>검증된 저장 복원</button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </section>
   )

@@ -139,6 +139,32 @@ test.describe('IRPG-422 tactical-only battle surface and tactical motion', () =>
     await expect(page.getByTestId('camp-dashboard')).toHaveCount(0)
   })
 
+  test('uses roving slot focus and restores focus after entering camp from supplies', async ({ page }) => {
+    await expectReady(page)
+    const weapon = page.locator('[data-action-slot="weapon"]')
+    const armor = page.locator('[data-action-slot="armor"]')
+    const focusTonic = page.locator('[data-action-slot="focusTonic"]')
+
+    await expect(weapon).toHaveAttribute('tabindex', '0')
+    await expect(armor).toHaveAttribute('tabindex', '-1')
+    await weapon.focus()
+    await weapon.press('ArrowRight')
+    await expect(armor).toBeFocused()
+    await expect(armor).toHaveAttribute('tabindex', '0')
+    await armor.press('End')
+    await expect(focusTonic).toBeFocused()
+    await focusTonic.press('Home')
+    await expect(weapon).toBeFocused()
+
+    await page.locator('[data-action-slot="goldStew"]').click()
+    const detail = page.getByRole('dialog', { name: '황금 스튜' })
+    await expect(detail).toBeVisible()
+    await detail.getByRole('button', { name: '캠프에서 준비' }).click()
+
+    await expect(page.getByTestId('camp-dashboard')).toBeVisible()
+    await expect(page.getByRole('radio', { name: '캠프 · 관리' })).toBeFocused()
+  })
+
   test('keeps game, event, and A/B save state unchanged across slot and utility disclosures', async ({ page }) => {
     await enterDebugSession(page)
     await applyFixture(page, 'visual.dashboard.tactical-canvas')

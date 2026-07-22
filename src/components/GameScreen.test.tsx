@@ -100,6 +100,41 @@ describe('GameScreen expedition prestige warning', () => {
     expect(screen.getByText('전경 전투 일시 정지')).toBeVisible()
   })
 
+  it('keeps save export available for a read-only camp save', () => {
+    const game = createController()
+    game.state.currentMode = 'CAMP'
+    game.readOnly = true
+    game.lockSupported = false
+    render(<GameScreen game={game} showReadOnlyWarning={false} />)
+
+    expect(screen.getByRole('heading', { name: '저장 백업' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '저장 내보내기' })).toBeEnabled()
+    expect(screen.getByLabelText('저장 파일 선택')).toBeDisabled()
+    expect(screen.getByRole('radio', { name: '전투 · 전술 전장' }))
+      .toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('moves focus to the selected camp mode after entering from a consumable detail', () => {
+    const game = createController()
+    const view = render(
+      <GameScreen game={game} showReadOnlyWarning={false} showSaveTransfer={false} />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /^황금 스튜,/ }))
+    const enterCamp = within(screen.getByRole('dialog', { name: '황금 스튜' }))
+      .getByRole('button', { name: '캠프에서 준비' })
+    enterCamp.focus()
+    fireEvent.click(enterCamp)
+    expect(game.changeMode).toHaveBeenCalledWith('CAMP')
+
+    game.state.currentMode = 'CAMP'
+    view.rerender(
+      <GameScreen game={game} showReadOnlyWarning={false} showSaveTransfer={false} />,
+    )
+
+    expect(screen.getByRole('radio', { name: '캠프 · 관리' })).toHaveFocus()
+  })
+
   it('routes the camp choice through the persisted game command', () => {
     const game = createController()
     render(

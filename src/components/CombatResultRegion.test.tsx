@@ -111,6 +111,7 @@ describe('IRPG-410 combat result region', () => {
     opener.focus()
     fireEvent.click(opener)
     const dialog = screen.getByRole('dialog', { name: '스테이지 10 보스 승리' })
+    expect(dialog.closest('[data-modal-layer="true"]')?.parentElement).toBe(document.body)
     expect(dialog).toHaveAttribute('data-result-type', 'bossVictory')
     expect(within(dialog).getByText('기본 골드 정산값').nextElementSibling)
       .toHaveTextContent('+240')

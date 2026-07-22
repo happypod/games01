@@ -103,7 +103,11 @@ function TacticalUtilityDockSurface({
 
     const handleOutsideClick = (event: MouseEvent) => {
       const target = event.target
-      if (!(target instanceof Node) || rootRef.current?.contains(target)) return
+      if (
+        !(target instanceof Node)
+        || rootRef.current?.contains(target)
+        || (target instanceof Element && target.closest('[data-modal-layer="true"]') !== null)
+      ) return
       closePanel(activeId, false)
     }
 
