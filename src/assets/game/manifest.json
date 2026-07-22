@@ -33,6 +33,22 @@
       "sha256": "a30f0c13c5d61000172acb4f58334d66e90848cd1a112f8fb940b6a318113b1a"
     },
     {
+      "id": "costume.chapter1.sera.ember-bond",
+      "kind": "costume",
+      "status": "ready",
+      "src": "./files/costume/chapter1/sera-ember-bond.webp",
+      "format": "webp",
+      "width": 768,
+      "height": 768,
+      "bytes": 49366,
+      "sourceType": "generated",
+      "author": "OpenAI image generation, directed by Codex for Emberwatch",
+      "license": "project-owned",
+      "generator": "OpenAI built-in image_gen; Pillow 12.2.0 WebP export",
+      "promptRecord": "docs/assets/prompts/chapter1-sera-ember-bond.md",
+      "sha256": "93bea6e26c058e872c4408d474823dabcea461c54e7ab2225388c657d94e091a"
+    },
+    {
       "id": "enemy.ash-slime",
       "kind": "enemy",
       "status": "ready",

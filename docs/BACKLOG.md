@@ -62,6 +62,10 @@
 | IRPG-422 | 전술 전장 단일화·전투 슬롯바·유틸리티 도크 | P1 | Done | 304,403,409,410,411,414,415,417,418,420,506 | FE-GAME, UX-FEEDBACK, A11Y, QA-E2E, REL-CI | 유형 2 전술 전장을 단일 전투 화면으로 승격하고 실제 자산 슬롯바와 아이콘 유틸리티 도크에서 주요 기능을 빠르게 실행한다. |
 | IRPG-423 | 캠프 치유 화로·회복 물약 상태 계약 | P1 | Done | 104,108,303,304,305,403,418,419,420,422,505,506 | GD-BAL, ENG-STATE, ENG-SAVE, FE-GAME, QA-DOMAIN | 캠프에서 재료로 완전 회복하고 확정 제작한 회복 물약을 장착해 전투 중 exact-once로 사용한다. |
 | IRPG-424 | 전술 정보 레일·8슬롯 명령 재배치 | P1 | Verify | 423,403,408,409,413,422,506 | FE-GAME, UX-FEEDBACK, A11Y, QA-E2E, REL-CI | 하단 8슬롯에 성장·동료·회복 명령을 모으고 우측은 적·지도·캐릭터·가방·스킬·도감 정보로 재구성한다. |
+| IRPG-425 | CHAPTER I 성인 동의 계약·캠프 특수 시설 | P1 | Done | 403,418,421,424 | PROD-LOOP, ENG-STATE, NARRATIVE, FE-GAME, A11Y | 성인 확인과 별도 세라 동의를 거친 CHAPTER I 유대 시설만 열고 철회에 불이익을 주지 않는다. |
+| IRPG-426 | CHAPTER I 의상 원장·자산 manifest·schema8 migration | P1 | Done | 303,304,406,423,425 | ENG-SAVE, ENG-DATA, ART-DIR, QA-DOMAIN | 의상 원장과 샘플 1개를 저장·manifest로 연결하고 CHAPTER II·III 자산을 CI에서 차단한다. |
+| IRPG-427 | 결정론적 합동 연성 비용·수집 보상·중복 방지 | P1 | Done | 104,207,420,425,426 | ENG-STATE, ENG-SAVE, GD-BAL, QA-DOMAIN | 고정 비용과 수집 카드를 한 번만 교환하며 RNG·전투 성장을 바꾸지 않는다. |
+| IRPG-428 | 특수 시설 연출·접근성·Ubuntu 시각 회귀 | P1 | Verify | 403,506,425,426,427 | FE-GAME, UX-FEEDBACK, A11Y, QA-E2E, REL-CI, ART-2D | 실루엣·불꽃·보상 카드 연출을 모바일·키보드·모션 감소와 Ubuntu visual gate로 검증한다. |
 | IRPG-501 | 엔진·저장·UI 자동 테스트 | P0 | Done | 302,402 | QA-DOMAIN | 전투·명령·저장·오프라인·첫 화면 회귀가 통과한다. |
 | IRPG-502 | 45분 밸런스 스모크 | P0 | Done | 203 | GD-BAL, QA-DOMAIN | 자동 재투자 전략이 45분 내 30스테이지에 도달한다. |
 | IRPG-503 | CI 릴리스 게이트 | P0 | Done | 003,501 | REL-CI | push와 PR에서 설치·검증·빌드가 통과하고 원격 증거가 남는다. |

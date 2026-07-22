@@ -1,5 +1,9 @@
 import { getHeroStats, toSafeInteger } from './formulas'
 import type {
+  Chapter1CostumeId,
+  Chapter1RewardId,
+  Chapter1SynthesisId,
+  CampBondState,
   CampMaterialInventory,
   CampRecipeId,
   CampState,
@@ -8,8 +12,15 @@ import type {
   EnemyDefinition,
   GameState,
 } from './types'
+import {
+  ACTIVE_CONTENT_CHAPTER,
+  CHAPTER1_COSTUME_IDS,
+  CHAPTER1_REWARD_IDS,
+  CHAPTER1_SYNTHESIS_IDS,
+} from './types'
 
-export const CAMP_DEFINITION_VERSION = 2 as const
+export const CAMP_DEFINITION_VERSION = 3 as const
+export const CAMP_BOND_DEFINITION_VERSION = 1 as const
 export const CAMP_MERCHANT_REFRESH_MS = 30 * 60 * 1_000
 export const CAMP_STRUCTURE_MAX_LEVEL = 5
 export const CAMP_TRAINING_RANKS_PER_LEVEL = 5
@@ -38,6 +49,88 @@ export const CAMP_GOLD_STEW_ROUNDS = 1_800
 export const CAMP_FOCUS_CRITICAL_BONUS = 0.2
 export const CAMP_MERCHANT_OFFER_SLOTS = [0, 1, 2] as const
 export type CampMerchantOfferSlot = (typeof CAMP_MERCHANT_OFFER_SLOTS)[number]
+
+export const CHAPTER1_ADULT_CHARACTER_DEFINITIONS = Object.freeze({
+  sera: Object.freeze({
+    id: 'sera',
+    chapterId: ACTIVE_CONTENT_CHAPTER,
+    adult: true,
+    consentRequired: true,
+  }),
+} as const)
+
+export interface Chapter1CostumeDefinition {
+  readonly id: Chapter1CostumeId
+  readonly name: string
+  readonly manifestAssetId: `costume.chapter1.${string}`
+  readonly unlockBit: number
+}
+
+export const CHAPTER1_COSTUME_DEFINITIONS: Readonly<
+  Record<Chapter1CostumeId, Chapter1CostumeDefinition>
+> = Object.freeze({
+  'chapter1.sera.field': Object.freeze({
+    id: 'chapter1.sera.field',
+    name: '세라의 잿불 정찰복',
+    manifestAssetId: 'costume.chapter1.sera.ember-bond',
+    unlockBit: 1,
+  }),
+})
+
+export const MAX_CHAPTER1_COSTUME_MASK = (2 ** CHAPTER1_COSTUME_IDS.length) - 1
+export const MAX_CHAPTER1_SYNTHESIS_REWARD_MASK = (2 ** CHAPTER1_REWARD_IDS.length) - 1
+
+export interface CampJointSynthesisDefinition {
+  readonly id: Chapter1SynthesisId
+  readonly name: string
+  readonly cost: Readonly<{
+    gold: number
+    materials: Readonly<CampMaterialInventory>
+  }>
+  readonly reward: Readonly<{
+    id: Chapter1RewardId
+    name: string
+    claimBit: number
+  }>
+}
+
+export const CAMP_JOINT_SYNTHESIS_DEFINITIONS: Readonly<
+  Record<Chapter1SynthesisId, CampJointSynthesisDefinition>
+> = Object.freeze({
+  'chapter1.sera.ember-vow': Object.freeze({
+    id: 'chapter1.sera.ember-vow',
+    name: '잿불의 서약 합동 연성',
+    cost: Object.freeze({
+      gold: 900,
+      materials: Object.freeze({ ashShard: 12, beastHide: 6, emberCore: 1 }),
+    }),
+    reward: Object.freeze({
+      id: 'chapter1.weapon.ember-vow-card',
+      name: '잿불의 서약 무기 카드',
+      claimBit: 1,
+    }),
+  }),
+})
+
+export function isChapter1CostumeId(value: unknown): value is Chapter1CostumeId {
+  return typeof value === 'string' && CHAPTER1_COSTUME_IDS.some((id) => id === value)
+}
+
+export function isChapter1SynthesisId(value: unknown): value is Chapter1SynthesisId {
+  return typeof value === 'string' && CHAPTER1_SYNTHESIS_IDS.some((id) => id === value)
+}
+
+export function createInitialCampBondState(): CampBondState {
+  const initialCostumeId = CHAPTER1_COSTUME_IDS[0]
+  return {
+    definitionVersion: CAMP_BOND_DEFINITION_VERSION,
+    adultAccessConfirmed: false,
+    seraConsent: 'notGranted',
+    currentCostumeId: initialCostumeId,
+    unlockedCostumeMask: CHAPTER1_COSTUME_DEFINITIONS[initialCostumeId].unlockBit,
+    claimedSynthesisRewardMask: 0,
+  }
+}
 
 type CampMerchantOfferEffect =
   | { readonly type: 'material'; readonly id: keyof CampMaterialInventory; readonly amount: number }
@@ -248,5 +341,6 @@ export function createInitialCampState(): CampState {
         trust: 0,
       },
     },
+    bond: createInitialCampBondState(),
   }
 }

@@ -167,6 +167,10 @@ export function GameScreen({
               onPurchaseMerchantOffer={game.purchaseCampMerchantOffer}
               onAcceptSeraContract={game.acceptSeraContract}
               onIncreaseSeraTrust={game.increaseSeraTrust}
+              onSetAdultContentAccess={game.setAdultContentAccess}
+              onSetSeraBondConsent={game.setSeraBondConsent}
+              onSelectCostume={game.selectCampCostume}
+              onSynthesizeJointBond={game.synthesizeJointBond}
             />
             {showSaveTransfer && game.ready && game.readOnly && (
               <SaveTransferPanel

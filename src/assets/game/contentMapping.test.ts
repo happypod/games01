@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { CHAPTER1_COSTUME_DEFINITIONS } from '../../game/camp'
 import {
   COMPANION_DEFINITIONS,
   EXPEDITION_EVENT_DEFINITIONS,
@@ -8,7 +9,30 @@ import {
   getEnemyPresentationDamageState,
   getEnemyPresentationAssetId,
 } from '../../game/content'
+import { getFallbackId } from './assetResolver'
 import manifestJson from './manifest.json'
+
+describe('IRPG-426 Chapter I costume asset mapping', () => {
+  it('maps the saved semantic costume ID to the only checked-in non-explicit sample', () => {
+    const definition = CHAPTER1_COSTUME_DEFINITIONS['chapter1.sera.field']
+    const costumeAssets = manifestJson.assets.filter((entry) => entry.kind === 'costume')
+
+    expect(definition.manifestAssetId).toBe('costume.chapter1.sera.ember-bond')
+    expect(costumeAssets).toHaveLength(1)
+    expect(costumeAssets[0]).toMatchObject({
+      id: definition.manifestAssetId,
+      kind: 'costume',
+      status: 'ready',
+      format: 'webp',
+      width: 768,
+      height: 768,
+      bytes: 49_366,
+      promptRecord: 'docs/assets/prompts/chapter1-sera-ember-bond.md',
+      sha256: '93bea6e26c058e872c4408d474823dabcea461c54e7ab2225388c657d94e091a',
+    })
+    expect(getFallbackId(definition.manifestAssetId)).toBe('fallback.character')
+  })
+})
 
 describe('combat visual asset mapping', () => {
   it('maps every named enemy and boss to a unique production-ready portrait', () => {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import legacySaveV6 from './fixtures/legacy-save-v6.json'
-import { CAMP_RECIPE_DEFINITIONS, createInitialCampState } from './camp'
+import legacySaveV7 from './fixtures/legacy-save-v7.json'
+import {
+  CAMP_RECIPE_DEFINITIONS,
+  createInitialCampBondState,
+  createInitialCampState,
+} from './camp'
 import { advanceOfflineGame, createInitialState, switchGameMode } from './engine'
 import { deriveLegacyExpeditionMilestoneMask } from './expedition'
 import {
@@ -32,9 +37,14 @@ class MemoryStorage implements StorageLike {
 function asLegacySchema6(state: GameState) {
   const current = structuredClone(state)
   const { healingPotion: _healingPotion, ...legacyConsumables } = current.camp.consumables
-  const { quickConsumable: _quickConsumable, ...legacyCamp } = current.camp
+  const {
+    quickConsumable: _quickConsumable,
+    bond: _bond,
+    ...legacyCamp
+  } = current.camp
   void _healingPotion
   void _quickConsumable
+  void _bond
   return {
     ...current,
     schemaVersion: 6 as const,
@@ -42,6 +52,20 @@ function asLegacySchema6(state: GameState) {
       ...legacyCamp,
       definitionVersion: 1 as const,
       consumables: legacyConsumables,
+    },
+  }
+}
+
+function asLegacySchema7(state: GameState) {
+  const current = structuredClone(state)
+  const { bond: _bond, ...legacyCamp } = current.camp
+  void _bond
+  return {
+    ...current,
+    schemaVersion: 7 as const,
+    camp: {
+      ...legacyCamp,
+      definitionVersion: 2 as const,
     },
   }
 }
@@ -59,7 +83,7 @@ describe('IRPG-418 schema6 camp persistence', () => {
       player: { gold: 456, currentHp: 75 },
       battle: { powerStrikeCooldownMs: 2_500 },
       camp: {
-        definitionVersion: 2,
+        definitionVersion: 3,
         structures: legacySaveV6.camp.structures,
         training: legacySaveV6.camp.training,
         materials: legacySaveV6.camp.materials,
@@ -69,6 +93,7 @@ describe('IRPG-418 schema6 camp persistence', () => {
         buffs: legacySaveV6.camp.buffs,
         merchant: legacySaveV6.camp.merchant,
         residents: legacySaveV6.camp.residents,
+        bond: createInitialCampBondState(),
       },
     })
   })
@@ -100,14 +125,55 @@ describe('IRPG-418 schema6 camp persistence', () => {
       schemaVersion: SAVE_VERSION,
       camp: {
         ...current.camp,
-        definitionVersion: 2,
+        definitionVersion: 3,
         consumables: { goldStew: 3, focusTonic: 2, healingPotion: 0 },
         quickConsumable: null,
       },
     })
   })
 
-  it('keeps schema6 migration in memory for readers and checkpoints schema7 only for writers', () => {
+  it('migrates the checked-in schema7 fixture by adding only Chapter I bond defaults', () => {
+    const migrated = decodeGameState(legacySaveV7)
+
+    expect(migrated).not.toBeNull()
+    expect(migrated).toEqual({
+      ...legacySaveV7,
+      schemaVersion: SAVE_VERSION,
+      camp: {
+        ...legacySaveV7.camp,
+        definitionVersion: 3,
+        bond: createInitialCampBondState(),
+      },
+    })
+  })
+
+  it('keeps schema7 migration in memory for readers and checkpoints schema8 only for writers', () => {
+    const storage = new MemoryStorage()
+    storage.setItem(SAVE_SLOT_KEYS[0], JSON.stringify({
+      formatVersion: 3,
+      revision: 7,
+      savedAt: legacySaveV7.lastSavedAt,
+      state: legacySaveV7,
+    }))
+
+    const reader = bootstrapGame(storage, legacySaveV7.lastSavedAt, 'reader')
+    expect(reader.state.schemaVersion).toBe(SAVE_VERSION)
+    expect(reader.state.camp.definitionVersion).toBe(3)
+    expect(reader.state.camp.bond).toEqual(createInitialCampBondState())
+    expect(reader.state.camp.materials).toEqual(legacySaveV7.camp.materials)
+    expect(reader.state.camp.consumables).toEqual(legacySaveV7.camp.consumables)
+    expect(reader.state.camp.craftJob).toEqual(legacySaveV7.camp.craftJob)
+    expect(reader.state.rng).toEqual(legacySaveV7.rng)
+    expect(reader.revision).toBe(7)
+    expect(storage.getItem(SAVE_SLOT_KEYS[1])).toBeNull()
+
+    const writer = bootstrapGame(storage, legacySaveV7.lastSavedAt, 'writer')
+    expect(writer.revision).toBe(8)
+    expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_KEYS[1]) ?? '')?.state)
+      .toEqual(writer.state)
+  })
+
+  it('keeps schema6 migration in memory for readers and checkpoints schema8 only for writers', () => {
     const storage = new MemoryStorage()
     const current = createInitialState(500, 0x4230_1002)
     current.currentMode = 'CAMP'
@@ -126,10 +192,11 @@ describe('IRPG-418 schema6 camp persistence', () => {
       schemaVersion: SAVE_VERSION,
       currentMode: 'CAMP',
       camp: {
-        definitionVersion: 2,
+        definitionVersion: 3,
         materials: { ashShard: 12 },
         consumables: { goldStew: 2, healingPotion: 0 },
         quickConsumable: null,
+        bond: createInitialCampBondState(),
       },
     })
     expect(reader.revision).toBe(7)
@@ -215,14 +282,82 @@ describe('IRPG-418 schema6 camp persistence', () => {
     expect(isFutureGameStateValue(future)).toBe(true)
   })
 
-  it('preserves the schema6 future-definition fence after schema7 becomes current', () => {
+  it('preserves the schema6 future-definition fence after schema8 becomes current', () => {
     const future = asLegacySchema6(createInitialState(0, 0x4230_1003))
     ;(future.camp as { definitionVersion: number }).definitionVersion = 2
     expect(isFutureGameStateValue(future)).toBe(true)
     expect(decodeGameState(future)).toBeNull()
   })
 
-  it('rejects a missing or unsupported quick consumable in schema7', () => {
+  it('preserves the schema7 future-definition fence after schema8 becomes current', () => {
+    const future = asLegacySchema7(createInitialState(0, 0x4260_1001))
+    ;(future.camp as { definitionVersion: number }).definitionVersion = 3
+    expect(isFutureGameStateValue(future)).toBe(true)
+    expect(decodeGameState(future)).toBeNull()
+  })
+
+  it('classifies a higher bond definition as future but keeps missing/lower markers invalid', () => {
+    const future = createInitialState(0, 0x4260_1002)
+    future.camp.bond.definitionVersion = 2
+    expect(isFutureGameStateValue(future)).toBe(true)
+    expect(decodeGameState(future)).toBeNull()
+
+    const missing = structuredClone(createInitialState(0, 0x4260_1003)) as unknown as {
+      camp: { bond?: unknown }
+    }
+    delete missing.camp.bond
+    expect(isFutureGameStateValue(missing)).toBe(false)
+    expect(decodeGameState(missing)).toBeNull()
+
+    const lower = createInitialState(0, 0x4260_1004)
+    lower.camp.bond.definitionVersion = 0
+    expect(isFutureGameStateValue(lower)).toBe(false)
+    expect(decodeGameState(lower)).toBeNull()
+  })
+
+  it('rejects impossible consent, Chapter II/III costume IDs, and invalid masks', () => {
+    const invalid = [
+      (() => {
+        const state = createInitialState(0, 0x4260_1010)
+        state.camp.bond.seraConsent = 'granted'
+        return state
+      })(),
+      (() => {
+        const state = createInitialState(0, 0x4260_1011)
+        state.camp.residents.sera = { status: 'contracted', trust: 0 }
+        state.camp.bond.seraConsent = 'granted'
+        return state
+      })(),
+      (() => {
+        const state = createInitialState(0, 0x4260_1012) as unknown as {
+          camp: { bond: { currentCostumeId: string } }
+        }
+        state.camp.bond.currentCostumeId = 'chapter2.sera.field'
+        return state
+      })(),
+      (() => {
+        const state = createInitialState(0, 0x4260_1013) as unknown as {
+          camp: { bond: { currentCostumeId: string } }
+        }
+        state.camp.bond.currentCostumeId = 'chapter3.sera.field'
+        return state
+      })(),
+      (() => {
+        const state = createInitialState(0, 0x4260_1014)
+        state.camp.bond.unlockedCostumeMask = 0
+        return state
+      })(),
+      (() => {
+        const state = createInitialState(0, 0x4260_1015)
+        state.camp.bond.claimedSynthesisRewardMask = 2
+        return state
+      })(),
+    ]
+
+    for (const state of invalid) expect(decodeGameState(state)).toBeNull()
+  })
+
+  it('rejects a missing or unsupported quick consumable in schema8', () => {
     const missing = structuredClone(createInitialState(0, 0x4230_1004)) as unknown as {
       camp: { quickConsumable?: unknown }
     }

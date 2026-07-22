@@ -7,11 +7,11 @@
     {
       "elapsedMs": 28800000,
       "state": {
-        "schemaVersion": 7,
+        "schemaVersion": 8,
         "lastSavedAt": 0,
         "currentMode": "BATTLE",
         "camp": {
-          "definitionVersion": 2,
+          "definitionVersion": 3,
           "structures": {
             "tent": 1,
             "workbench": 1,
@@ -47,6 +47,14 @@
               "status": "unmet",
               "trust": 0
             }
+          },
+          "bond": {
+            "definitionVersion": 1,
+            "adultAccessConfirmed": false,
+            "seraConsent": "notGranted",
+            "currentCostumeId": "chapter1.sera.field",
+            "unlockedCostumeMask": 1,
+            "claimedSynthesisRewardMask": 0
           }
         },
         "claimedBossMilestoneMask": 1,
@@ -167,11 +175,11 @@
     {
       "elapsedMs": 57600000,
       "state": {
-        "schemaVersion": 7,
+        "schemaVersion": 8,
         "lastSavedAt": 0,
         "currentMode": "BATTLE",
         "camp": {
-          "definitionVersion": 2,
+          "definitionVersion": 3,
           "structures": {
             "tent": 1,
             "workbench": 1,
@@ -207,6 +215,14 @@
               "status": "unmet",
               "trust": 0
             }
+          },
+          "bond": {
+            "definitionVersion": 1,
+            "adultAccessConfirmed": false,
+            "seraConsent": "notGranted",
+            "currentCostumeId": "chapter1.sera.field",
+            "unlockedCostumeMask": 1,
+            "claimedSynthesisRewardMask": 0
           }
         },
         "claimedBossMilestoneMask": 3,
@@ -327,11 +343,11 @@
     {
       "elapsedMs": 86400000,
       "state": {
-        "schemaVersion": 7,
+        "schemaVersion": 8,
         "lastSavedAt": 0,
         "currentMode": "BATTLE",
         "camp": {
-          "definitionVersion": 2,
+          "definitionVersion": 3,
           "structures": {
             "tent": 1,
             "workbench": 1,
@@ -367,6 +383,14 @@
               "status": "unmet",
               "trust": 0
             }
+          },
+          "bond": {
+            "definitionVersion": 1,
+            "adultAccessConfirmed": false,
+            "seraConsent": "notGranted",
+            "currentCostumeId": "chapter1.sera.field",
+            "unlockedCostumeMask": 1,
+            "claimedSynthesisRewardMask": 0
           }
         },
         "claimedBossMilestoneMask": 3,

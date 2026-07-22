@@ -11,9 +11,13 @@ import {
   purchaseCampMerchantOffer as purchaseCampMerchantOfferCommand,
   purchaseUpgrade,
   recruitCompanion as recruitCompanionCommand,
+  selectCampCostume as selectCampCostumeCommand,
   selectStage,
+  setAdultContentAccess as setAdultContentAccessCommand,
+  setSeraBondConsent as setSeraBondConsentCommand,
   startCampCraft as startCampCraftCommand,
   switchGameMode,
+  synthesizeJointBond as synthesizeJointBondCommand,
   increaseSeraTrust as increaseSeraTrustCommand,
   trainAtCamp as trainAtCampCommand,
   trainCompanion as trainCompanionCommand,
@@ -36,6 +40,8 @@ import {
 import { commitPortableSave, type SaveImportPreview } from '../game/saveTransfer'
 import type {
   AdvanceReport,
+  Chapter1CostumeId,
+  Chapter1SynthesisId,
   CombatEventBatch,
   CombatEventCursor,
   CompanionId,
@@ -100,6 +106,10 @@ export interface GameController {
   purchaseCampMerchantOffer: (slot: CampMerchantOfferSlot) => void
   acceptSeraContract: () => void
   increaseSeraTrust: () => void
+  setAdultContentAccess: (confirmed: boolean) => GameCommandFeedback
+  setSeraBondConsent: (consent: 'granted' | 'withdrawn') => GameCommandFeedback
+  selectCampCostume: (id: Chapter1CostumeId) => GameCommandFeedback
+  synthesizeJointBond: (id: Chapter1SynthesisId) => GameCommandFeedback
   buyUpgrade: (id: UpgradeId) => void
   buySkill: (id: SkillId) => void
   recruitCompanion: (id: CompanionId) => void
@@ -494,6 +504,26 @@ export function useGame(): GameController {
     () => runCommand((current) => increaseSeraTrustCommand(current)),
     [runCommand],
   )
+  const setAdultContentAccess = useCallback(
+    (confirmed: boolean) =>
+      runCommand((current) => setAdultContentAccessCommand(current, confirmed)),
+    [runCommand],
+  )
+  const setSeraBondConsent = useCallback(
+    (consent: 'granted' | 'withdrawn') =>
+      runCommand((current) => setSeraBondConsentCommand(current, consent)),
+    [runCommand],
+  )
+  const selectCampCostume = useCallback(
+    (id: Chapter1CostumeId) =>
+      runCommand((current) => selectCampCostumeCommand(current, id)),
+    [runCommand],
+  )
+  const synthesizeJointBond = useCallback(
+    (id: Chapter1SynthesisId) =>
+      runCommand((current) => synthesizeJointBondCommand(current, id)),
+    [runCommand],
+  )
   const changeMode = useCallback(
     (mode: GameMode) => runCommand((current) => switchGameMode(current, mode)),
     [runCommand],
@@ -619,6 +649,10 @@ export function useGame(): GameController {
     purchaseCampMerchantOffer,
     acceptSeraContract,
     increaseSeraTrust,
+    setAdultContentAccess,
+    setSeraBondConsent,
+    selectCampCostume,
+    synthesizeJointBond,
     buyUpgrade,
     buySkill,
     recruitCompanion,

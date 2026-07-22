@@ -1,4 +1,12 @@
 import {
+  faCampground,
+  faFireFlameCurved,
+  faHeart,
+  faShirt,
+} from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { useId, useRef, useState, type KeyboardEvent } from 'react'
+import {
   CAMP_OFFLINE_CAP_HOURS,
   CAMP_MERCHANT_OFFER_SLOTS,
   CAMP_RECIPE_DEFINITIONS,
@@ -22,6 +30,8 @@ import { formatNumber } from '../game/format'
 import {
   CAMP_RECIPE_IDS,
   SAVE_VERSION,
+  type Chapter1CostumeId,
+  type Chapter1SynthesisId,
   type CampConsumableId,
   type CampQuickConsumableId,
   type CampRecipeId,
@@ -29,6 +39,11 @@ import {
   type CampTrainingId,
   type GameState,
 } from '../game/types'
+import type { GameCommandFeedback } from '../hooks/useGame'
+import {
+  CampSpecialFacilities,
+  type CampSpecialFacilityId,
+} from './CampSpecialFacilities'
 import { GameAsset } from './GameAsset'
 import { StatBar } from './StatBar'
 
@@ -45,7 +60,20 @@ interface CampDashboardProps {
   onPurchaseMerchantOffer: (slot: CampMerchantOfferSlot) => void
   onAcceptSeraContract: () => void
   onIncreaseSeraTrust: () => void
+  onSetAdultContentAccess: (confirmed: boolean) => GameCommandFeedback
+  onSetSeraBondConsent: (consent: 'granted' | 'withdrawn') => GameCommandFeedback
+  onSelectCostume: (id: Chapter1CostumeId) => GameCommandFeedback
+  onSynthesizeJointBond: (id: Chapter1SynthesisId) => GameCommandFeedback
 }
+
+const CAMP_CENTER_TABS = [
+  { id: 'overview', label: '캠프 관리', icon: faCampground },
+  { id: 'bondTraining', label: '유대 훈련실', icon: faHeart },
+  { id: 'costumeRoom', label: '의상실', icon: faShirt },
+  { id: 'jointSynthesis', label: '합동 연성실', icon: faFireFlameCurved },
+] as const
+
+type CampCenterTabId = (typeof CAMP_CENTER_TABS)[number]['id']
 
 const FACILITIES = [
   {
@@ -111,7 +139,14 @@ export function CampDashboard({
   onPurchaseMerchantOffer,
   onAcceptSeraContract,
   onIncreaseSeraTrust,
+  onSetAdultContentAccess,
+  onSetSeraBondConsent,
+  onSelectCostume,
+  onSynthesizeJointBond,
 }: CampDashboardProps) {
+  const [activeCenterTab, setActiveCenterTab] = useState<CampCenterTabId>('overview')
+  const centerTabRefs = useRef(new Map<CampCenterTabId, HTMLButtonElement>())
+  const centerTabIdPrefix = useId().replaceAll(':', '')
   const hero = getHeroStats(state)
   const trainingCap = getCampTrainingRankCap(state.camp)
   const merchantOffers = getCampMerchantOffers(state.camp.merchant.cycle)
@@ -122,6 +157,38 @@ export function CampDashboard({
     && state.camp.materials.ashShard < healingAshCost
   const healingPotionRecovery = getHealingPotionRecoveryAmount(state)
   const healingPotionEquipped = state.camp.quickConsumable === 'healingPotion'
+
+  const activateCenterTab = (id: CampCenterTabId) => {
+    setActiveCenterTab(id)
+  }
+
+  const handleCenterTabKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    tabId: CampCenterTabId,
+  ) => {
+    const currentIndex = CAMP_CENTER_TABS.findIndex(({ id }) => id === tabId)
+    let nextIndex: number
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      nextIndex = (currentIndex - 1 + CAMP_CENTER_TABS.length) % CAMP_CENTER_TABS.length
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      nextIndex = (currentIndex + 1) % CAMP_CENTER_TABS.length
+    } else if (event.key === 'Home') {
+      nextIndex = 0
+    } else if (event.key === 'End') {
+      nextIndex = CAMP_CENTER_TABS.length - 1
+    } else {
+      return
+    }
+
+    event.preventDefault()
+    const nextTab = CAMP_CENTER_TABS[nextIndex]
+    if (nextTab === undefined) return
+    activateCenterTab(nextTab.id)
+    centerTabRefs.current.get(nextTab.id)?.focus()
+  }
+
+  const activeCenterTabId = `${centerTabIdPrefix}-camp-center-tab-${activeCenterTab}`
+  const activeCenterPanelId = `${centerTabIdPrefix}-camp-center-panel`
 
   return (
     <div className="camp-dashboard" data-testid="camp-dashboard">
@@ -174,6 +241,40 @@ export function CampDashboard({
           </div>
           <span>schema {SAVE_VERSION} · 안전한 기반</span>
         </header>
+        <div className="camp-center-tabs" role="tablist" aria-label="캠프 중앙 시설">
+          {CAMP_CENTER_TABS.map((tab) => {
+            const selected = tab.id === activeCenterTab
+            return (
+              <button
+                key={tab.id}
+                ref={(node) => {
+                  if (node === null) centerTabRefs.current.delete(tab.id)
+                  else centerTabRefs.current.set(tab.id, node)
+                }}
+                id={`${centerTabIdPrefix}-camp-center-tab-${tab.id}`}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={activeCenterPanelId}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => activateCenterTab(tab.id)}
+                onKeyDown={(event) => handleCenterTabKeyDown(event, tab.id)}
+              >
+                <FontAwesomeIcon icon={tab.icon} fixedWidth aria-hidden="true" />
+                <span>{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+        <div
+          id={activeCenterPanelId}
+          className="camp-center-panel"
+          role="tabpanel"
+          aria-labelledby={activeCenterTabId}
+          data-camp-panel={activeCenterTab}
+        >
+        {activeCenterTab === 'overview' ? (
+          <>
         <div className="camp-facility-grid">
           {FACILITIES.map((facility) => {
             const level = state.camp.structures[facility.id]
@@ -305,6 +406,21 @@ export function CampDashboard({
             })()}
           </div>
         </section>
+          </>
+        ) : (
+          <CampSpecialFacilities
+            key={activeCenterTab}
+            activeFacility={activeCenterTab as CampSpecialFacilityId}
+            state={state}
+            disabled={disabled}
+            onSetAdultContentAccess={onSetAdultContentAccess}
+            onSetSeraBondConsent={onSetSeraBondConsent}
+            onSelectCostume={onSelectCostume}
+            onSynthesizeJointBond={onSynthesizeJointBond}
+            onIncreaseSeraTrust={onIncreaseSeraTrust}
+          />
+        )}
+        </div>
       </section>
 
       <aside className="camp-command panel" aria-labelledby="camp-command-title">

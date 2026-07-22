@@ -219,6 +219,29 @@ export async function openVisualFixture(
     await expect(art).toHaveAttribute('data-state', 'loaded')
   }
 
+  if (fixture.setupAction === 'open-bond-synthesis-reward') {
+    await page.getByRole('tab', { name: '합동 연성실', exact: true }).click()
+    const facilities = page.getByTestId('camp-special-facilities')
+    await expect(facilities).toHaveAttribute('data-active-facility', 'jointSynthesis')
+    await expect(facilities).toHaveAttribute('data-consent-status', 'granted')
+    const synthesis = page.getByTestId('joint-synthesis')
+    const costume = synthesis.locator('[data-asset-id="costume.chapter1.sera.ember-bond"]')
+    await expect(costume).toHaveAttribute('data-state', 'loaded')
+    await synthesis.getByRole('button', { name: '합동 연성 시작', exact: true }).click()
+    const rewardDialog = page.getByTestId('synthesis-reward-dialog')
+    await expect(rewardDialog).toBeVisible()
+    await expect(rewardDialog).toHaveAttribute(
+      'data-reward-id',
+      'chapter1.weapon.ember-vow-card',
+    )
+    const rewardArt = rewardDialog.locator('[data-asset-id="equipment.ember-blade"]')
+    await expect(rewardArt).toHaveAttribute('data-state', 'loaded')
+    await expect(rewardArt).toHaveAttribute('data-resolved-asset-id', 'equipment.ember-blade')
+    await expect(synthesis).toHaveAttribute('data-synthesis-phase', 'reward')
+    await expect(synthesis.getByRole('button', { name: '보상 지급 완료', exact: true }))
+      .toBeDisabled()
+  }
+
   const target = page.locator(fixture.captureTarget)
   await expect(target).toBeVisible()
   if (fixture.id === 'visual.events.tactical-overlay') {

@@ -39,6 +39,7 @@ import {
   CAMP_STRUCTURE_MAX_LEVEL,
   CAMP_FOCUS_CRITICAL_BONUS,
   CAMP_GOLD_STEW_ROUNDS,
+  CAMP_JOINT_SYNTHESIS_DEFINITIONS,
   CAMP_MERCHANT_OFFER_SLOTS,
   CAMP_MERCHANT_REFRESH_MS,
   CAMP_RECIPE_DEFINITIONS,
@@ -55,6 +56,9 @@ import {
   getHealingPotionRecoveryAmount,
   getSeraTrustCost,
   createInitialCampState,
+  isChapter1CostumeId,
+  isChapter1SynthesisId,
+  CHAPTER1_COSTUME_DEFINITIONS,
   type CampMerchantOfferSlot,
 } from './camp'
 import {
@@ -231,6 +235,7 @@ const cloneState = (state: GameState): GameState => ({
     residents: {
       sera: { ...state.camp.residents.sera },
     },
+    bond: { ...state.camp.bond },
   },
   expeditionEvents: {
     ...state.expeditionEvents,
@@ -987,6 +992,155 @@ export function increaseSeraTrust(input: GameState): CommandResult {
     state,
     success: true,
     message: `세라 신뢰 ${state.camp.residents.sera.trust} · 상인 가격 ${state.camp.residents.sera.trust * 2}% 할인`,
+  }
+}
+
+export function hasActiveSeraBondConsent(input: GameState): boolean {
+  return (
+    input.camp.residents.sera.status === 'contracted' &&
+    input.camp.bond.adultAccessConfirmed &&
+    input.camp.bond.seraConsent === 'granted'
+  )
+}
+
+export function setAdultContentAccess(
+  input: GameState,
+  confirmed: boolean,
+): CommandResult {
+  if (typeof confirmed !== 'boolean') {
+    return { state: input, success: false, message: '성인 콘텐츠 확인 값이 올바르지 않습니다.' }
+  }
+  if (input.camp.bond.adultAccessConfirmed === confirmed) {
+    return {
+      state: input,
+      success: false,
+      message: confirmed
+        ? '18세 이상 확인이 이미 완료되었습니다.'
+        : '성인 콘텐츠 접근이 이미 꺼져 있습니다.',
+    }
+  }
+  if (confirmed && input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프에서만 18세 이상 확인을 진행할 수 있습니다.' }
+  }
+
+  const state = cloneState(input)
+  state.camp.bond.adultAccessConfirmed = confirmed
+  if (!confirmed && state.camp.bond.seraConsent === 'granted') {
+    state.camp.bond.seraConsent = 'withdrawn'
+  }
+  return {
+    state,
+    success: true,
+    message: confirmed
+      ? '18세 이상 확인을 완료했습니다. 세라의 별도 동의가 필요합니다.'
+      : '성인 콘텐츠 접근을 껐습니다. 기존 해금과 보상 원장은 유지됩니다.',
+  }
+}
+
+export function setSeraBondConsent(
+  input: GameState,
+  consent: 'granted' | 'withdrawn',
+): CommandResult {
+  if (consent !== 'granted' && consent !== 'withdrawn') {
+    return { state: input, success: false, message: '세라 동의 상태가 올바르지 않습니다.' }
+  }
+  if (consent === 'withdrawn') {
+    if (input.camp.bond.seraConsent !== 'granted') {
+      return { state: input, success: false, message: '철회할 활성 동의가 없습니다.' }
+    }
+    const state = cloneState(input)
+    state.camp.bond.seraConsent = 'withdrawn'
+    return {
+      state,
+      success: true,
+      message: '세라의 동의를 철회했습니다. 기존 신뢰·해금·보상은 유지됩니다.',
+    }
+  }
+
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프에서만 세라의 동의를 확인할 수 있습니다.' }
+  }
+  if (input.camp.residents.sera.status !== 'contracted') {
+    return {
+      state: input,
+      success: false,
+      message: '세라의 자발적 상점 조언 계약을 먼저 완료해야 합니다.',
+    }
+  }
+  if (!input.camp.bond.adultAccessConfirmed) {
+    return { state: input, success: false, message: '먼저 18세 이상임을 확인해야 합니다.' }
+  }
+  if (input.camp.bond.seraConsent === 'granted') {
+    return { state: input, success: false, message: '세라의 동의가 이미 활성화되어 있습니다.' }
+  }
+
+  const state = cloneState(input)
+  state.camp.bond.seraConsent = 'granted'
+  return { state, success: true, message: '세라가 유대 시설 이용에 명시적으로 동의했습니다.' }
+}
+
+export function selectCampCostume(
+  input: GameState,
+  costumeId: string,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프 의상실에서만 복장을 바꿀 수 있습니다.' }
+  }
+  if (!hasActiveSeraBondConsent(input)) {
+    return { state: input, success: false, message: '18세 이상 확인과 세라의 별도 동의가 필요합니다.' }
+  }
+  if (!isChapter1CostumeId(costumeId)) {
+    return { state: input, success: false, message: '지원하지 않는 CHAPTER I 의상입니다.' }
+  }
+  const definition = CHAPTER1_COSTUME_DEFINITIONS[costumeId]
+  if ((input.camp.bond.unlockedCostumeMask & definition.unlockBit) === 0) {
+    return { state: input, success: false, message: '아직 해금하지 않은 의상입니다.' }
+  }
+  if (input.camp.bond.currentCostumeId === costumeId) {
+    return { state: input, success: false, message: '이미 선택한 의상입니다.' }
+  }
+
+  const state = cloneState(input)
+  state.camp.bond.currentCostumeId = costumeId
+  return { state, success: true, message: `${definition.name}으로 갈아입었습니다.` }
+}
+
+export function synthesizeJointBond(
+  input: GameState,
+  synthesisId: string,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프 합동 연성실에서만 연성할 수 있습니다.' }
+  }
+  if (!hasActiveSeraBondConsent(input)) {
+    return { state: input, success: false, message: '18세 이상 확인과 세라의 별도 동의가 필요합니다.' }
+  }
+  if (!isChapter1SynthesisId(synthesisId)) {
+    return { state: input, success: false, message: '지원하지 않는 CHAPTER I 합동 연성입니다.' }
+  }
+  const definition = CAMP_JOINT_SYNTHESIS_DEFINITIONS[synthesisId]
+  if ((input.camp.bond.claimedSynthesisRewardMask & definition.reward.claimBit) !== 0) {
+    return { state: input, success: false, message: '이미 수령한 합동 연성 보상입니다.' }
+  }
+  if (input.player.gold < definition.cost.gold) {
+    return { state: input, success: false, message: `합동 연성에 골드 ${definition.cost.gold}이 필요합니다.` }
+  }
+  for (const id of CAMP_MATERIAL_IDS) {
+    if (input.camp.materials[id] < definition.cost.materials[id]) {
+      return { state: input, success: false, message: `${definition.name} 연성 재료가 부족합니다.` }
+    }
+  }
+
+  const state = cloneState(input)
+  state.player.gold -= definition.cost.gold
+  for (const id of CAMP_MATERIAL_IDS) {
+    state.camp.materials[id] -= definition.cost.materials[id]
+  }
+  state.camp.bond.claimedSynthesisRewardMask |= definition.reward.claimBit
+  return {
+    state,
+    success: true,
+    message: `${definition.reward.name}를 수집 보상으로 해금했습니다.`,
   }
 }
 

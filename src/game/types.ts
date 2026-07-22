@@ -1,5 +1,16 @@
-export const SAVE_VERSION = 7 as const
+export const SAVE_VERSION = 8 as const
 export const RNG_ALGORITHM = 'xorshift32-v1' as const
+
+export const ACTIVE_CONTENT_CHAPTER = 'chapter1' as const
+
+export const CHAPTER1_COSTUME_IDS = ['chapter1.sera.field'] as const
+export type Chapter1CostumeId = (typeof CHAPTER1_COSTUME_IDS)[number]
+
+export const CHAPTER1_SYNTHESIS_IDS = ['chapter1.sera.ember-vow'] as const
+export type Chapter1SynthesisId = (typeof CHAPTER1_SYNTHESIS_IDS)[number]
+
+export const CHAPTER1_REWARD_IDS = ['chapter1.weapon.ember-vow-card'] as const
+export type Chapter1RewardId = (typeof CHAPTER1_REWARD_IDS)[number]
 
 export const GAME_MODES = ['BATTLE', 'CAMP'] as const
 export type GameMode = (typeof GAME_MODES)[number]
@@ -25,6 +36,7 @@ export type CampQuickConsumableId = (typeof CAMP_QUICK_CONSUMABLE_IDS)[number]
 export const CAMP_RESIDENT_IDS = ['sera'] as const
 export type CampResidentId = (typeof CAMP_RESIDENT_IDS)[number]
 export type CampResidentStatus = 'unmet' | 'rescued' | 'contracted'
+export type SeraConsentStatus = 'notGranted' | 'granted' | 'withdrawn'
 
 export type CampStructureLevels = Record<CampStructureId, number>
 export type CampTrainingRanks = Record<CampTrainingId, number>
@@ -52,6 +64,15 @@ export interface CampResidentState {
   trust: number
 }
 
+export interface CampBondState {
+  definitionVersion: number
+  adultAccessConfirmed: boolean
+  seraConsent: SeraConsentStatus
+  currentCostumeId: Chapter1CostumeId
+  unlockedCostumeMask: number
+  claimedSynthesisRewardMask: number
+}
+
 export interface CampState {
   definitionVersion: number
   structures: CampStructureLevels
@@ -63,6 +84,7 @@ export interface CampState {
   buffs: CampBuffState
   merchant: CampMerchantState
   residents: Record<CampResidentId, CampResidentState>
+  bond: CampBondState
 }
 
 export const EXPEDITION_DEFINITION_IDS_V1 = Object.freeze([

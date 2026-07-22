@@ -10,10 +10,16 @@ import {
 } from './content'
 import { advanceOfflineGame, createInitialState } from './engine'
 import {
+  CAMP_BOND_DEFINITION_VERSION,
   CAMP_DEFINITION_VERSION,
   CAMP_MERCHANT_REFRESH_MS,
   CAMP_RECIPE_DEFINITIONS,
+  CHAPTER1_COSTUME_DEFINITIONS,
+  MAX_CHAPTER1_COSTUME_MASK,
+  MAX_CHAPTER1_SYNTHESIS_REWARD_MASK,
+  createInitialCampBondState,
   createInitialCampState,
+  isChapter1CostumeId,
 } from './camp'
 import { getHeroStats } from './formulas'
 import {
@@ -42,6 +48,7 @@ import {
 import type {
   AdvanceReport,
   BattleState,
+  CampBondState,
   CampState,
   ExpeditionEventState,
   GameState,
@@ -149,7 +156,7 @@ type LegacyCampRecipeId = (typeof LEGACY_CAMP_RECIPE_IDS)[number]
 
 type LegacyCampStateV1 = Omit<
   CampState,
-  'definitionVersion' | 'consumables' | 'quickConsumable' | 'craftJob'
+  'definitionVersion' | 'consumables' | 'quickConsumable' | 'craftJob' | 'bond'
 > & {
   definitionVersion: typeof LEGACY_CAMP_DEFINITION_VERSION
   consumables: Record<LegacyCampConsumableId, number>
@@ -162,6 +169,17 @@ type LegacyCampStateV1 = Omit<
 type LegacyGameStateV6 = Omit<GameState, 'schemaVersion' | 'camp'> & {
   schemaVersion: 6
   camp: LegacyCampStateV1
+}
+
+const LEGACY_CAMP_DEFINITION_VERSION_V2 = 2 as const
+
+type LegacyCampStateV2 = Omit<CampState, 'definitionVersion' | 'bond'> & {
+  definitionVersion: typeof LEGACY_CAMP_DEFINITION_VERSION_V2
+}
+
+type LegacyGameStateV7 = Omit<GameState, 'schemaVersion' | 'camp'> & {
+  schemaVersion: 7
+  camp: LegacyCampStateV2
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -329,6 +347,7 @@ function hasValidCampStateForDefinition(
   consumableIds: readonly string[],
   recipeIds: readonly string[],
   requireQuickConsumable: boolean,
+  requireBondState: boolean,
 ): boolean {
   if (!isRecord(value) || value.definitionVersion !== definitionVersion) {
     return false
@@ -408,7 +427,37 @@ function hasValidCampStateForDefinition(
   ) {
     return false
   }
+  if (requireBondState && !hasValidCampBondState(value.bond, residents.sera)) {
+    return false
+  }
   return true
+}
+
+function hasValidCampBondState(
+  value: unknown,
+  sera: Record<string, unknown>,
+): value is CampBondState {
+  if (
+    !isRecord(value) ||
+    value.definitionVersion !== CAMP_BOND_DEFINITION_VERSION ||
+    typeof value.adultAccessConfirmed !== 'boolean' ||
+    (value.seraConsent !== 'notGranted' &&
+      value.seraConsent !== 'granted' &&
+      value.seraConsent !== 'withdrawn') ||
+    !isChapter1CostumeId(value.currentCostumeId) ||
+    !isSafeNonNegativeInteger(value.unlockedCostumeMask) ||
+    value.unlockedCostumeMask > MAX_CHAPTER1_COSTUME_MASK ||
+    !isSafeNonNegativeInteger(value.claimedSynthesisRewardMask) ||
+    value.claimedSynthesisRewardMask > MAX_CHAPTER1_SYNTHESIS_REWARD_MASK
+  ) {
+    return false
+  }
+  const costumeBit = CHAPTER1_COSTUME_DEFINITIONS[value.currentCostumeId].unlockBit
+  if ((value.unlockedCostumeMask & costumeBit) === 0) return false
+  return (
+    value.seraConsent !== 'granted' ||
+    (value.adultAccessConfirmed && sera.status === 'contracted')
+  )
 }
 
 function hasValidCampState(value: unknown): value is CampState {
@@ -417,6 +466,7 @@ function hasValidCampState(value: unknown): value is CampState {
     CAMP_DEFINITION_VERSION,
     CAMP_CONSUMABLE_IDS,
     CAMP_RECIPE_IDS,
+    true,
     true,
   )
 }
@@ -427,6 +477,18 @@ function hasValidLegacyCampStateV1(value: unknown): value is LegacyCampStateV1 {
     LEGACY_CAMP_DEFINITION_VERSION,
     LEGACY_CAMP_CONSUMABLE_IDS,
     LEGACY_CAMP_RECIPE_IDS,
+    false,
+    false,
+  )
+}
+
+function hasValidLegacyCampStateV2(value: unknown): value is LegacyCampStateV2 {
+  return hasValidCampStateForDefinition(
+    value,
+    LEGACY_CAMP_DEFINITION_VERSION_V2,
+    CAMP_CONSUMABLE_IDS,
+    CAMP_RECIPE_IDS,
+    true,
     false,
   )
 }
@@ -471,6 +533,31 @@ function isLegacyGameStateV6(value: unknown): value is LegacyGameStateV6 {
     !hasValidSharedState(value) ||
     (value.currentMode !== 'BATTLE' && value.currentMode !== 'CAMP') ||
     !hasValidLegacyCampStateV1(value.camp) ||
+    !isBossMilestoneMask(value.claimedBossMilestoneMask) ||
+    !hasValidCompanionState(value) ||
+    !hasValidRng(value.rng)
+  ) {
+    return false
+  }
+  const battle = value.battle as BattleState
+  return (
+    hasValidCampBattleRelation(value.camp, battle) &&
+    hasValidExpeditionEvents(
+      value.expeditionEvents,
+      value.stats as LifetimeStats,
+      value.rng,
+      battle,
+    )
+  )
+}
+
+function isLegacyGameStateV7(value: unknown): value is LegacyGameStateV7 {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 7 ||
+    !hasValidSharedState(value) ||
+    (value.currentMode !== 'BATTLE' && value.currentMode !== 'CAMP') ||
+    !hasValidLegacyCampStateV2(value.camp) ||
     !isBossMilestoneMask(value.claimedBossMilestoneMask) ||
     !hasValidCompanionState(value) ||
     !hasValidRng(value.rng)
@@ -683,26 +770,46 @@ function migrateLegacyGameStateV5(state: LegacyGameStateV5): GameState {
   return normalizeGameState(migrated)
 }
 
+function migrateLegacyCampStateV2(camp: LegacyCampStateV2): CampState {
+  return {
+    ...camp,
+    definitionVersion: CAMP_DEFINITION_VERSION,
+    bond: createInitialCampBondState(),
+  }
+}
+
 function migrateLegacyGameStateV6(state: LegacyGameStateV6): GameState {
+  const legacy = structuredClone(state)
+  const recoveredCamp: LegacyCampStateV2 = {
+    ...legacy.camp,
+    definitionVersion: LEGACY_CAMP_DEFINITION_VERSION_V2,
+    consumables: {
+      ...legacy.camp.consumables,
+      healingPotion: 0,
+    },
+    quickConsumable: null,
+  }
+  const migrated: GameState = {
+    ...legacy,
+    schemaVersion: SAVE_VERSION,
+    camp: migrateLegacyCampStateV2(recoveredCamp),
+  }
+  return normalizeGameState(migrated)
+}
+
+function migrateLegacyGameStateV7(state: LegacyGameStateV7): GameState {
   const legacy = structuredClone(state)
   const migrated: GameState = {
     ...legacy,
     schemaVersion: SAVE_VERSION,
-    camp: {
-      ...legacy.camp,
-      definitionVersion: CAMP_DEFINITION_VERSION,
-      consumables: {
-        ...legacy.camp.consumables,
-        healingPotion: 0,
-      },
-      quickConsumable: null,
-    },
+    camp: migrateLegacyCampStateV2(legacy.camp),
   }
   return normalizeGameState(migrated)
 }
 
 export function decodeGameState(value: unknown): GameState | null {
   if (isGameState(value)) return normalizeGameState(value)
+  if (isLegacyGameStateV7(value)) return migrateLegacyGameStateV7(value)
   if (isLegacyGameStateV6(value)) return migrateLegacyGameStateV6(value)
   if (
     isRecord(value) &&
@@ -795,12 +902,19 @@ export function isFutureGameStateValue(value: unknown): boolean {
   ) {
     return true
   }
-  return hasFutureExpeditionDefinitionVersion(value) || hasFutureCampDefinitionVersion(value)
+  return (
+    hasFutureExpeditionDefinitionVersion(value) ||
+    hasFutureCampDefinitionVersion(value) ||
+    hasFutureBondDefinitionVersion(value)
+  )
 }
 
 function hasFutureExpeditionDefinitionVersion(value: Record<string, unknown>): boolean {
   if (
-    (value.schemaVersion !== 5 && value.schemaVersion !== 6 && value.schemaVersion !== SAVE_VERSION) ||
+    (value.schemaVersion !== 5 &&
+      value.schemaVersion !== 6 &&
+      value.schemaVersion !== 7 &&
+      value.schemaVersion !== SAVE_VERSION) ||
     !isRecord(value.expeditionEvents)
   ) {
     return false
@@ -827,6 +941,8 @@ function hasFutureCampDefinitionVersion(value: Record<string, unknown>): boolean
   }
   const supportedDefinitionVersion = value.schemaVersion === 6
     ? LEGACY_CAMP_DEFINITION_VERSION
+    : value.schemaVersion === 7
+      ? LEGACY_CAMP_DEFINITION_VERSION_V2
     : value.schemaVersion === SAVE_VERSION
       ? CAMP_DEFINITION_VERSION
       : null
@@ -834,6 +950,18 @@ function hasFutureCampDefinitionVersion(value: Record<string, unknown>): boolean
     supportedDefinitionVersion !== null &&
     value.camp.definitionVersion > supportedDefinitionVersion
   )
+}
+
+function hasFutureBondDefinitionVersion(value: Record<string, unknown>): boolean {
+  if (
+    value.schemaVersion !== SAVE_VERSION ||
+    !isRecord(value.camp) ||
+    !isRecord(value.camp.bond) ||
+    !isSafeNonNegativeInteger(value.camp.bond.definitionVersion)
+  ) {
+    return false
+  }
+  return value.camp.bond.definitionVersion > CAMP_BOND_DEFINITION_VERSION
 }
 
 function readSlot(storage: StorageLike, key: SaveSlotKey): SlotRead {

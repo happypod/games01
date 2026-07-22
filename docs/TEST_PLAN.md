@@ -24,7 +24,7 @@
 | 다중 탭 E2E | 구현 | 두 번째 탭 읽기 전용, 열린 reader 동기화, writer 종료 뒤 lock 인계 |
 | 접근성 E2E | 구현 | 360px overflow·44px target·skip link·키보드 mode 명령·progressbar·modal focus·200% 확대·모션 감소 |
 | 시각 자산 | 구현 | 필수 30 ID·로컬 경로·실제 포맷/픽셀/바이트·권리 metadata, fallback 2단계, production cold-load 600 KiB와 lazy namespace |
-| 시각 회귀 | 구현 | Ubuntu 24.04·고정 Chromium/font/time/seed에서 18 named fixture × 4 viewport/motion variant = 72 canonical screenshot, 같은 runner 3회 반복 216개, state/event hash, overflow·motion, screenshot diff artifact |
+| 시각 회귀 | 구현 | Ubuntu 24.04·고정 Chromium/font/time/seed에서 19 named fixture × 4 viewport/motion variant = 76 canonical screenshot, 같은 runner 3회 반복 228개, state/event hash, overflow·motion, screenshot diff artifact |
 | 장시간 soak | 구현 | 1x·10x·100x의 8·16·24시간 전체 상태·누적 report, safe integer·HP·stage·RNG·정체·고정 fixture |
 
 IRPG-107 Done 기준선은 Vitest 34파일·274테스트다. schema5 run-pinned marker, markerless schema5 literal-v1 transition, frozen v1 shuffle golden hash, 10~300 milestone, pending 3·overflow 27 상한, 선택 transaction·중복 no-write, MAX_SAFE, schema1~4 migration, 빈 queue·pending-only future A/B·legacy·portable fence, portable rollback, split/offline·24시간 soak를 포함한다. 4개 선택 조합 × 10 seed × 솔로/동료 80 paired session은 80/80 통과했고 첫 환생 cohort 중앙값 1,863.5~2,013.5초, 재도달 ratio 54.3562~69.9886%, aggregate hash `b2a62828`을 기록했다. 회복률 5%·5%·5%의 각 +5%p 인접 후보는 79/80로 실패해 승인 격자 경계를 확인했다. 로컬 `npm run verify`와 commit `da731ea`의 push·PR quality-gate가 성공했고 Ubuntu canonical 40/40 및 3회 반복 120/120도 통과했다.
@@ -215,6 +215,16 @@ IRPG-422 병합 리뷰 보정 head `726f3ce2a25a5fa12646ae7ca247e75678fcb533`에
 IRPG-423 Done 증거는 치유 화로의 손실 HP별 비용 `1..5`, 재료 부족·최대 HP·BATTLE·reader no-write, 회복 물약 `{4,2,0}`·120초 제작의 1ms 경계와 exact-once, 빠른 슬롯 장착·해제·수량 0 유지, 전투 최대 HP 35% 회복·1개 차감, 스테이지 재선택의 HP·스킬·동료 cooldown 보존을 고정한다. schema6 raw·A/B·portable fixture는 기존 캠프·job·RNG·보상 원장을 보존하고 schema7의 `healingPotion: 0`과 `quickConsumable: null`만 추가한다. 독립 결정론·저장 리뷰에서 P0/P1은 없었고 `e2e/camp-recovery.spec.ts`의 치유→제작→장착→피격→전투 사용 흐름을 포함한 일반 Playwright `62/62`가 통과했다.
 
 IRPG-424 Verify 증거는 우측 성장 센터를 현재 적 고정 요약과 지도·캐릭터·가방·스킬·도감의 조회 중심 정보 레일로 바꾸고, 장비 3·스킬 3·동료 1·빠른 소모품 1의 mutation을 하단 8슬롯으로 단일화한 계약을 고정한다. 독립 React·접근성 리뷰의 모바일 가방 viewport P2를 활성 탭 focus·scroll 연동으로 수정했고 360×800, 1024×768, 1440×900, effective 360px/200%, reduced-motion과 keyboard roving 흐름이 일반 Playwright `62/62`에서 통과했다. 2026-07-22 최종 `npm run verify`는 production asset Playwright `5/5`, Vitest `49파일/432개`, manifest validator `33/33`, production manifest `30 ID`, lint·typecheck·build까지 통과했다. Windows의 `npm run test:e2e:visual`은 계약대로 Ubuntu 전용 비교를 skip했으므로, 변경된 18 fixture×4 variant canonical `72/72`와 3회 반복 `216/216` artifact diff를 GitHub Actions에서 확인하기 전까지 Done으로 올리지 않는다.
+
+IRPG-425 동의 게이트는 상점 조언 계약을 친밀 동의로 재사용하지 않는지, 미계약·미성인 확인·미동의·철회 상태에서 시설 명령이 입력 객체·RNG·재화·revision을 보존하는지 검증한다. 승인·철회·재동의는 CAMP 순수 명령과 저장 transaction을 통과하고, 성인 접근 해제는 활성 동의를 철회하되 신뢰·의상·연성 원장을 유지한다. 컴포넌트와 Playwright는 동의 문구·별도 실행·철회 불이익 없음·reader no-write를 확인한다.
+
+IRPG-426 저장 게이트는 checked-in schema7 fixture를 schema8/camp definition v3으로 이행하면서 기존 시설·job·buff·상인·세라·RNG·전투·원정·보상 원장이 동일하고 bond 기본값만 추가되는지 고정한다. raw/A/B/portable reader는 원문을 쓰지 않고 writer만 반대 슬롯에 checkpoint하며, 잘못된 동의 조합·mask·잠긴/알 수 없는 의상·future bond/camp/state definition을 거부한다. asset gate는 기존 core ID와 `costume.chapter1.*`만 허용하고 manifest 값과 미등록 배포 파일 경로 모두에서 CHAPTER II·III를 차단하며, 제공 샘플 한 개의 768×768 WebP·250 KiB·SHA·권리·prompt record를 검증한다.
+
+IRPG-427 결정론 게이트는 CAMP·동의·비용·미수령 조건의 경계를 순서대로 고정한다. 비용-1·unknown·duplicate는 입력 상태를 보존하고, 정확 비용은 900G·재의 파편 12·야수 가죽 6·불씨 핵 1과 수집 카드 bit를 정확히 한 번 교환한다. single/split elapsed, reload·offline·환생과 portable 왕복에서 claim이 보존되며 연성 전후 RNG state/draws·전투·원정·`getHeroStats`는 같다.
+
+IRPG-428 일반 Playwright는 360×800과 1440×900에서 캠프 중앙 4개 roving tab의 Arrow/Home/End, 44px 조작, 가로 overflow 0, 동의→의상실 lazy-load→연성 committed→보상 dialog→reload 중복 거절→철회 원장 보존을 실제 A/B 저장 UI로 통과한다. reduced-motion에서는 JS 지연과 transform·flash 없이 동일 정적 보상 카드가 즉시 보이고 dialog Escape 뒤 trigger focus가 복귀해야 한다. production cold-load는 초기 전투·기본 캠프에서 의상 요청 0개, 동의 뒤 의상실 disclosure에서 샘플 한 개만 요청한다.
+
+IRPG-428 Ubuntu visual gate는 안정된 최종 보상 상태 `visual.camp.bond-synthesis-reward` 한 fixture를 추가해 19 fixture × 4 variant = canonical 76개와 3회 반복 228개를 요구한다. schema8 전체 state hash로 기존 canonical hash가 바뀌며 캠프 중앙 탭 추가로 기존 `visual.camp.resting` 4장도 의미 있게 바뀔 수 있다. artifact 전체 diff에서 추가·누락·변경 범위를 확인하고 CHAPTER II·III 자산·fixture 0개를 증명하기 전에는 Done으로 전환하지 않는다. Windows visual skip은 Ubuntu 성공 증거를 대체하지 않는다.
 
 ## 8. 현재 브라우저 증거
 

@@ -357,6 +357,65 @@ describe('useGame persistence safety', () => {
     unmount()
   })
 
+  it('commits the Chapter I bond flow and turns access off with consent withdrawn atomically', async () => {
+    const request = vi.fn(
+      async (
+        _name: string,
+        _options: LockOptions,
+        callback: (lock: Lock | null) => Promise<void> | void,
+      ) => callback({ name: 'emberwatch.writer.v1', mode: 'exclusive' } as Lock),
+    )
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: { request } as unknown as LockManager,
+    })
+
+    const initial = createInitialState(Date.now(), 0x4250_0428)
+    initial.currentMode = 'CAMP'
+    initial.player.gold = 2_000
+    initial.camp.materials = { ashShard: 20, beastHide: 10, emberCore: 2 }
+    initial.camp.residents.sera = { status: 'contracted', trust: 1 }
+    expect(saveGameAtRevision(window.localStorage, initial, null)).toMatchObject({
+      status: 'saved',
+      revision: 1,
+    })
+
+    const { result, unmount } = renderHook(() => useGame())
+    await act(async () => vi.advanceTimersByTimeAsync(0))
+
+    let feedback: GameCommandFeedback | undefined
+    act(() => {
+      feedback = result.current.setAdultContentAccess(true)
+    })
+    expect(feedback).toMatchObject({ success: true, reason: 'committed' })
+    act(() => {
+      feedback = result.current.setSeraBondConsent('granted')
+    })
+    expect(feedback).toMatchObject({ success: true, reason: 'committed' })
+    act(() => {
+      feedback = result.current.synthesizeJointBond('chapter1.sera.ember-vow')
+    })
+    expect(feedback).toMatchObject({ success: true, reason: 'committed' })
+    expect(result.current.state.camp.bond.claimedSynthesisRewardMask).toBe(1)
+
+    act(() => {
+      feedback = result.current.setAdultContentAccess(false)
+    })
+    expect(feedback).toMatchObject({ success: true, reason: 'committed' })
+    expect(result.current.state.camp.bond).toMatchObject({
+      adultAccessConfirmed: false,
+      seraConsent: 'withdrawn',
+      claimedSynthesisRewardMask: 1,
+    })
+    const reloaded = bootstrapGame(window.localStorage, Date.now(), 'reader')
+    expect(reloaded.state.camp.bond).toMatchObject({
+      adultAccessConfirmed: false,
+      seraConsent: 'withdrawn',
+      claimedSynthesisRewardMask: 1,
+    })
+    unmount()
+  })
+
   it('latches writes off after a bootstrap read error', async () => {
     const originalGetItem = Storage.prototype.getItem
     vi.spyOn(Storage.prototype, 'getItem')

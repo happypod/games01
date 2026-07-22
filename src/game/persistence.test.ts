@@ -912,6 +912,36 @@ describe('A/B game persistence', () => {
     expect(legacyStorage.getItem(SAVE_SLOT_A_KEY)).toBeNull()
   })
 
+  it('blocks a future nested bond definition in A/B and legacy raw saves', () => {
+    const storage = new MemoryStorage()
+    const stable = createInitialState(100, 0x4260_2001)
+    expect(saveGameAtRevision(storage, stable, null)).toMatchObject({ revision: 1 })
+
+    const future = createInitialState(200, stable.rng.seed)
+    future.camp.bond.definitionVersion = 2
+    const futureRaw = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 2,
+      savedAt: future.lastSavedAt,
+      state: future,
+    })
+    storage.setItem(SAVE_SLOT_B_KEY, futureRaw)
+
+    expect(bootstrapGame(storage, 500, 'writer').saveBlocked).toBe(true)
+    expect(saveGameAtRevision(storage, createInitialState(500), 1)).toMatchObject({
+      status: 'blocked',
+    })
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBe(futureRaw)
+
+    const legacyStorage = new MemoryStorage()
+    const futureLegacyRaw = JSON.stringify(future)
+    legacyStorage.setItem(LEGACY_SAVE_KEY, futureLegacyRaw)
+    expect(bootstrapGame(legacyStorage, 500, 'writer').saveBlocked).toBe(true)
+    expect(saveGame(legacyStorage, createInitialState(500))).toBe(false)
+    expect(legacyStorage.getItem(LEGACY_SAVE_KEY)).toBe(futureLegacyRaw)
+    expect(legacyStorage.getItem(SAVE_SLOT_A_KEY)).toBeNull()
+  })
+
   it('treats a higher expedition definition version as future and never overwrites it', () => {
     const storage = new MemoryStorage()
     const stable = createInitialState(100, 0x0107_5000)

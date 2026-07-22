@@ -11,9 +11,13 @@ import {
   purchaseCampMerchantOffer,
   purchaseUpgrade,
   recruitCompanion,
+  selectCampCostume,
   selectStage,
+  setAdultContentAccess,
+  setSeraBondConsent,
   startCampCraft,
   switchGameMode,
+  synthesizeJointBond,
   increaseSeraTrust,
   trainAtCamp,
   trainCompanion,
@@ -227,6 +231,14 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     increaseSeraTrust: () => {
       void runCommand((current) => increaseSeraTrust(current))
     },
+    setAdultContentAccess: (confirmed) =>
+      runCommand((current) => setAdultContentAccess(current, confirmed)),
+    setSeraBondConsent: (consent) =>
+      runCommand((current) => setSeraBondConsent(current, consent)),
+    selectCampCostume: (id) =>
+      runCommand((current) => selectCampCostume(current, id)),
+    synthesizeJointBond: (id) =>
+      runCommand((current) => synthesizeJointBond(current, id)),
     buyUpgrade: (id) => {
       void runCommand((current) => purchaseUpgrade(current, id))
     },

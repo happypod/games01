@@ -21,6 +21,10 @@ function renderCampDashboard(state = createCampState(), disabled = false) {
     onPurchaseMerchantOffer: vi.fn(),
     onAcceptSeraContract: vi.fn(),
     onIncreaseSeraTrust: vi.fn(),
+    onSetAdultContentAccess: vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const })),
+    onSetSeraBondConsent: vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const })),
+    onSelectCostume: vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const })),
+    onSynthesizeJointBond: vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const })),
   }
   render(
     <CampDashboard
@@ -65,6 +69,10 @@ describe('IRPG-423 CampDashboard recovery controls', () => {
         onPurchaseMerchantOffer={vi.fn()}
         onAcceptSeraContract={vi.fn()}
         onIncreaseSeraTrust={vi.fn()}
+        onSetAdultContentAccess={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
+        onSetSeraBondConsent={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
+        onSelectCostume={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
+        onSynthesizeJointBond={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
       />,
     )
     expect(screen.getByRole('button', { name: '치유 화로 · 체력이 가득 참' }))
@@ -87,6 +95,10 @@ describe('IRPG-423 CampDashboard recovery controls', () => {
         onPurchaseMerchantOffer={vi.fn()}
         onAcceptSeraContract={vi.fn()}
         onIncreaseSeraTrust={vi.fn()}
+        onSetAdultContentAccess={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
+        onSetSeraBondConsent={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
+        onSelectCostume={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
+        onSynthesizeJointBond={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
       />,
     )
     expect(screen.getByRole('button', {
@@ -107,6 +119,10 @@ describe('IRPG-423 CampDashboard recovery controls', () => {
         onPurchaseMerchantOffer={vi.fn()}
         onAcceptSeraContract={vi.fn()}
         onIncreaseSeraTrust={vi.fn()}
+        onSetAdultContentAccess={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
+        onSetSeraBondConsent={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
+        onSelectCostume={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
+        onSynthesizeJointBond={vi.fn(() => ({ success: false, message: 'unused', reason: 'rejected' as const }))}
       />,
     )
     expect(screen.getByRole('button', { name: '치유 화로 · 지금은 사용할 수 없음' }))
@@ -148,5 +164,32 @@ describe('IRPG-423 CampDashboard recovery controls', () => {
     expect(equipped).toHaveTextContent('회복 물약 ×0')
     fireEvent.click(equipped)
     expect(actions.onEquipQuickConsumable).toHaveBeenCalledWith(null)
+  })
+})
+
+describe('IRPG-425 CampDashboard center facility tabs', () => {
+  it('uses roving focus for the four central camp views', () => {
+    renderCampDashboard()
+    const overview = screen.getByRole('tab', { name: '캠프 관리' })
+    const bond = screen.getByRole('tab', { name: '유대 훈련실' })
+    const synthesis = screen.getByRole('tab', { name: '합동 연성실' })
+
+    expect(overview).toHaveAttribute('aria-selected', 'true')
+    const panel = screen.getByRole('tabpanel', { name: '캠프 관리' })
+    const panelId = panel.getAttribute('id')
+    expect(panelId).toBeTruthy()
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tab).toHaveAttribute('aria-controls', panelId)
+    }
+    overview.focus()
+    fireEvent.keyDown(overview, { key: 'ArrowRight' })
+    expect(bond).toHaveFocus()
+    expect(bond).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tabpanel', { name: '유대 훈련실' })).toBeVisible()
+
+    fireEvent.keyDown(bond, { key: 'End' })
+    expect(synthesis).toHaveFocus()
+    expect(synthesis).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText('연성 자산 보호 잠금')).toBeVisible()
   })
 })

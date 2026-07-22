@@ -32,6 +32,7 @@ export const VISUAL_FIXTURE_IDS = [
   'visual.dashboard.tactical-severe',
   'visual.events.tactical-overlay',
   'visual.camp.resting',
+  'visual.camp.bond-synthesis-reward',
 ] as const
 
 export type VisualFixtureId = (typeof VISUAL_FIXTURE_IDS)[number]
@@ -59,14 +60,14 @@ export interface VisualFixtureVariant {
 export interface VisualFixtureDefinition {
   readonly id: VisualFixtureId
   readonly label: string
-  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414' | 'IRPG-415' | 'IRPG-416' | 'IRPG-417' | 'IRPG-418' | 'IRPG-422'
+  readonly ownerTicket: 'IRPG-506' | 'IRPG-408' | 'IRPG-409' | 'IRPG-410' | 'IRPG-411' | 'IRPG-412' | 'IRPG-414' | 'IRPG-415' | 'IRPG-416' | 'IRPG-417' | 'IRPG-418' | 'IRPG-422' | 'IRPG-428'
   readonly stage: 1 | 3 | 5 | 10 | 20 | 30 | 105
   readonly seedKey: string
   readonly canonicalHash: `fnv1a32-v1:${string}`
   readonly canonicalEventHash?: `fnv1a32-v1:${string}`
-  readonly captureTarget: '.tactical-layout' | '.tactical-canvas' | '.tactical-action-bar' | '.tactical-utility-dock__panel' | '.camp-dashboard' | '.stage-map-panel' | '.expedition-event-panel' | '.combat-result-dialog'
+  readonly captureTarget: '.tactical-layout' | '.tactical-canvas' | '.tactical-action-bar' | '.tactical-utility-dock__panel' | '.camp-dashboard' | '.camp-special-facilities' | '.bond-reward-backdrop' | '.stage-map-panel' | '.expedition-event-panel' | '.combat-result-dialog'
   readonly failureRoute: 'none' | 'hero-and-enemy-corrupt' | 'cards-corrupt' | 'events-corrupt'
-  readonly setupAction: 'none' | 'open-stage-map' | 'assert-action-bar-assets' | 'open-expedition-events' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result' | 'assert-tactical-surface'
+  readonly setupAction: 'none' | 'open-stage-map' | 'assert-action-bar-assets' | 'open-expedition-events' | 'open-combat-log' | 'open-boss-victory-result' | 'open-defeat-result' | 'assert-tactical-surface' | 'open-bond-synthesis-reward'
   readonly variants: readonly VisualVariantId[]
 }
 
@@ -110,7 +111,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-506',
     stage: 1,
     seedKey: 'irpg-506:visual.combat.hero-default:v1',
-    canonicalHash: 'fnv1a32-v1:c3df1cbb',
+    canonicalHash: 'fnv1a32-v1:58beacac',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
     setupAction: 'none',
@@ -122,7 +123,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-506',
     stage: 5,
     seedKey: 'irpg-506:visual.combat.enemy-default:v1',
-    canonicalHash: 'fnv1a32-v1:5404244c',
+    canonicalHash: 'fnv1a32-v1:555500f9',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
     setupAction: 'none',
@@ -134,7 +135,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-506',
     stage: 10,
     seedKey: 'irpg-506:visual.combat.boss-default:v1',
-    canonicalHash: 'fnv1a32-v1:e46e2c97',
+    canonicalHash: 'fnv1a32-v1:43b5725e',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
     setupAction: 'none',
@@ -146,7 +147,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-506',
     stage: 1,
     seedKey: 'irpg-506:visual.combat.fallback:v1',
-    canonicalHash: 'fnv1a32-v1:f509ba6d',
+    canonicalHash: 'fnv1a32-v1:638bc89a',
     captureTarget: '.tactical-canvas',
     failureRoute: 'hero-and-enemy-corrupt',
     setupAction: 'none',
@@ -158,7 +159,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-408',
     stage: 105,
     seedKey: 'irpg-506:visual.map.stage-frontier:v1',
-    canonicalHash: 'fnv1a32-v1:6eef2c30',
+    canonicalHash: 'fnv1a32-v1:2b9471d5',
     captureTarget: '.stage-map-panel',
     failureRoute: 'none',
     setupAction: 'open-stage-map',
@@ -170,7 +171,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-409',
     stage: 3,
     seedKey: 'irpg-506:visual.cards.mixed-states:v1',
-    canonicalHash: 'fnv1a32-v1:f4f7a8f9',
+    canonicalHash: 'fnv1a32-v1:b06fca58',
     captureTarget: '.tactical-action-bar',
     failureRoute: 'none',
     setupAction: 'assert-action-bar-assets',
@@ -182,7 +183,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-409',
     stage: 3,
     seedKey: 'irpg-506:visual.cards.fallback:v1',
-    canonicalHash: 'fnv1a32-v1:d370643b',
+    canonicalHash: 'fnv1a32-v1:d1677e46',
     captureTarget: '.tactical-action-bar',
     failureRoute: 'cards-corrupt',
     setupAction: 'assert-action-bar-assets',
@@ -194,7 +195,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-412',
     stage: 30,
     seedKey: 'irpg-506:visual.events.pending-three:v1',
-    canonicalHash: 'fnv1a32-v1:f93372f8',
+    canonicalHash: 'fnv1a32-v1:f54e1efd',
     captureTarget: '.expedition-event-panel',
     failureRoute: 'none',
     setupAction: 'open-expedition-events',
@@ -206,7 +207,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-412',
     stage: 30,
     seedKey: 'irpg-506:visual.events.fallback:v1',
-    canonicalHash: 'fnv1a32-v1:9896c96c',
+    canonicalHash: 'fnv1a32-v1:62cddbc9',
     captureTarget: '.expedition-event-panel',
     failureRoute: 'events-corrupt',
     setupAction: 'open-expedition-events',
@@ -218,7 +219,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-411',
     stage: 10,
     seedKey: 'irpg-506:visual.combat.event-log:v1',
-    canonicalHash: 'fnv1a32-v1:3db6ccb5',
+    canonicalHash: 'fnv1a32-v1:c99b70c0',
     canonicalEventHash: 'fnv1a32-v1:e0a7de25',
     captureTarget: '.tactical-utility-dock__panel',
     failureRoute: 'none',
@@ -231,7 +232,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-410',
     stage: 10,
     seedKey: 'irpg-506:visual.result.boss-victory:v1',
-    canonicalHash: 'fnv1a32-v1:f1a0b349',
+    canonicalHash: 'fnv1a32-v1:c849cfdc',
     canonicalEventHash: 'fnv1a32-v1:b6a6c062',
     captureTarget: '.combat-result-dialog',
     failureRoute: 'none',
@@ -244,7 +245,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-410',
     stage: 10,
     seedKey: 'irpg-506:visual.result.defeat:v1',
-    canonicalHash: 'fnv1a32-v1:8ad31135',
+    canonicalHash: 'fnv1a32-v1:149742c0',
     canonicalEventHash: 'fnv1a32-v1:492c61f7',
     captureTarget: '.combat-result-dialog',
     failureRoute: 'none',
@@ -257,7 +258,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-422',
     stage: 10,
     seedKey: 'irpg-414:visual.dashboard.one-view:v1',
-    canonicalHash: 'fnv1a32-v1:0de219ac',
+    canonicalHash: 'fnv1a32-v1:0f9a99b3',
     canonicalEventHash: 'fnv1a32-v1:aa4f41fb',
     captureTarget: '.tactical-layout',
     failureRoute: 'none',
@@ -270,7 +271,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-415',
     stage: 10,
     seedKey: 'irpg-415:visual.dashboard.tactical-canvas:v1',
-    canonicalHash: 'fnv1a32-v1:492a9fa2',
+    canonicalHash: 'fnv1a32-v1:eddde7bd',
     canonicalEventHash: 'fnv1a32-v1:c306eb11',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
@@ -283,7 +284,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-416',
     stage: 20,
     seedKey: 'irpg-416:visual.dashboard.tactical-damaged:v1',
-    canonicalHash: 'fnv1a32-v1:86e67c9d',
+    canonicalHash: 'fnv1a32-v1:f4b67600',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
     setupAction: 'assert-tactical-surface',
@@ -295,7 +296,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-416',
     stage: 20,
     seedKey: 'irpg-416:visual.dashboard.tactical-severe:v1',
-    canonicalHash: 'fnv1a32-v1:06dce865',
+    canonicalHash: 'fnv1a32-v1:f30730c8',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
     setupAction: 'assert-tactical-surface',
@@ -307,7 +308,7 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-417',
     stage: 30,
     seedKey: 'irpg-415:visual.events.tactical-overlay:v1',
-    canonicalHash: 'fnv1a32-v1:c11fc674',
+    canonicalHash: 'fnv1a32-v1:e4904b31',
     canonicalEventHash: 'fnv1a32-v1:15091bd6',
     captureTarget: '.tactical-canvas',
     failureRoute: 'none',
@@ -320,10 +321,22 @@ export const VISUAL_FIXTURE_REGISTRY: Readonly<
     ownerTicket: 'IRPG-418',
     stage: 10,
     seedKey: 'irpg-418:visual.camp.resting:v1',
-    canonicalHash: 'fnv1a32-v1:330bf68b',
+    canonicalHash: 'fnv1a32-v1:537ada7c',
     captureTarget: '.camp-dashboard',
     failureRoute: 'none',
     setupAction: 'none',
+    variants: VISUAL_VARIANT_IDS,
+  },
+  'visual.camp.bond-synthesis-reward': {
+    id: 'visual.camp.bond-synthesis-reward',
+    label: 'CHAPTER I 합동 연성 · 보상 확정',
+    ownerTicket: 'IRPG-428',
+    stage: 10,
+    seedKey: 'irpg-428:visual.camp.bond-synthesis-reward:v1',
+    canonicalHash: 'fnv1a32-v1:d1c47739',
+    captureTarget: '.bond-reward-backdrop',
+    failureRoute: 'none',
+    setupAction: 'open-bond-synthesis-reward',
     variants: VISUAL_VARIANT_IDS,
   },
 }
@@ -558,7 +571,8 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
   const isTacticalDamageFixture =
     id === 'visual.dashboard.tactical-damaged' ||
     id === 'visual.dashboard.tactical-severe'
-  const isCampFixture = id === 'visual.camp.resting'
+  const isCampFixture = id === 'visual.camp.resting' ||
+    id === 'visual.camp.bond-synthesis-reward'
   if (
     id === 'visual.dashboard.one-view' ||
     id === 'visual.dashboard.tactical-canvas' ||
@@ -631,6 +645,28 @@ export function createVisualFixtureState(id: VisualFixtureId): GameState {
     state = {
       ...state,
       currentMode: 'CAMP',
+    }
+  }
+  if (id === 'visual.camp.bond-synthesis-reward') {
+    state = {
+      ...state,
+      player: {
+        ...state.player,
+        gold: 2_000,
+      },
+      camp: {
+        ...state.camp,
+        materials: { ashShard: 12, beastHide: 6, emberCore: 1 },
+        residents: {
+          ...state.camp.residents,
+          sera: { status: 'contracted', trust: 3 },
+        },
+        bond: {
+          ...state.camp.bond,
+          adultAccessConfirmed: true,
+          seraConsent: 'granted',
+        },
+      },
     }
   }
   if (id === 'visual.events.tactical-overlay') {

@@ -14,6 +14,7 @@ IRPG-406 establishes a dark-fantasy placeholder system for later production art.
 | Use | Crop | Production format | Maximum |
 |---|---:|---|---:|
 | hero, enemy, boss portrait | 1:1, subject inside central 70% | 768×768 WebP | 250 KiB |
+| Chapter I adult costume CG | 1:1, subject inside central 70% | 768×768 WebP | 250 KiB |
 | equipment, skill, event card | 1:1, emblem inside central 64% | 512×512 WebP | 160 KiB |
 | region | 16:9, horizon outside text-safe center | 1600×900 WebP | 350 KiB |
 | battle result | 16:9, focal mark inside central 55% | 1280×720 WebP | 300 KiB |
@@ -24,10 +25,20 @@ Raster illustrations ship as WebP. SVG is limited to reviewed fallback or interf
 ## Identity and runtime rules
 
 - UI and content refer to stable `assetId` values; they do not persist file paths or map coordinates in `GameState` or portable saves.
+- Costume selection persists a semantic costume ID such as `chapter1.sera.field`; the game definition maps it to a presentation-only manifest ID such as `costume.chapter1.sera.ember-bond`.
 - The manifest is the only metadata source. Its declared dimensions and byte count must match the actual file header and file size.
-- Initial combat may request only the manifest runtime, fallbacks when needed, the current hero, and the current enemy. Regions, cards, results, and events load on first use.
+- Initial combat may request only the manifest runtime, fallbacks when needed, the current hero, and the current enemy. Regions, cards, results, events, and costumes load on first authorized use.
 - A failed or missing image never blocks combat, saving, or navigation. The component retains the Korean text name and selects the matching `fallback.character`, `fallback.region`, `fallback.card`, or `fallback.result` visual.
 - HP damage variants are optional presentation-only IDs derived from the current stage and valid HP ratio; base enemy definitions and saves retain the normal portrait ID. Damage remains non-explicit: dented or fractured outer armor, soot, scratches, and weakened magic are allowed, while exposed body, sexualization, blood, gore, and dismemberment are not.
+
+## Chapter and consent boundary
+
+- The active visual-content scope is Chapter I. The three expedition regions are subregions of Chapter I, not Chapter II or III.
+- New costume IDs use `costume.chapter1.<adult-character-slug>.<costume-slug>` and local files use `src/assets/game/files/costume/chapter1`.
+- Chapter II and III images or CG are forbidden in manifest IDs, runtime paths, prompt records, and unreferenced deployed files. The asset validator enforces this boundary in CI.
+- Costume and intimacy presentation is limited to unmistakably adult characters with independently recorded, explicit, withdrawable consent. Withdrawal cannot remove earned rewards or impose a penalty.
+- IRPG-426 ships exactly one fully clothed, non-explicit Chapter I sample. Additional art is user-supplied under the manifest and rights contract in `docs/assets/CHAPTER1_CUSTOM_CG_GUIDE.md`.
+- Combat damage presentation remains non-explicit and is not an adult-content unlock path.
 
 ## Accessibility and motion
 

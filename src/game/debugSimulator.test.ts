@@ -10,6 +10,12 @@ import {
   getEnemyDefinition,
 } from './content'
 import { MAX_BOSS_MILESTONE_MASK } from './bossMilestones'
+import {
+  CAMP_BOND_DEFINITION_VERSION,
+  CAMP_DEFINITION_VERSION,
+  MAX_CHAPTER1_COSTUME_MASK,
+  MAX_CHAPTER1_SYNTHESIS_REWARD_MASK,
+} from './camp'
 import { runDebugSimulation, DEBUG_SPEEDS } from './debugSimulator'
 import { advanceGame, createInitialState } from './engine'
 import debugSoakFixture from './fixtures/debug-soak-v1.json'
@@ -57,6 +63,10 @@ function expectStateInvariants(state: GameState) {
     state.schemaVersion,
     state.lastSavedAt,
     state.claimedBossMilestoneMask,
+    state.camp.definitionVersion,
+    state.camp.bond.definitionVersion,
+    state.camp.bond.unlockedCostumeMask,
+    state.camp.bond.claimedSynthesisRewardMask,
     state.expeditionEvents.definitionVersion,
     state.expeditionEvents.runPrestige,
     state.expeditionEvents.milestoneMask,
@@ -99,6 +109,11 @@ function expectStateInvariants(state: GameState) {
   expect(state.rng.state).toBeGreaterThan(0)
   expect(state.rng.state).toBeLessThanOrEqual(0xffffffff)
   expect(state.claimedBossMilestoneMask).toBeLessThanOrEqual(MAX_BOSS_MILESTONE_MASK)
+  expect(state.camp.definitionVersion).toBe(CAMP_DEFINITION_VERSION)
+  expect(state.camp.bond.definitionVersion).toBe(CAMP_BOND_DEFINITION_VERSION)
+  expect(state.camp.bond.unlockedCostumeMask).toBeLessThanOrEqual(MAX_CHAPTER1_COSTUME_MASK)
+  expect(state.camp.bond.claimedSynthesisRewardMask)
+    .toBeLessThanOrEqual(MAX_CHAPTER1_SYNTHESIS_REWARD_MASK)
   expect(state.expeditionEvents.runPrestige).toBe(state.stats.prestiges)
   expect(state.expeditionEvents.milestoneMask).toBeLessThanOrEqual(MAX_BOSS_MILESTONE_MASK)
   expect(state.expeditionEvents.pending.length).toBeLessThanOrEqual(3)
