@@ -264,7 +264,10 @@ export async function openVisualFixture(
     }
   }
   if (fixture.failureRoute === 'cards-corrupt') {
-    const cardAssets = target.locator('.tactical-action-bar__slot-asset')
+    const cardAssets = target.locator(
+      '[data-action-kind="equipment"] .tactical-action-bar__slot-asset, ' +
+      '[data-action-kind="skill"] .tactical-action-bar__slot-asset',
+    )
     await expect(cardAssets).toHaveCount(6)
     for (let index = 0; index < 6; index += 1) {
       await expect(cardAssets.nth(index)).toHaveAttribute('data-state', 'fallback')

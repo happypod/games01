@@ -511,8 +511,12 @@ export function TacticalIntelPanel({
     if (previousActiveTab.current === activeTab) return
     previousActiveTab.current = activeTab
     const activeTabTrigger = tabRefs.current.get(activeTab)
-    activeTabTrigger?.focus()
-    activeTabTrigger?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    activeTabTrigger?.focus({ preventScroll: true })
+    activeTabTrigger?.scrollIntoView?.({
+      behavior: 'instant',
+      block: 'nearest',
+      inline: 'nearest',
+    })
   }, [activeTab])
 
   const activateTab = (id: TacticalIntelTabId) => {
