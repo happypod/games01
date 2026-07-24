@@ -1,5 +1,61 @@
-export const SAVE_VERSION = 6 as const
+export const SAVE_VERSION = 10 as const
+export const INVENTORY_DEFINITION_VERSION = 1 as const
 export const RNG_ALGORITHM = 'xorshift32-v1' as const
+
+export const EQUIPMENT_SLOTS = ['weapon', 'armor', 'helmet', 'accessory'] as const
+export type EquipmentSlot = (typeof EQUIPMENT_SLOTS)[number]
+
+export const ITEM_RARITIES = ['COMMON', 'UNCOMMON', 'RARE', 'EPIC', 'LEGENDARY'] as const
+export type ItemRarity = (typeof ITEM_RARITIES)[number]
+
+export const ITEM_TYPES = ['EQUIPMENT', 'MATERIAL', 'CONSUMABLE'] as const
+export type ItemType = (typeof ITEM_TYPES)[number]
+
+export interface ItemStats {
+  readonly atk?: number
+  readonly hp?: number
+  readonly def?: number
+  readonly critChanceBasisPoints?: number
+  readonly goldBonusPercent?: number
+}
+
+export interface ItemDefinition {
+  readonly id: string
+  readonly name: string
+  readonly rarity: ItemRarity
+  readonly type: ItemType
+  readonly slot?: EquipmentSlot
+  readonly stats?: Readonly<ItemStats>
+  readonly assetId: string
+  readonly description: string
+}
+
+export type ItemInventory = Record<string, number>
+
+export interface InventoryState {
+  definitionVersion: typeof INVENTORY_DEFINITION_VERSION
+  lootBag: ItemInventory
+  heroInventory: ItemInventory
+  campStorage: ItemInventory
+}
+
+export type PlayerEquippedState = Record<EquipmentSlot, string | null>
+export type SkillSlotState = [
+  SkillId | null,
+  SkillId | null,
+  SkillId | null,
+]
+
+export const ACTIVE_CONTENT_CHAPTER = 'chapter1' as const
+
+export const CHAPTER1_COSTUME_IDS = ['chapter1.sera.field'] as const
+export type Chapter1CostumeId = (typeof CHAPTER1_COSTUME_IDS)[number]
+
+export const CHAPTER1_SYNTHESIS_IDS = ['chapter1.sera.ember-vow'] as const
+export type Chapter1SynthesisId = (typeof CHAPTER1_SYNTHESIS_IDS)[number]
+
+export const CHAPTER1_REWARD_IDS = ['chapter1.weapon.ember-vow-card'] as const
+export type Chapter1RewardId = (typeof CHAPTER1_REWARD_IDS)[number]
 
 export const GAME_MODES = ['BATTLE', 'CAMP'] as const
 export type GameMode = (typeof GAME_MODES)[number]
@@ -13,15 +69,19 @@ export type CampTrainingId = (typeof CAMP_TRAINING_IDS)[number]
 export const CAMP_MATERIAL_IDS = ['ashShard', 'beastHide', 'emberCore'] as const
 export type CampMaterialId = (typeof CAMP_MATERIAL_IDS)[number]
 
-export const CAMP_CONSUMABLE_IDS = ['goldStew', 'focusTonic'] as const
+export const CAMP_CONSUMABLE_IDS = ['goldStew', 'focusTonic', 'healingPotion'] as const
 export type CampConsumableId = (typeof CAMP_CONSUMABLE_IDS)[number]
 
-export const CAMP_RECIPE_IDS = ['goldStew', 'focusTonic'] as const
+export const CAMP_RECIPE_IDS = ['goldStew', 'focusTonic', 'healingPotion'] as const
 export type CampRecipeId = (typeof CAMP_RECIPE_IDS)[number]
+
+export const CAMP_QUICK_CONSUMABLE_IDS = ['healingPotion'] as const
+export type CampQuickConsumableId = (typeof CAMP_QUICK_CONSUMABLE_IDS)[number]
 
 export const CAMP_RESIDENT_IDS = ['sera'] as const
 export type CampResidentId = (typeof CAMP_RESIDENT_IDS)[number]
 export type CampResidentStatus = 'unmet' | 'rescued' | 'contracted'
+export type SeraConsentStatus = 'notGranted' | 'granted' | 'withdrawn'
 
 export type CampStructureLevels = Record<CampStructureId, number>
 export type CampTrainingRanks = Record<CampTrainingId, number>
@@ -49,16 +109,27 @@ export interface CampResidentState {
   trust: number
 }
 
+export interface CampBondState {
+  definitionVersion: number
+  adultAccessConfirmed: boolean
+  seraConsent: SeraConsentStatus
+  currentCostumeId: Chapter1CostumeId
+  unlockedCostumeMask: number
+  claimedSynthesisRewardMask: number
+}
+
 export interface CampState {
   definitionVersion: number
   structures: CampStructureLevels
   training: CampTrainingRanks
   materials: CampMaterialInventory
   consumables: CampConsumableInventory
+  quickConsumable: CampQuickConsumableId | null
   craftJob: CampCraftJob | null
   buffs: CampBuffState
   merchant: CampMerchantState
   residents: Record<CampResidentId, CampResidentState>
+  bond: CampBondState
 }
 
 export const EXPEDITION_DEFINITION_IDS_V1 = Object.freeze([
@@ -136,6 +207,9 @@ export type EnemyDamageAssetId =
 
 export type EnemyPresentationAssetId = EnemyAssetId | EnemyDamageAssetId
 
+export const ENEMY_SPECIES_IDS = ['humanoid', 'beast'] as const
+export type EnemySpecies = (typeof ENEMY_SPECIES_IDS)[number]
+
 export type UpgradeLevels = Record<UpgradeId, number>
 export type SkillRanks = Record<SkillId, number>
 
@@ -161,6 +235,8 @@ export interface PlayerState {
   upgrades: UpgradeLevels
   skills: SkillRanks
   companion: CompanionState
+  equipped: PlayerEquippedState
+  skillSlots: SkillSlotState
 }
 
 export interface BattleState {
@@ -180,17 +256,27 @@ export interface LifetimeStats {
   prestiges: number
 }
 
+export interface LivingCardState {
+  cardId: string
+  hStage: 0 | 1 | 2
+  captureLoyalty: number
+  corruptionLevel: number
+  isCaptured: boolean
+}
+
 export interface GameState {
   schemaVersion: typeof SAVE_VERSION
   lastSavedAt: number
   currentMode: GameMode
   camp: CampState
+  inventory: InventoryState
   claimedBossMilestoneMask: number
   expeditionEvents: ExpeditionEventState
   rng: RngState
   player: PlayerState
   battle: BattleState
   stats: LifetimeStats
+  livingCards: Record<string, LivingCardState>
 }
 
 export interface HeroStats {
@@ -199,6 +285,54 @@ export interface HeroStats {
   defense: number
   goldMultiplier: number
   powerStrikeMultiplier: number
+  critChance: number
+}
+
+export interface BattleActor {
+  id: string
+  name: string
+  hp: number
+  maxHp: number
+  atk: number
+  def: number
+  baseAssetId: string
+  damagedAssetId: string
+  severeAssetId: string
+}
+
+export interface HotbarSlot {
+  id: string
+  type: 'SKILL' | 'ITEM'
+  name: string
+  iconAssetId: string
+  skillId?: string | undefined
+  itemId?: string | undefined
+  cooldownMs: number
+  maxCooldownMs: number
+}
+
+export interface BattleEvent {
+  id: string
+  type: 'SKILL' | 'CRITICAL' | 'NORMAL' | 'COMPANION'
+  targetId: string
+  damage: number
+  skillName?: string
+  timestamp: number
+}
+
+export function getActorDamageStage(hp: number, maxHp: number): 0 | 1 | 2 {
+  if (maxHp <= 0) return 0
+  const ratio = hp / maxHp
+  if (ratio >= 0.7) return 0
+  if (ratio >= 0.3) return 1
+  return 2
+}
+
+export function getActorAssetId(actor: BattleActor): string {
+  const stage = getActorDamageStage(actor.hp, actor.maxHp)
+  if (stage === 1) return actor.damagedAssetId
+  if (stage === 2) return actor.severeAssetId
+  return actor.baseAssetId
 }
 
 export interface EnemyDefinition {
@@ -206,6 +340,8 @@ export interface EnemyDefinition {
   assetId: EnemyAssetId
   name: string
   isBoss: boolean
+  species: EnemySpecies
+  capturable: boolean
   maxHp: number
   attack: number
   goldReward: number

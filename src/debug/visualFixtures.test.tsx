@@ -21,93 +21,98 @@ import {
 const EXPECTED_FIXTURES = {
   'visual.combat.hero-default': {
     stage: 1,
-    hash: 'fnv1a32-v1:173f7ed1',
+    hash: 'fnv1a32-v1:0eac24f7',
     seed: 1137774350,
   },
   'visual.combat.enemy-default': {
     stage: 5,
-    hash: 'fnv1a32-v1:b35df990',
+    hash: 'fnv1a32-v1:f7d195d4',
     seed: 184967352,
   },
   'visual.combat.boss-default': {
     stage: 10,
-    hash: 'fnv1a32-v1:96c283ab',
+    hash: 'fnv1a32-v1:605b3cc5',
     seed: 2839317265,
   },
   'visual.combat.fallback': {
     stage: 1,
-    hash: 'fnv1a32-v1:6ca0199b',
+    hash: 'fnv1a32-v1:93765b49',
     seed: 847540328,
   },
   'visual.map.stage-frontier': {
     stage: 105,
-    hash: 'fnv1a32-v1:5aba4e1a',
+    hash: 'fnv1a32-v1:4fd6eb58',
     seed: 2652276946,
   },
   'visual.cards.mixed-states': {
     stage: 3,
-    hash: 'fnv1a32-v1:2bb88fcb',
+    hash: 'fnv1a32-v1:66c1b5df',
     seed: 2691896847,
   },
   'visual.cards.fallback': {
     stage: 3,
-    hash: 'fnv1a32-v1:8ae4f1e5',
+    hash: 'fnv1a32-v1:f4b369a1',
     seed: 1091907769,
   },
   'visual.events.pending-three': {
     stage: 30,
-    hash: 'fnv1a32-v1:f0f95ff0',
+    hash: 'fnv1a32-v1:a717ed48',
     seed: 1635907649,
   },
   'visual.events.fallback': {
     stage: 30,
-    hash: 'fnv1a32-v1:cb85638c',
+    hash: 'fnv1a32-v1:c13422cc',
     seed: 3134554997,
   },
   'visual.combat.event-log': {
     stage: 10,
-    hash: 'fnv1a32-v1:bd740bd5',
+    hash: 'fnv1a32-v1:daa9c233',
     seed: 4251790753,
   },
   'visual.result.boss-victory': {
     stage: 10,
-    hash: 'fnv1a32-v1:4646250d',
+    hash: 'fnv1a32-v1:4ffaa837',
     seed: 2519199221,
   },
   'visual.result.defeat': {
     stage: 10,
-    hash: 'fnv1a32-v1:9590030d',
+    hash: 'fnv1a32-v1:dd04ef33',
     seed: 1543179630,
   },
   'visual.dashboard.one-view': {
     stage: 10,
-    hash: 'fnv1a32-v1:8cf7930a',
+    hash: 'fnv1a32-v1:d5945218',
     seed: 1799040046,
   },
   'visual.dashboard.tactical-canvas': {
     stage: 10,
-    hash: 'fnv1a32-v1:a5562f7c',
+    hash: 'fnv1a32-v1:d9ecb816',
     seed: 878861757,
   },
   'visual.dashboard.tactical-damaged': {
     stage: 20,
-    hash: 'fnv1a32-v1:8ab5609d',
+    hash: 'fnv1a32-v1:f5217a5d',
     seed: 863484587,
   },
   'visual.dashboard.tactical-severe': {
     stage: 20,
-    hash: 'fnv1a32-v1:007bd4fd',
+    hash: 'fnv1a32-v1:69b446bd',
     seed: 1109974916,
   },
   'visual.events.tactical-overlay': {
     stage: 30,
-    hash: 'fnv1a32-v1:69958a74',
+    hash: 'fnv1a32-v1:1a37d40c',
     seed: 2255225468,
   },
   'visual.camp.resting': {
     stage: 10,
-    hash: 'fnv1a32-v1:8ca52a75',
+    hash: 'fnv1a32-v1:a02864a1',
     seed: 3095968417,
+  },
+  'visual.camp.bond-synthesis-reward': {
+    stage: 10,
+    hash: 'fnv1a32-v1:6248249c',
+    seed: 3115221620,
   },
 } as const
 
@@ -126,8 +131,8 @@ describe('IRPG-506 named visual fixtures', () => {
   it('pins the fixture states and their canonical metadata', () => {
     expect(VISUAL_FIXTURE_IDS).toEqual(Object.keys(EXPECTED_FIXTURES))
     expect(VISUAL_FIXTURE_NOW).toBe(1_767_225_600_000)
-    expect(VISUAL_FIXTURE_IDS).toHaveLength(18)
-    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(72)
+    expect(VISUAL_FIXTURE_IDS).toHaveLength(19)
+    expect(VISUAL_FIXTURE_IDS.length * VISUAL_FIXTURE_VARIANTS.length).toBe(76)
     expect(VISUAL_FIXTURE_VARIANTS).toEqual([
       {
         id: 'mobile-default',
@@ -166,7 +171,9 @@ describe('IRPG-506 named visual fixtures', () => {
 
       expect(definition).toMatchObject({
         id,
-        ownerTicket: id === 'visual.camp.resting'
+        ownerTicket: id === 'visual.camp.bond-synthesis-reward'
+          ? 'IRPG-428'
+          : id === 'visual.camp.resting'
           ? 'IRPG-418'
           : id === 'visual.events.tactical-overlay'
           ? 'IRPG-417'
@@ -196,6 +203,8 @@ describe('IRPG-506 named visual fixtures', () => {
           ? 'irpg-415:visual.dashboard.tactical-canvas:v1'
           : id === 'visual.events.tactical-overlay'
             ? 'irpg-415:visual.events.tactical-overlay:v1'
+          : id === 'visual.camp.bond-synthesis-reward'
+            ? 'irpg-428:visual.camp.bond-synthesis-reward:v1'
           : id === 'visual.camp.resting'
             ? 'irpg-418:visual.camp.resting:v1'
           : id === 'visual.dashboard.one-view'
@@ -215,7 +224,8 @@ describe('IRPG-506 named visual fixtures', () => {
           stage: expected.stage,
           highestStage: id === 'visual.dashboard.one-view' ||
             id === 'visual.dashboard.tactical-canvas' ||
-            id === 'visual.camp.resting'
+            id === 'visual.camp.resting' ||
+            id === 'visual.camp.bond-synthesis-reward'
             ? 11
             : expected.stage,
           enemyHp: id === 'visual.dashboard.tactical-damaged'
@@ -248,6 +258,12 @@ describe('IRPG-506 named visual fixtures', () => {
       failureRoute: 'events-corrupt',
       setupAction: 'open-expedition-events',
     })
+    expect(VISUAL_FIXTURE_REGISTRY['visual.camp.bond-synthesis-reward'])
+      .toMatchObject({
+        ownerTicket: 'IRPG-428',
+        captureTarget: '.bond-reward-backdrop',
+        setupAction: 'open-bond-synthesis-reward',
+      })
     const eventDefinition = VISUAL_FIXTURE_REGISTRY['visual.combat.event-log']
     const eventBatch = createVisualFixtureCombatEventBatch('visual.combat.event-log')
     expect(eventDefinition).toMatchObject({
@@ -584,16 +600,16 @@ describe('IRPG-506 visual fixture UI adapter', () => {
 
     const root = screen.getByTestId('visual-fixture-root')
     expect(root).toHaveAttribute('data-visual-fixture-id', 'visual.dashboard.one-view')
-    expect(root).toHaveAttribute('data-canonical-state-hash', 'fnv1a32-v1:8cf7930a')
+    expect(root).toHaveAttribute('data-canonical-state-hash', EXPECTED_FIXTURES['visual.dashboard.one-view'].hash)
     expect(root).toHaveAttribute('data-canonical-event-hash', 'fnv1a32-v1:aa4f41fb')
     expect(root.querySelector('.tactical-layout')).toBeInTheDocument()
     expect(root.querySelector('.game-dashboard')).not.toBeInTheDocument()
-    expect(root.querySelectorAll('.tactical-timeline__nodes button')).toHaveLength(10)
+    expect(root.querySelectorAll('.stage-map-compact__stage')).toHaveLength(10)
     expect(root.querySelectorAll('[data-action-slot]')).toHaveLength(8)
     fireEvent.click(screen.getByRole('button', { name: '전투 로그' }))
     expect(screen.getByTestId('combat-log-preview').getElementsByTagName('li'))
       .toHaveLength(5)
-    expect(screen.getByRole('tablist', { name: '성장 메뉴' })).toBeInTheDocument()
+    expect(screen.getByRole('tablist', { name: '전술 정보 메뉴' })).toBeInTheDocument()
     expect(screen.getByTestId('tactical-event-count-status')).toHaveTextContent(
       '원정 이벤트 1건 대기 중',
     )

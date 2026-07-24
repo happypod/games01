@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto'
-import { readFile, realpath, stat } from 'node:fs/promises'
+import { readFile, readdir, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const REQUIRED_ASSET_IDS = Object.freeze([
   'hero.ashen-knight.default',
   'companion.ember-fox.default',
+  'costume.chapter1.sera.ember-bond',
   'enemy.ash-slime',
   'enemy.twilight-wolf',
   'enemy.abandoned-armor',
@@ -65,11 +66,13 @@ export const ERROR_CODES = Object.freeze({
   RIGHTS_METADATA: 'RIGHTS_METADATA',
   METADATA_PATH_ESCAPE: 'METADATA_PATH_ESCAPE',
   METADATA_FILE_MISSING: 'METADATA_FILE_MISSING',
+  CHAPTER_SCOPE_VIOLATION: 'CHAPTER_SCOPE_VIOLATION',
 })
 
 const KINDS = new Set([
   'hero',
   'companion',
+  'costume',
   'enemy',
   'boss',
   'region',
@@ -113,6 +116,7 @@ const ALLOWED_FIELDS = new Set([...REQUIRED_FIELDS, ...OPTIONAL_FIELDS])
 
 const FINAL_CONTENT_ASSET_IDS = new Set([
   'companion.ember-fox.default',
+  'costume.chapter1.sera.ember-bond',
   'boss.eclipse-knight.damaged',
   'boss.eclipse-knight.severe',
   'region.ashen-border',
@@ -133,6 +137,7 @@ const FINAL_CONTENT_ASSET_IDS = new Set([
 
 const REQUIRED_PROMPT_RECORD_BY_ASSET_ID = new Map([
   ['companion.ember-fox.default', 'docs/assets/prompts/companion-ember-fox.md'],
+  ['costume.chapter1.sera.ember-bond', 'docs/assets/prompts/chapter1-sera-ember-bond.md'],
   ['boss.eclipse-knight.damaged', 'docs/assets/prompts/eclipse-knight-damage-states.md'],
   ['boss.eclipse-knight.severe', 'docs/assets/prompts/eclipse-knight-damage-states.md'],
   ['result.boss-victory', 'docs/assets/prompts/battle-results.md'],
@@ -145,6 +150,7 @@ const REQUIRED_PROMPT_RECORD_BY_ASSET_ID = new Map([
 const SPEC_BY_KIND = Object.freeze({
   hero: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
   companion: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
+  costume: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
   enemy: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
   boss: { format: 'webp', width: 768, height: 768, maxBytes: 250 * 1024 },
   region: { format: 'webp', width: 1600, height: 900, maxBytes: 350 * 1024 },
@@ -161,6 +167,12 @@ const FALLBACK_SPECS = Object.freeze({
   'fallback.result': { format: 'svg', width: 1280, height: 720, maxBytes: 20 * 1024 },
 })
 
+const CHAPTER_ONE_COSTUME_ID_PATTERN =
+  /^costume\.chapter1\.[a-z0-9]+(?:-[a-z0-9]+)*\.[a-z0-9]+(?:-[a-z0-9]+)*$/
+const CHAPTER_ONE_COSTUME_SOURCE_PREFIX = './files/costume/chapter1/'
+const FORBIDDEN_CHAPTER_REFERENCE =
+  /(?:^|[._/\\ -])chapter(?:[._/\\ -]?)(?:iii|ii|[23])(?=$|[._/\\ -])/i
+
 function isObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -173,6 +185,18 @@ function isPositiveInteger(value) {
   return Number.isSafeInteger(value) && value > 0
 }
 
+function isChapterOneCostumeAssetId(value) {
+  return typeof value === 'string' && CHAPTER_ONE_COSTUME_ID_PATTERN.test(value)
+}
+
+function isFinalContentAssetId(value) {
+  return FINAL_CONTENT_ASSET_IDS.has(value) || isChapterOneCostumeAssetId(value)
+}
+
+function hasForbiddenChapterReference(value) {
+  return typeof value === 'string' && FORBIDDEN_CHAPTER_REFERENCE.test(value)
+}
+
 function isInside(parent, child) {
   const relative = path.relative(parent, child)
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))
@@ -183,6 +207,35 @@ function addError(errors, code, message, id, field) {
   if (id !== undefined) error.id = id
   if (field !== undefined) error.field = field
   errors.push(error)
+}
+
+async function validateDeployedChapterScope(filesRoot, errors) {
+  const directories = [filesRoot]
+  const deployedFiles = []
+
+  while (directories.length > 0) {
+    const directory = directories.pop()
+    const entries = await readdir(directory, { withFileTypes: true })
+    for (const entry of entries) {
+      const target = path.join(directory, entry.name)
+      if (entry.isDirectory()) directories.push(target)
+      else if (entry.isFile()) deployedFiles.push(target)
+    }
+  }
+
+  deployedFiles.sort((left, right) => left.localeCompare(right, 'en'))
+  for (const file of deployedFiles) {
+    const relative = path.relative(filesRoot, file).split(path.sep).join('/')
+    if (hasForbiddenChapterReference(relative)) {
+      addError(
+        errors,
+        ERROR_CODES.CHAPTER_SCOPE_VIOLATION,
+        'deployed asset files are limited to CHAPTER I; CHAPTER II and III are forbidden',
+        relative,
+        'src',
+      )
+    }
+  }
 }
 
 function getSpec(entry) {
@@ -589,7 +642,13 @@ async function validateAssetFile(entry, context) {
     addError(errors, ERROR_CODES.FORMAT_MISMATCH, 'declared format, extension, and use contract must agree', id, 'format')
   }
 
-  if (!isPositiveInteger(entry.bytes) || entry.bytes !== targetStat.size) {
+  let actualBytes = targetStat.size
+  if (entry.format === 'svg') {
+    const text = buffer.toString('utf8').replace(/\r\n/g, '\n')
+    actualBytes = Buffer.byteLength(text, 'utf8')
+  }
+
+  if (!isPositiveInteger(entry.bytes) || entry.bytes !== actualBytes) {
     addError(errors, ERROR_CODES.BYTES_MISMATCH, 'declared bytes do not match the file', id, 'bytes')
   }
   if (entry.sha256 !== undefined) {
@@ -667,6 +726,8 @@ export async function validateManifest(options = {}) {
     return { valid: false, errors }
   }
 
+  await validateDeployedChapterScope(filesRoot, errors)
+
   const seen = new Set()
   const ids = new Set()
   const context = { repoRoot, realRepoRoot, manifestDir, filesRoot, realFilesRoot, errors }
@@ -694,6 +755,30 @@ export async function validateManifest(options = {}) {
     if (seen.has(entry.id)) addError(errors, ERROR_CODES.DUPLICATE_ID, 'asset ID is duplicated', entry.id, 'id')
     seen.add(entry.id)
 
+    for (const field of ['id', 'src', 'promptRecord']) {
+      if (hasForbiddenChapterReference(entry[field])) {
+        addError(
+          errors,
+          ERROR_CODES.CHAPTER_SCOPE_VIOLATION,
+          `${field} references forbidden CHAPTER II or III content`,
+          entry.id,
+          field,
+        )
+      }
+    }
+    if (
+      isChapterOneCostumeAssetId(entry.id) &&
+      (!isNonEmptyString(entry.src) || !entry.src.startsWith(CHAPTER_ONE_COSTUME_SOURCE_PREFIX))
+    ) {
+      addError(
+        errors,
+        ERROR_CODES.CHAPTER_SCOPE_VIOLATION,
+        `CHAPTER I costume src must start with ${CHAPTER_ONE_COSTUME_SOURCE_PREFIX}`,
+        entry.id,
+        'src',
+      )
+    }
+
     if (!KINDS.has(entry.kind)) {
       addError(errors, ERROR_CODES.INVALID_KIND, 'kind is not allowed', entry.id, 'kind')
     } else if (entry.id.split('.')[0] !== entry.kind) {
@@ -702,7 +787,7 @@ export async function validateManifest(options = {}) {
     if (!STATUSES.has(entry.status)) {
       addError(errors, ERROR_CODES.INVALID_STATUS, 'status is not ready or placeholder', entry.id, 'status')
     }
-    if (FINAL_CONTENT_ASSET_IDS.has(entry.id)) {
+    if (isFinalContentAssetId(entry.id)) {
       if (entry.status !== 'ready') {
         addError(errors, ERROR_CODES.INVALID_STATUS, 'final content asset must be ready', entry.id, 'status')
       }
@@ -739,7 +824,7 @@ export async function validateManifest(options = {}) {
   const contentSources = new Map()
   const contentHashes = new Map()
   for (const entry of manifest.assets) {
-    if (!isObject(entry) || !FINAL_CONTENT_ASSET_IDS.has(entry.id)) continue
+    if (!isObject(entry) || !isFinalContentAssetId(entry.id)) continue
     if (isNonEmptyString(entry.src)) {
       const owner = contentSources.get(entry.src)
       if (owner !== undefined) {
@@ -763,7 +848,9 @@ export async function validateManifest(options = {}) {
     if (!ids.has(id)) addError(errors, ERROR_CODES.MISSING_ID, 'required asset ID is missing', id, 'id')
   }
   for (const id of ids) {
-    if (!required.has(id)) addError(errors, ERROR_CODES.UNEXPECTED_ID, 'asset ID is outside the fixed inventory', id, 'id')
+    if (!required.has(id) && !isChapterOneCostumeAssetId(id)) {
+      addError(errors, ERROR_CODES.UNEXPECTED_ID, 'asset ID is outside the fixed inventory and CHAPTER I costume namespace', id, 'id')
+    }
   }
 
   errors.sort((left, right) =>

@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 6,
+  "lastSavedAt": 123,
+  "currentMode": "CAMP",
+  "camp": {
+    "definitionVersion": 1,
+    "structures": {
+      "tent": 3,
+      "workbench": 2,
+      "trainingGround": 2
+    },
+    "training": {
+      "attack": 4,
+      "vitality": 3
+    },
+    "materials": {
+      "ashShard": 17,
+      "beastHide": 8,
+      "emberCore": 2
+    },
+    "consumables": {
+      "goldStew": 3,
+      "focusTonic": 2
+    },
+    "craftJob": {
+      "recipeId": "goldStew",
+      "remainingMs": 12345
+    },
+    "buffs": {
+      "goldBoostRounds": 321,
+      "bossFocusStage": 0
+    },
+    "merchant": {
+      "cycle": 4,
+      "refreshRemainingMs": 123456,
+      "purchasedOfferMask": 5
+    },
+    "residents": {
+      "sera": {
+        "status": "contracted",
+        "trust": 3
+      }
+    }
+  },
+  "claimedBossMilestoneMask": 0,
+  "expeditionEvents": {
+    "definitionVersion": 1,
+    "runPrestige": 0,
+    "milestoneMask": 0,
+    "pending": [],
+    "overflowCount": 0
+  },
+  "rng": {
+    "algorithm": "xorshift32-v1",
+    "seed": 11256099,
+    "state": 11256099,
+    "draws": 0
+  },
+  "player": {
+    "level": 1,
+    "xp": 0,
+    "gold": 456,
+    "essence": 0,
+    "currentHp": 75,
+    "skillPoints": 0,
+    "upgrades": {
+      "weapon": 0,
+      "armor": 0,
+      "charm": 0
+    },
+    "skills": {
+      "powerStrike": 1,
+      "ironWill": 0,
+      "fortune": 0
+    },
+    "companion": {
+      "id": null,
+      "rank": 0
+    }
+  },
+  "battle": {
+    "stage": 1,
+    "highestStage": 1,
+    "enemyHp": 34,
+    "roundRemainderMs": 0,
+    "powerStrikeCooldownMs": 2500,
+    "companionCooldownMs": 0,
+    "kills": 0,
+    "defeats": 0
+  },
+  "stats": {
+    "goldEarned": 456,
+    "enemiesDefeated": 0,
+    "prestiges": 0
+  }
+}

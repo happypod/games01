@@ -4,6 +4,7 @@ import type {
   EnemyAssetId,
   EnemyDefinition,
   EnemyPresentationAssetId,
+  EnemySpecies,
   ExpeditionChoiceId,
   ExpeditionDefinitionId,
   ExpeditionDefinitionIdV1,
@@ -227,6 +228,25 @@ const BOSS_ASSET_IDS = [
   'boss.forgotten-dragon',
 ] as const satisfies readonly EnemyAssetId[]
 
+interface EnemySpeciesDefinition {
+  readonly species: EnemySpecies
+  readonly capturable: boolean
+}
+
+// IRPG-801: capturable is false for the entire CHAPTER I roster on purpose —
+// flipping any of these on is a content/balance decision for a follow-up ticket,
+// not an engineering one. species is descriptive metadata only until then.
+const ENEMY_SPECIES_DEFINITIONS: Readonly<Record<EnemyAssetId, EnemySpeciesDefinition>> = Object.freeze({
+  'enemy.ash-slime': { species: 'beast', capturable: false },
+  'enemy.twilight-wolf': { species: 'beast', capturable: false },
+  'enemy.abandoned-armor': { species: 'humanoid', capturable: false },
+  'enemy.charred-shaman': { species: 'humanoid', capturable: false },
+  'enemy.abyss-sentinel': { species: 'beast', capturable: false },
+  'boss.ash-giant': { species: 'beast', capturable: false },
+  'boss.eclipse-knight': { species: 'humanoid', capturable: false },
+  'boss.forgotten-dragon': { species: 'beast', capturable: false },
+})
+
 const ECLIPSE_KNIGHT_DAMAGE_ASSET_IDS = {
   damaged: 'boss.eclipse-knight.damaged',
   severe: 'boss.eclipse-knight.severe',
@@ -254,16 +274,20 @@ export function getEnemyDefinition(rawStage: number): EnemyDefinition {
   const bossIndex = Math.floor(stage / 10 - 1) % BOSS_NAMES.length
   const hpMultiplier = isBoss ? 4.8 : 1
   const attackMultiplier = isBoss ? 1.55 : 1
+  const assetId = isBoss
+    ? (BOSS_ASSET_IDS[bossIndex] ?? BOSS_ASSET_IDS[0])
+    : (ENEMY_ASSET_IDS[regularIndex] ?? ENEMY_ASSET_IDS[0])
+  const speciesDefinition = ENEMY_SPECIES_DEFINITIONS[assetId]
 
   return {
     stage,
-    assetId: isBoss
-      ? (BOSS_ASSET_IDS[bossIndex] ?? BOSS_ASSET_IDS[0])
-      : (ENEMY_ASSET_IDS[regularIndex] ?? ENEMY_ASSET_IDS[0]),
+    assetId,
     name: isBoss
       ? (BOSS_NAMES[bossIndex] ?? BOSS_NAMES[0])
       : (ENEMY_NAMES[regularIndex] ?? ENEMY_NAMES[0]),
     isBoss,
+    species: speciesDefinition.species,
+    capturable: speciesDefinition.capturable,
     maxHp: bounded(
       34 *
         ENEMY_HP_GROWTH ** (stage - 1) *

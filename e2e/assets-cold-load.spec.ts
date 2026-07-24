@@ -500,6 +500,15 @@ test('production cold load stays within budget while inactive art remains deferr
         imageOutputs,
       )
     }
+    const allCostumeImageOutputs = new Set<string>()
+    for (const entry of assetManifest.assets.filter(({ id }) => id.startsWith('costume.'))) {
+      const imageOutputs = new Set(
+        [...(outputsByAssetId.get(entry.id) ?? [])].filter((file) =>
+          IMAGE_EXTENSIONS.has(extname(file).toLowerCase()),
+        ),
+      )
+      addOutputFiles(allCostumeImageOutputs, imageOutputs)
+    }
 
     const activeRegionId = 'region.ashen-border'
     const lazyOutputs = new Set<string>()
@@ -507,7 +516,7 @@ test('production cold load stays within budget while inactive art remains deferr
     for (const entry of assetManifest.assets) {
       const outputs = outputsByAssetId.get(entry.id) ?? []
       if (
-        /^(?:result|event)\./.test(entry.id)
+        /^(?:result|event|costume)\./.test(entry.id)
         || (entry.id.startsWith('region.') && entry.id !== activeRegionId)
       ) {
         addOutputFiles(lazyOutputs, outputs)
@@ -538,6 +547,7 @@ test('production cold load stays within budget while inactive art remains deferr
       initialCardImageRequests: intersection(allCardImageOutputs, requestedDistFiles),
       initialEquipmentCardImageRequests,
       initialSkillCardImageRequests,
+      initialCostumeImageRequests: intersection(allCostumeImageOutputs, requestedDistFiles),
       lazyOutputRequests: intersection(lazyOutputs, requestedDistFiles),
       nonCurrentCombatRequests: intersection(nonCurrentCombatOutputs, requestedDistFiles),
       resources: budgetResources.sort((left, right) => left.url.localeCompare(right.url)),
@@ -559,7 +569,14 @@ test('production cold load stays within budget while inactive art remains deferr
       intersection(currentEnemyImageOutputs, requestedDistFiles),
       'Stage-1 ash slime image was not requested',
     ).not.toEqual([])
-    expect(evidence.lazyOutputRequests, 'A lazy region/result/event asset was requested').toEqual([])
+    expect(
+      evidence.initialCostumeImageRequests,
+      'A consent-gated costume asset was requested during production cold load',
+    ).toEqual([])
+    expect(
+      evidence.lazyOutputRequests,
+      'A lazy region/result/event/costume asset was requested',
+    ).toEqual([])
     expect(
       evidence.nonCurrentCombatRequests,
       'A non-current enemy or boss asset was requested',
@@ -574,8 +591,10 @@ test('production cold load stays within budget while inactive art remains deferr
     expect(initialSkillCardImageRequests).toEqual([...skillCardImageOutputs].sort())
     expect(evidence.initialCardImageRequests).toEqual([...allCardImageOutputs].sort())
 
-    await page.getByRole('button', { name: '3지역 원정 지도 열기' }).click()
-    await page.getByRole('button', { name: '원정 지도 열기', exact: true }).click()
+    await page.getByRole('tab', { name: '지도' }).click()
+    await page.locator('[data-intel-panel="map"]')
+      .getByRole('button', { name: '원정 지도 열기', exact: true })
+      .click()
     const activeRegionArt = page.locator('.stage-map-scene__art')
     await expect(activeRegionArt).toHaveAttribute('data-asset-id', activeRegionId)
     await expect(activeRegionArt).toHaveAttribute('data-state', 'loaded')
@@ -613,28 +632,18 @@ test('production cold load stays within budget while inactive art remains deferr
       'Opening the map requested an inactive region image',
     ).toEqual(expectedActiveRegionRequests)
 
-    const equipmentPanel = page.locator('#growth-tabpanel-equipment')
-    const skillPanel = page.locator('#growth-tabpanel-skill')
-    const equipmentSlots = equipmentPanel.locator('[data-card-asset-id]')
-    const skillSlots = skillPanel.locator('[data-card-asset-id]')
-    await expect(equipmentPanel).toBeVisible()
-    await expect(skillPanel).not.toBeVisible()
-    await expect(equipmentSlots).toHaveCount(3)
-    await expect(skillSlots).toHaveCount(3)
-    expect(
-      await skillSlots.evaluateAll((slots) =>
-        slots.map((slot) => slot.getAttribute('data-art-active')),
-      ),
-    ).toEqual(['false', 'false', 'false'])
-
-    for (let index = 0; index < 3; index += 1) {
-      const slot = equipmentSlots.nth(index)
-      const assetId = await slot.getAttribute('data-card-asset-id')
+    const actionSlotAssets = page.locator(
+      '.tactical-action-bar [data-action-kind="equipment"] .tactical-action-bar__slot-asset, '
+      + '.tactical-action-bar [data-action-kind="skill"] .tactical-action-bar__slot-asset',
+    )
+    await expect(actionSlotAssets).toHaveCount(6)
+    for (let index = 0; index < 6; index += 1) {
+      const slot = actionSlotAssets.nth(index)
+      const assetId = await slot.getAttribute('data-asset-id')
       expect(assetId).not.toBeNull()
       expect(cardImageOutputsById.get(assetId ?? '')?.size).toBe(1)
       await slot.scrollIntoViewIfNeeded()
-      await expect(slot).toHaveAttribute('data-art-active', 'true')
-      await expect(slot.locator('.growth-card__asset')).toHaveAttribute('data-state', 'loaded')
+      await expect(slot).toHaveAttribute('data-state', 'loaded')
     }
     while (pendingResponses.size > 0) await Promise.all([...pendingResponses])
 
@@ -645,20 +654,21 @@ test('production cold load stays within budget while inactive art remains deferr
         )
         .map(({ url }) => resolveRequestedDistFile(url).relative),
     )
-    expect(intersection(skillCardImageOutputs, imageRequestsBeforeSkillTab))
-      .toEqual([...skillCardImageOutputs].sort())
+    expect(intersection(allCardImageOutputs, imageRequestsBeforeSkillTab))
+      .toEqual([...allCardImageOutputs].sort())
 
     await page.getByRole('tab', { name: '스킬', exact: true }).click()
-    await expect(equipmentPanel).not.toBeVisible()
+    const skillPanel = page.locator('[data-intel-panel="skills"]')
     await expect(skillPanel).toBeVisible()
+    const skillSlots = skillPanel.locator('.tactical-intel-panel__skill-art')
+    await expect(skillSlots).toHaveCount(3)
     for (let index = 0; index < 3; index += 1) {
       const slot = skillSlots.nth(index)
-      const assetId = await slot.getAttribute('data-card-asset-id')
+      const assetId = await slot.getAttribute('data-asset-id')
       expect(assetId).not.toBeNull()
       expect(cardImageOutputsById.get(assetId ?? '')?.size).toBe(1)
       await slot.scrollIntoViewIfNeeded()
-      await expect(slot).toHaveAttribute('data-art-active', 'true')
-      await expect(slot.locator('.growth-card__asset')).toHaveAttribute('data-state', 'loaded')
+      await expect(slot).toHaveAttribute('data-state', 'loaded')
     }
     while (pendingResponses.size > 0) await Promise.all([...pendingResponses])
 
@@ -699,6 +709,128 @@ test('production cold load stays within budget while inactive art remains deferr
 
     expect(cardImageRequestsAfterActivation).toEqual(expectedCardRequests)
     expect(cardImageResponseFiles).toEqual(expectedCardRequests)
+  } finally {
+    await context.close()
+  }
+})
+
+test('loads the CHAPTER I costume only after the consented costume room is opened', async ({
+  browser,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== 'chromium-cold-load',
+    'This production-only assertion runs through playwright.assets.config.ts.',
+  )
+
+  const startedAt = new Date('2026-07-22T00:00:00.000Z')
+  const context = await browser.newContext({
+    baseURL: ORIGIN,
+    locale: 'ko-KR',
+    timezoneId: 'Asia/Seoul',
+    serviceWorkers: 'block',
+    viewport: { width: 1_440, height: 900 },
+  })
+  await context.clock.setFixedTime(startedAt)
+  const page = await context.newPage()
+  const seeded = createInitialState(startedAt.getTime(), 0x428_0001)
+  seeded.currentMode = 'CAMP'
+  seeded.camp.residents.sera = { status: 'contracted', trust: 0 }
+  seeded.camp.bond = {
+    ...seeded.camp.bond,
+    adultAccessConfirmed: true,
+    seraConsent: 'granted',
+  }
+  const serialized = JSON.stringify({
+    formatVersion: SAVE_FORMAT_VERSION,
+    revision: 1,
+    savedAt: seeded.lastSavedAt,
+    state: seeded,
+  })
+  await page.addInitScript(
+    ({ key, value }) => window.localStorage.setItem(key, value),
+    { key: SAVE_SLOT_A_KEY, value: serialized },
+  )
+
+  const requestedImageFiles = new Set<string>()
+  page.on('response', (response) => {
+    if (
+      response.request().resourceType() !== 'image'
+      || response.status() < 200
+      || response.status() >= 300
+      || new URL(response.url()).origin !== ORIGIN
+    ) return
+    requestedImageFiles.add(resolveRequestedDistFile(response.url()).relative)
+  })
+
+  try {
+    const assetManifest = loadAssetManifest()
+    const viteManifest = loadViteManifest()
+    const distFiles = walkFiles(DIST_ROOT)
+    const costume = findAsset(
+      assetManifest.assets,
+      'costume.chapter1.sera.ember-bond',
+    )
+    const costumeOutputs = new Set(
+      [...outputFilesForSource(
+        resolveManifestSource(costume.src),
+        viteManifest,
+        distFiles,
+      )].filter((file) => IMAGE_EXTENSIONS.has(extname(file).toLowerCase())),
+    )
+    const allCostumeOutputs = new Set<string>()
+    for (const entry of assetManifest.assets.filter(({ id }) => id.startsWith('costume.'))) {
+      addOutputFiles(
+        allCostumeOutputs,
+        [...outputFilesForSource(
+          resolveManifestSource(entry.src),
+          viteManifest,
+          distFiles,
+        )].filter((file) => IMAGE_EXTENSIONS.has(extname(file).toLowerCase())),
+      )
+    }
+    expect(costumeOutputs.size, 'Vite manifest has no unique CHAPTER I costume image').toBe(1)
+    expect(allCostumeOutputs).toEqual(costumeOutputs)
+
+    await page.goto('/', { waitUntil: 'networkidle' })
+    await expect(page.getByTestId('camp-dashboard')).toBeVisible()
+    await expect(page.locator('.bond-costume-room__preview')).toHaveCount(0)
+
+    const requestsBeforeDisclosure = intersection(
+      allCostumeOutputs,
+      requestedImageFiles,
+    )
+    expect(
+      requestsBeforeDisclosure,
+      'The costume image loaded before the user opened the consented costume room',
+    ).toEqual([])
+
+    await page.getByRole('tab', { name: '의상실', exact: true }).click()
+    const preview = page.locator('.bond-costume-room__preview')
+    await expect(preview).toHaveAttribute('data-asset-id', costume.id)
+    await expect(preview).toHaveAttribute('data-resolved-asset-id', costume.id)
+    await expect(preview).toHaveAttribute('data-state', 'loaded')
+
+    const requestsAfterDisclosure = intersection(
+      allCostumeOutputs,
+      requestedImageFiles,
+    )
+    const evidence = {
+      activeChapter: 'chapter1',
+      semanticCostumeId: 'chapter1.sera.field',
+      assetId: costume.id,
+      costumeOutputs: [...costumeOutputs].sort(),
+      allCostumeOutputs: [...allCostumeOutputs].sort(),
+      requestsBeforeDisclosure,
+      requestsAfterDisclosure,
+      previewState: await preview.getAttribute('data-state'),
+      previewResolvedAssetId: await preview.getAttribute('data-resolved-asset-id'),
+    }
+    await testInfo.attach('irpg-428-chapter1-costume-lazy-load.json', {
+      body: Buffer.from(JSON.stringify(evidence, null, 2)),
+      contentType: 'application/json',
+    })
+
+    expect(requestsAfterDisclosure).toEqual([...costumeOutputs].sort())
   } finally {
     await context.close()
   }

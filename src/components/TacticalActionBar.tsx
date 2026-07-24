@@ -1,4 +1,4 @@
-import { faBowlFood, faFlask } from '@fortawesome/free-solid-svg-icons'
+import { faFlask } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
   useEffect,
@@ -8,33 +8,46 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
-import { SKILL_DEFINITIONS, UPGRADE_DEFINITIONS } from '../game/content'
+import { getHealingPotionRecoveryAmount } from '../game/camp'
 import {
+  COMPANION_DEFINITIONS,
+  SKILL_DEFINITIONS,
+  UPGRADE_DEFINITIONS,
+} from '../game/content'
+import { getItemDefinition } from '../game/itemRegistry'
+import {
+  getCompanionDamage,
+  getCompanionTrainingCost,
+  getHeroStats,
   getSkillEffectComparison,
   getSkillPointCost,
   getUpgradeCost,
   getUpgradeEffectComparison,
+  isCompanionUnlocked,
   isSkillUnlocked,
   type GrowthEffectComparison,
   type GrowthEffectMetricKey,
 } from '../game/formulas'
 import { formatNumber } from '../game/format'
 import {
+  COMPANION_IDS,
   SKILL_IDS,
   UPGRADE_IDS,
-  type CampConsumableId,
+  type CompanionId,
+  type EquipmentSlot,
   type GameState,
   type SkillId,
   type UpgradeId,
 } from '../game/types'
 import { GameAsset } from './GameAsset'
 
-const CONSUMABLE_IDS = ['goldStew', 'focusTonic'] as const satisfies readonly CampConsumableId[]
-
+const COMPANION_SLOT_ID = 'companion' as const
+const QUICK_CONSUMABLE_SLOT_ID = 'quickConsumable' as const
 const TACTICAL_ACTION_SLOT_IDS = [
   ...UPGRADE_IDS,
   ...SKILL_IDS,
-  ...CONSUMABLE_IDS,
+  COMPANION_SLOT_ID,
+  QUICK_CONSUMABLE_SLOT_ID,
 ] as const
 
 type TacticalActionSlotId = (typeof TACTICAL_ACTION_SLOT_IDS)[number]
@@ -46,11 +59,21 @@ type ActionStatus =
   | 'max'
   | 'globally-disabled'
 
+type QuickConsumableStatus =
+  | 'available'
+  | 'unmounted'
+  | 'empty'
+  | 'full'
+  | 'globally-disabled'
+
 interface TacticalActionBarProps {
   state: GameState
   onBuyUpgrade: (id: UpgradeId) => void
   onBuySkill: (id: SkillId) => void
-  onEnterCamp: () => void
+  onRecruitCompanion: (id: CompanionId) => void
+  onTrainCompanion: () => void
+  onUseEquippedConsumable: () => void
+  onOpenInventory: () => void
   disabled?: boolean
   disabledReason?: string
 }
@@ -75,29 +98,6 @@ const EFFECT_LABELS: Record<GrowthEffectMetricKey, string> = {
   defense: '방어력',
   goldBonusPercent: '골드 보너스',
   powerStrikeMultiplier: '피해 배율',
-}
-
-const CONSUMABLE_COPY: Record<CampConsumableId, {
-  name: string
-  description: string
-  activeCopy: (state: GameState) => string
-}> = {
-  goldStew: {
-    name: '황금 스튜',
-    description: '다음 1,800 전투 라운드의 골드 획득량을 50% 높입니다.',
-    activeCopy: (state) => state.camp.buffs.goldBoostRounds > 0
-      ? `현재 효과가 ${formatNumber(state.camp.buffs.goldBoostRounds)}라운드 남았습니다.`
-      : '현재 준비된 골드 보너스가 없습니다.',
-  },
-  focusTonic: {
-    name: '집중 물약',
-    description: '다음 보스전의 치명타 확률을 35%로 준비합니다.',
-    activeCopy: (state) => state.camp.buffs.bossFocusStage === null
-      ? '현재 준비된 보스 집중 효과가 없습니다.'
-      : state.camp.buffs.bossFocusStage === 0
-        ? '다음 보스전을 위한 집중 효과가 준비되어 있습니다.'
-        : `스테이지 ${state.camp.buffs.bossFocusStage} 보스에 집중 효과가 적용 중입니다.`,
-  },
 }
 
 function isUpgradeId(id: TacticalActionSlotId): id is UpgradeId {
@@ -135,12 +135,21 @@ function getUpgradeDetail(
         ? 'insufficient'
         : 'available'
 
+  const slotByUpgradeId: Record<UpgradeId, EquipmentSlot> = {
+    weapon: 'weapon',
+    armor: 'armor',
+    charm: 'accessory',
+  }
+  const slot = slotByUpgradeId[id]
+  const equippedId = state.player.equipped[slot]
+  const equippedItem = equippedId ? getItemDefinition(equippedId) : null
+
   return {
     kind: 'equipment',
     name: definition.name,
-    description: definition.description,
-    rankLabel: `Lv.${level}`,
-    modeLabel: null,
+    description: equippedItem ? `[${equippedItem.name} 착용 중] ${equippedItem.description}` : `${definition.description} (현재 슬롯 미장착)`,
+    rankLabel: equippedItem ? `${equippedItem.name} Lv.${level}` : `Lv.${level}`,
+    modeLabel: equippedItem ? '착용 중' : '미장착',
     comparison,
     costLabel: comparison.isMax ? null : `${formatNumber(cost)} G`,
     status,
@@ -204,7 +213,11 @@ function getSkillDetail(
           : status === 'insufficient'
             ? `스킬 포인트가 ${shortage} 부족합니다.`
             : '지금 각인할 수 있습니다.',
-    actionLabel: status === 'max' ? 'MAX' : status === 'locked' ? '잠김' : `${definition.name} 각인`,
+    actionLabel: status === 'max'
+      ? 'MAX'
+      : status === 'locked'
+        ? '잠김'
+        : `${definition.name} 각인`,
     onAction: () => onBuySkill(id),
   }
 }
@@ -213,7 +226,10 @@ export function TacticalActionBar({
   state,
   onBuyUpgrade,
   onBuySkill,
-  onEnterCamp,
+  onRecruitCompanion,
+  onTrainCompanion,
+  onUseEquippedConsumable,
+  onOpenInventory,
   disabled = false,
   disabledReason,
 }: TacticalActionBarProps) {
@@ -267,9 +283,63 @@ export function TacticalActionBar({
     : selectedSlot !== null && isSkillId(selectedSlot)
       ? getSkillDetail(state, selectedSlot, disabled, disabledReason, onBuySkill)
       : null
-  const selectedConsumable = selectedSlot !== null && !isUpgradeId(selectedSlot) && !isSkillId(selectedSlot)
-    ? selectedSlot
-    : null
+
+  const companionId = COMPANION_IDS[0]
+  const companionDefinition = COMPANION_DEFINITIONS[companionId]
+  const companionRecruited = state.player.companion.id === companionId
+  const companionRank = companionRecruited ? state.player.companion.rank : 0
+  const companionUnlocked = isCompanionUnlocked(state, companionId)
+  const companionMax = companionRecruited
+    && companionRank >= companionDefinition.maxRank
+  const companionCost = companionRecruited
+    ? getCompanionTrainingCost(companionId, companionRank)
+    : 0
+  const companionShortage = companionRecruited
+    ? Math.max(0, companionCost - state.player.gold)
+    : 0
+  const companionStatus: ActionStatus = !companionRecruited && !companionUnlocked
+    ? 'locked'
+    : companionMax
+      ? 'max'
+      : disabled
+        ? 'globally-disabled'
+        : companionShortage > 0
+          ? 'insufficient'
+          : 'available'
+  const companionStatusText = companionStatus === 'locked'
+    ? `첫 보스를 격파하고 스테이지 ${companionDefinition.unlockStage}을 열면 영입할 수 있습니다.`
+    : companionStatus === 'max'
+      ? '최대 랭크입니다.'
+      : companionStatus === 'globally-disabled'
+        ? (disabledReason ?? '지금은 동료를 변경할 수 없습니다.')
+        : companionStatus === 'insufficient'
+          ? `골드가 ${formatNumber(companionShortage)} 부족합니다.`
+          : companionRecruited
+            ? '지금 훈련할 수 있습니다.'
+            : '첫 보스 승리 보상으로 무료 영입할 수 있습니다.'
+
+  const hero = getHeroStats(state)
+  const quickEquipped = state.camp.quickConsumable === 'healingPotion'
+  const quickCount = state.camp.consumables.healingPotion
+  const quickRecovery = getHealingPotionRecoveryAmount(state)
+  const quickStatus: QuickConsumableStatus = disabled
+    ? 'globally-disabled'
+    : !quickEquipped
+      ? 'unmounted'
+      : quickCount < 1
+        ? 'empty'
+        : state.player.currentHp >= hero.maxHp
+          ? 'full'
+          : 'available'
+  const quickStatusText = quickStatus === 'globally-disabled'
+    ? (disabledReason ?? '지금은 빠른 소모품을 사용할 수 없습니다.')
+    : quickStatus === 'unmounted'
+      ? '빠른 슬롯에 장착된 회복 물약이 없습니다.'
+      : quickStatus === 'empty'
+        ? '장착은 유지되지만 보유한 회복 물약이 없습니다.'
+        : quickStatus === 'full'
+          ? '현재 체력이 가득 차 있습니다.'
+          : `사용하면 최대 체력의 35%인 ${formatNumber(quickRecovery)} HP를 회복합니다.`
 
   const handleSlotKeyDown = (
     event: ReactKeyboardEvent<HTMLButtonElement>,
@@ -305,22 +375,47 @@ export function TacticalActionBar({
     triggerRefs.current.get(nextSlot)?.focus()
   }
 
+  const closeDetail = () => {
+    if (selectedSlot === null) return
+    const trigger = triggerRefs.current.get(selectedSlot)
+    setSelectedSlot(null)
+    trigger?.focus()
+  }
+
   return (
-    <section ref={barRef} className="tactical-action-bar" aria-label="장비와 스킬 빠른 슬롯">
+    <section ref={barRef} className="tactical-action-bar" aria-label="전술 명령 빠른 슬롯">
       <div className="tactical-action-bar__slots" role="toolbar" aria-label="전술 슬롯바">
         {TACTICAL_ACTION_SLOT_IDS.map((id) => {
           const selected = selectedSlot === id
-          const kind = isUpgradeId(id) ? 'equipment' : isSkillId(id) ? 'skill' : 'consumable'
+          const kind = isUpgradeId(id)
+            ? 'equipment'
+            : isSkillId(id)
+              ? 'skill'
+              : id === COMPANION_SLOT_ID
+                ? 'companion'
+                : 'consumable'
           const name = isUpgradeId(id)
             ? UPGRADE_DEFINITIONS[id].name
             : isSkillId(id)
               ? SKILL_DEFINITIONS[id].name
-              : CONSUMABLE_COPY[id].name
+              : id === COMPANION_SLOT_ID
+                ? companionDefinition.name
+                : quickEquipped
+                  ? '회복 물약'
+                  : '빠른 소모품'
           const meta = isUpgradeId(id)
             ? `Lv.${state.player.upgrades[id]}`
             : isSkillId(id)
               ? getSkillModeLabel(state, id)
-              : `보유 ${formatNumber(state.camp.consumables[id])}`
+              : id === COMPANION_SLOT_ID
+                ? companionRecruited
+                  ? `Rank ${companionRank}`
+                  : companionUnlocked
+                    ? '영입 가능'
+                    : '미영입'
+                : quickEquipped
+                  ? `보유 ${formatNumber(quickCount)}`
+                  : '미장착'
 
           return (
             <button
@@ -356,9 +451,18 @@ export function TacticalActionBar({
                     fit="cover"
                     loading="eager"
                   />
+                ) : id === COMPANION_SLOT_ID ? (
+                  <GameAsset
+                    assetId={companionDefinition.assetId}
+                    purpose="character"
+                    decorative
+                    className="tactical-action-bar__slot-asset"
+                    fit="cover"
+                    loading="lazy"
+                  />
                 ) : (
                   <FontAwesomeIcon
-                    icon={id === 'goldStew' ? faBowlFood : faFlask}
+                    icon={faFlask}
                     className="tactical-action-bar__slot-icon"
                   />
                 )}
@@ -395,11 +499,7 @@ export function TacticalActionBar({
             <button
               type="button"
               className="tactical-action-bar__detail-close"
-              onClick={() => {
-                const trigger = triggerRefs.current.get(selectedSlot)
-                setSelectedSlot(null)
-                trigger?.focus()
-              }}
+              onClick={closeDetail}
               aria-label={`${progressionDetail.name} 상세 닫기`}
             >
               닫기
@@ -432,52 +532,118 @@ export function TacticalActionBar({
         </section>
       )}
 
-      {selectedConsumable !== null && (
+      {selectedSlot === COMPANION_SLOT_ID && (
+        <section
+          id={detailId}
+          className="tactical-action-bar__detail"
+          role="dialog"
+          aria-modal="false"
+          aria-labelledby={`${detailId}-title`}
+          data-action-detail={COMPANION_SLOT_ID}
+          data-action-status={companionStatus}
+        >
+          <header className="tactical-action-bar__detail-header">
+            <div>
+              <p className="tactical-action-bar__detail-kicker">원정 협공</p>
+              <h3 ref={detailHeadingRef} id={`${detailId}-title`} tabIndex={-1}>
+                {companionDefinition.name}
+              </h3>
+              <span>{companionRecruited ? `Rank ${companionRank}` : '미영입'}</span>
+            </div>
+            <button
+              type="button"
+              className="tactical-action-bar__detail-close"
+              onClick={closeDetail}
+              aria-label={`${companionDefinition.name} 상세 닫기`}
+            >
+              닫기
+            </button>
+          </header>
+          <p className="tactical-action-bar__detail-description">
+            {companionDefinition.description}
+          </p>
+          {companionRecruited && (
+            <dl className="tactical-action-bar__detail-effects">
+              <div className="tactical-action-bar__detail-effect">
+                <dt>협공 피해</dt>
+                <dd><span>{formatNumber(getCompanionDamage(state))}</span></dd>
+              </div>
+              <div className="tactical-action-bar__detail-effect">
+                <dt>다음 협공</dt>
+                <dd>
+                  <span>{state.battle.companionCooldownMs === 0
+                    ? '준비됨'
+                    : `${Math.ceil(state.battle.companionCooldownMs / 1_000)}초`}</span>
+                </dd>
+              </div>
+            </dl>
+          )}
+          <p className="tactical-action-bar__detail-status" role="status">
+            {companionStatusText}
+          </p>
+          <button
+            type="button"
+            className="tactical-action-bar__detail-action"
+            disabled={companionStatus !== 'available'}
+            onClick={() => companionRecruited
+              ? onTrainCompanion()
+              : onRecruitCompanion(companionId)}
+          >
+            <span>{companionRecruited ? (companionMax ? 'MAX' : '동료 훈련') : '무료 영입'}</span>
+            {companionRecruited && !companionMax && (
+              <small>{formatNumber(companionCost)} G</small>
+            )}
+          </button>
+        </section>
+      )}
+
+      {selectedSlot === QUICK_CONSUMABLE_SLOT_ID && (
         <section
           id={detailId}
           className="tactical-action-bar__detail tactical-action-bar__detail--consumable"
           role="dialog"
           aria-modal="false"
           aria-labelledby={`${detailId}-title`}
-          data-action-detail={selectedConsumable}
-          data-action-status={disabled ? 'globally-disabled' : 'available'}
+          data-action-detail={QUICK_CONSUMABLE_SLOT_ID}
+          data-action-status={quickStatus}
         >
           <header className="tactical-action-bar__detail-header">
             <div>
-              <p className="tactical-action-bar__detail-kicker">전투 보급품</p>
+              <p className="tactical-action-bar__detail-kicker">전투 빠른 소모품</p>
               <h3 ref={detailHeadingRef} id={`${detailId}-title`} tabIndex={-1}>
-                {CONSUMABLE_COPY[selectedConsumable].name}
+                {quickEquipped ? '회복 물약' : '빠른 소모품'}
               </h3>
-              <span>보유 {formatNumber(state.camp.consumables[selectedConsumable])}</span>
+              <span>보유 {formatNumber(quickCount)}</span>
             </div>
             <button
               type="button"
               className="tactical-action-bar__detail-close"
-              onClick={() => {
-                const trigger = triggerRefs.current.get(selectedConsumable)
-                setSelectedSlot(null)
-                trigger?.focus()
-              }}
-              aria-label={`${CONSUMABLE_COPY[selectedConsumable].name} 상세 닫기`}
+              onClick={closeDetail}
+              aria-label={`${quickEquipped ? '회복 물약' : '빠른 소모품'} 상세 닫기`}
             >
               닫기
             </button>
           </header>
           <p className="tactical-action-bar__detail-description">
-            {CONSUMABLE_COPY[selectedConsumable].description}
+            장착된 회복 물약은 전투 중 최대 체력의 35%인 {formatNumber(quickRecovery)} HP를 회복합니다.
           </p>
           <p className="tactical-action-bar__detail-status" role="status">
-            {disabled
-              ? (disabledReason ?? '지금은 캠프로 이동할 수 없습니다.')
-              : CONSUMABLE_COPY[selectedConsumable].activeCopy(state)}
+            {quickStatusText}
           </p>
           <button
             type="button"
             className="tactical-action-bar__detail-action"
-            disabled={disabled}
-            onClick={onEnterCamp}
+            disabled={quickStatus !== 'available' && quickStatus !== 'unmounted'}
+            onClick={() => {
+              if (quickEquipped) {
+                onUseEquippedConsumable()
+                return
+              }
+              onOpenInventory()
+              closeDetail()
+            }}
           >
-            캠프에서 준비
+            {quickEquipped ? '회복 물약 사용' : '인벤토리 열기'}
           </button>
         </section>
       )}

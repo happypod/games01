@@ -1,8 +1,11 @@
 import {
   COMPANION_DEFINITIONS,
+  CRITICAL_CHANCE,
   SKILL_DEFINITIONS,
   UPGRADE_DEFINITIONS,
 } from './content'
+import { getItemDefinition } from './itemRegistry'
+import { EQUIPMENT_SLOTS } from './types'
 import type { CompanionId, GameState, HeroStats, SkillId, UpgradeId } from './types'
 
 export type GrowthEffectMetricKey =
@@ -52,26 +55,50 @@ export function getCompanionTrainingCost(id: CompanionId, currentRank: number): 
   )
 }
 
+
 export function getHeroStats(state: GameState): HeroStats {
   const { level, essence, upgrades, skills } = state.player
   const permanentMultiplier = 1 + essence * ESSENCE_STAT_BONUS_PER_POINT
   const ironWillMultiplier = 1 + skills.ironWill * 0.1
 
+  let itemAtk = 0
+  let itemHp = 0
+  let itemDef = 0
+  let itemCritBasisPoints = 0
+
+  if (state.player.equipped) {
+    for (const slot of EQUIPMENT_SLOTS) {
+      const itemId = state.player.equipped[slot]
+      if (itemId) {
+        const item = getItemDefinition(itemId)
+        if (item && item.stats) {
+          if (item.stats.atk) itemAtk += item.stats.atk
+          if (item.stats.hp) itemHp += item.stats.hp
+          if (item.stats.def) itemDef += item.stats.def
+          if (item.stats.critChanceBasisPoints) itemCritBasisPoints += item.stats.critChanceBasisPoints
+        }
+      }
+    }
+  }
+
   return {
     attack: toSafeInteger(
       (10 + (level - 1) * 2.2 + upgrades.weapon * 5) * permanentMultiplier +
-        state.camp.training.attack * 2,
+        state.camp.training.attack * 2 +
+        itemAtk,
       1,
     ),
     maxHp: toSafeInteger(
       (100 + (level - 1) * 14 + upgrades.armor * 30) *
         ironWillMultiplier *
         permanentMultiplier +
-        state.camp.training.vitality * 20,
+        state.camp.training.vitality * 20 +
+        itemHp,
       1,
     ),
     defense: toSafeInteger(
-      (upgrades.armor * 1.8 + (level - 1) * 0.35) * ironWillMultiplier,
+      (upgrades.armor * 1.8 + (level - 1) * 0.35) * ironWillMultiplier +
+        itemDef,
     ),
     goldMultiplier:
       1 +
@@ -79,6 +106,7 @@ export function getHeroStats(state: GameState): HeroStats {
       skills.fortune * 0.12 +
       (state.camp.buffs.goldBoostRounds > 0 ? 0.5 : 0),
     powerStrikeMultiplier: 2.5 + Math.max(0, skills.powerStrike - 1) * 0.25,
+    critChance: CRITICAL_CHANCE + itemCritBasisPoints / 10_000,
   }
 }
 

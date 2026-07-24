@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { appendFile, cp, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -44,7 +45,7 @@ async function runFixture(mutate) {
 
 test('checked-in manifest contains the exact inventory and validates', async () => {
   const result = await validateManifest({ repoRoot: REPO_ROOT })
-  assert.equal(REQUIRED_ASSET_IDS.length, 30)
+  assert.equal(REQUIRED_ASSET_IDS.length, 31)
   assert.deepEqual(result.errors, [])
   assert.equal(result.valid, true)
 })
@@ -72,6 +73,138 @@ test('reports missing and unexpected inventory IDs independently', async () => {
     manifest.assets.push({ ...manifest.assets[0], id: 'hero.unapproved.default' })
   })
   assert.equal(hasError(unexpected, ERROR_CODES.UNEXPECTED_ID, 'hero.unapproved.default'), true)
+})
+
+test('allows only the extensible CHAPTER I costume namespace beyond the fixed inventory', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const source = findEntry(manifest, 'hero.ashen-knight.default')
+    const relativeTarget = './files/costume/chapter1/sera-user-supplied.webp'
+    const target = path.resolve(gameDir, relativeTarget)
+    await mkdir(path.dirname(target), { recursive: true })
+    await cp(path.resolve(gameDir, source.src), target)
+    const buffer = await readFile(target)
+    manifest.assets.push({
+      ...source,
+      id: 'costume.chapter1.sera.user-supplied',
+      kind: 'costume',
+      src: relativeTarget,
+      bytes: buffer.length,
+      sha256: createHash('sha256').update(buffer).digest('hex'),
+    })
+  })
+
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.valid, true)
+})
+
+test('requires extensible CHAPTER I costumes to be ready and hashed', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const source = findEntry(manifest, 'hero.ashen-knight.default')
+    const relativeTarget = './files/costume/chapter1/sera-unfinished.webp'
+    const target = path.resolve(gameDir, relativeTarget)
+    await mkdir(path.dirname(target), { recursive: true })
+    await cp(path.resolve(gameDir, source.src), target)
+    const buffer = await readFile(target)
+    manifest.assets.push({
+      ...source,
+      id: 'costume.chapter1.sera.unfinished',
+      kind: 'costume',
+      status: 'placeholder',
+      src: relativeTarget,
+      bytes: buffer.length,
+    })
+  })
+
+  assert.equal(
+    hasError(result, ERROR_CODES.INVALID_STATUS, 'costume.chapter1.sera.unfinished'),
+    true,
+  )
+  assert.equal(
+    hasError(result, ERROR_CODES.HASH_REQUIRED, 'costume.chapter1.sera.unfinished'),
+    true,
+  )
+})
+
+test('keeps every CHAPTER I costume file inside its dedicated deployed directory', async () => {
+  const result = await runFixture(async ({ manifest }) => {
+    const entry = findEntry(manifest, 'costume.chapter1.sera.ember-bond')
+    entry.src = './files/hero/ashen-knight-default.webp'
+  })
+
+  assert.equal(
+    hasError(
+      result,
+      ERROR_CODES.CHAPTER_SCOPE_VIOLATION,
+      'costume.chapter1.sera.ember-bond',
+    ),
+    true,
+  )
+})
+
+test('rejects CHAPTER II and III references in IDs, sources, and prompt records', async () => {
+  const forbiddenId = await runFixture(async ({ manifest }) => {
+    findEntry(manifest, 'costume.chapter1.sera.ember-bond').id =
+      'costume.chapter2.sera.ember-bond'
+  })
+  assert.equal(
+    hasError(
+      forbiddenId,
+      ERROR_CODES.CHAPTER_SCOPE_VIOLATION,
+      'costume.chapter2.sera.ember-bond',
+    ),
+    true,
+  )
+
+  const forbiddenSource = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'costume.chapter1.sera.ember-bond')
+    const target = path.join(gameDir, 'files/costume/chapter3/sera-ember-bond.webp')
+    await mkdir(path.dirname(target), { recursive: true })
+    await cp(path.resolve(gameDir, entry.src), target)
+    entry.src = './files/costume/chapter3/sera-ember-bond.webp'
+  })
+  assert.equal(
+    hasError(
+      forbiddenSource,
+      ERROR_CODES.CHAPTER_SCOPE_VIOLATION,
+      'costume.chapter1.sera.ember-bond',
+    ),
+    true,
+  )
+
+  const forbiddenPrompt = await runFixture(async ({ root, manifest }) => {
+    const entry = findEntry(manifest, 'costume.chapter1.sera.ember-bond')
+    entry.promptRecord = 'docs/assets/prompts/chapter-iii-sera.md'
+    await writeFile(path.join(root, entry.promptRecord), '# forbidden fixture\n', 'utf8')
+  })
+  assert.equal(
+    hasError(
+      forbiddenPrompt,
+      ERROR_CODES.CHAPTER_SCOPE_VIOLATION,
+      'costume.chapter1.sera.ember-bond',
+    ),
+    true,
+  )
+})
+
+test('rejects unreferenced CHAPTER II or III files in the deployed asset tree', async () => {
+  const result = await runFixture(async ({ gameDir }) => {
+    const source = path.join(
+      gameDir,
+      'files/costume/chapter1/sera-ember-bond.webp',
+    )
+    const target = path.join(gameDir, 'files/costume/chapter-ii/orphan.webp')
+    await mkdir(path.dirname(target), { recursive: true })
+    await cp(source, target)
+  })
+
+  assert.equal(
+    hasError(
+      result,
+      ERROR_CODES.CHAPTER_SCOPE_VIOLATION,
+      'costume/chapter-ii/orphan.webp',
+    ),
+    true,
+  )
 })
 
 test('rejects remote runtime sources', async () => {
@@ -139,6 +272,41 @@ test('compares declared bytes to the real file', async () => {
     findEntry(manifest).bytes += 1
   })
   assert.equal(hasError(result, ERROR_CODES.BYTES_MISMATCH, 'hero.ashen-knight.default'), true)
+})
+
+test('uses canonical LF byte counts for SVG files checked out with CRLF', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.resolve(gameDir, entry.src)
+    const canonical = (await readFile(target, 'utf8')).replace(/\r\n/g, '\n')
+    assert.match(canonical, /\n/)
+    await writeFile(target, canonical.replace(/\n/g, '\r\n'), 'utf8')
+  })
+
+  assert.equal(
+    hasError(result, ERROR_CODES.BYTES_MISMATCH, 'fallback.character'),
+    false,
+  )
+  assert.deepEqual(result.errors, [])
+  assert.equal(result.valid, true)
+})
+
+test('still rejects SVG content changes after line-ending normalization', async () => {
+  const result = await runFixture(async ({ gameDir, manifest }) => {
+    const entry = findEntry(manifest, 'fallback.character')
+    const target = path.resolve(gameDir, entry.src)
+    const canonical = (await readFile(target, 'utf8')).replace(/\r\n/g, '\n')
+    await writeFile(
+      target,
+      canonical.replace('</svg>', '<!-- changed -->\n</svg>').replace(/\n/g, '\r\n'),
+      'utf8',
+    )
+  })
+
+  assert.equal(
+    hasError(result, ERROR_CODES.BYTES_MISMATCH, 'fallback.character'),
+    true,
+  )
 })
 
 test('requires final content art to be ready with a content hash', async () => {

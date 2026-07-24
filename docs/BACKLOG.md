@@ -60,6 +60,12 @@
 | IRPG-420 | 고정 재료·결정론 제작·소모 버프 | P1 | Done | 104,106,303,304,403,419,505,506 | ENG-DATA, ENG-STATE, GD-BAL, FE-GAME | 모든 처치 재+1·늑대 가죽+1·보스 핵+1, 단일 제작 job, 1,800-round 골드와 다음 보스 집중 효과가 RNG·보상을 중복하지 않는다. |
 | IRPG-421 | 이벤트 상인·성인 구조 계약·신뢰 | P2 | Done | 107,108,207,303,304,403,412,417,420,506 | ENG-DATA, ENG-STATE, NARRATIVE, FE-GAME | 30분 고정 3-cycle 상인과 성인 구조 지원→별도 자발적 계약→신뢰가 exact-once 원장과 단일 전투 동료 계약을 지킨다. |
 | IRPG-422 | 전술 전장 단일화·전투 슬롯바·유틸리티 도크 | P1 | Done | 304,403,409,410,411,414,415,417,418,420,506 | FE-GAME, UX-FEEDBACK, A11Y, QA-E2E, REL-CI | 유형 2 전술 전장을 단일 전투 화면으로 승격하고 실제 자산 슬롯바와 아이콘 유틸리티 도크에서 주요 기능을 빠르게 실행한다. |
+| IRPG-423 | 캠프 치유 화로·회복 물약 상태 계약 | P1 | Done | 104,108,303,304,305,403,418,419,420,422,505,506 | GD-BAL, ENG-STATE, ENG-SAVE, FE-GAME, QA-DOMAIN | 캠프에서 재료로 완전 회복하고 확정 제작한 회복 물약을 장착해 전투 중 exact-once로 사용한다. |
+| IRPG-424 | 전술 정보 레일·8슬롯 명령 재배치 | P1 | Test | 423,403,408,409,413,422,506 | FE-GAME, UX-FEEDBACK, A11Y, QA-E2E, REL-CI | 하단 8슬롯에 성장·동료·회복 명령을 모으고 우측은 적·지도·캐릭터·가방·스킬·도감 정보로 재구성한다. |
+| IRPG-425 | CHAPTER I 성인 동의 계약·캠프 특수 시설 | P1 | Done | 403,418,421,424 | PROD-LOOP, ENG-STATE, NARRATIVE, FE-GAME, A11Y | 성인 확인과 별도 세라 동의를 거친 CHAPTER I 유대 시설만 열고 철회에 불이익을 주지 않는다. |
+| IRPG-426 | CHAPTER I 의상 원장·자산 manifest·schema8 migration | P1 | Done | 303,304,406,423,425 | ENG-SAVE, ENG-DATA, ART-DIR, QA-DOMAIN | 의상 원장과 샘플 1개를 저장·manifest로 연결하고 CHAPTER II·III 자산을 CI에서 차단한다. |
+| IRPG-427 | 결정론적 합동 연성 비용·수집 보상·중복 방지 | P1 | Done | 104,207,420,425,426 | ENG-STATE, ENG-SAVE, GD-BAL, QA-DOMAIN | 고정 비용과 수집 카드를 한 번만 교환하며 RNG·전투 성장을 바꾸지 않는다. |
+| IRPG-428 | 특수 시설 연출·접근성·Ubuntu 시각 회귀 | P1 | Test | 403,506,425,426,427 | FE-GAME, UX-FEEDBACK, A11Y, QA-E2E, REL-CI, ART-2D | 실루엣·불꽃·보상 카드 연출을 모바일·키보드·모션 감소와 Ubuntu visual gate로 검증한다. |
 | IRPG-501 | 엔진·저장·UI 자동 테스트 | P0 | Done | 302,402 | QA-DOMAIN | 전투·명령·저장·오프라인·첫 화면 회귀가 통과한다. |
 | IRPG-502 | 45분 밸런스 스모크 | P0 | Done | 203 | GD-BAL, QA-DOMAIN | 자동 재투자 전략이 45분 내 30스테이지에 도달한다. |
 | IRPG-503 | CI 릴리스 게이트 | P0 | Done | 003,501 | REL-CI | push와 PR에서 설치·검증·빌드가 통과하고 원격 증거가 남는다. |
@@ -69,6 +75,18 @@
 | IRPG-507 | 브라우저 개발자 디버그 패널 | P2 | Done | 403,505 | FE-GAME, QA-DOMAIN | 개발 모드에서 배속·stage·자원·오프라인 시간을 저장과 격리해 조절한다. |
 | IRPG-508 | 7일 장기 stress 회귀 | P2 | Draft | 505 | ENG-SIM, QA-DOMAIN | 7일 가속에서 숫자·정체·snapshot 크기 회귀를 고정 fixture로 탐지한다. |
 | IRPG-601 | 계정·클라우드 저장 ADR | P2 | Blocked | 온라인 요구 확정 | ENG-SAVE, PROD-LOOP | 서버 권위와 충돌 정책이 제품 요구와 함께 승인된다. |
+| IRPG-700 | 인벤토리·장비·스킬 제품 범위 및 상태 계약 | P1 | Done | 424,428 | PROD-LOOP, ENG-STATE | 삼원 인벤토리·부위 장착·스킬 슬롯 제품 범위와 밸런스·저장 계약이 승인된다. |
+| IRPG-701 | Schema 9·ITEM_REGISTRY·독립 마이그레이션 | P1 | Done | 700 | ENG-STATE, ENG-SAVE | Schema 9 타입, 고정 아이템 레지스트리, V1~V8 독립 decoder가 검증된다. |
+| IRPG-702 | 장비 드롭·이관·이동·장착·스탯 엔진 | P1 | Done | 701 | ENG-SIM, ENG-STATE | 전리품 자동 이관, 1개 단위 장착·반환, 파생 스탯 및 체력 클램핑이 보장된다. |
+| IRPG-704 | 능동 스킬 슬롯 실행 및 연동 계약 | P1 | Done | 702 | GD-SKILL, ENG-SIM | 3개 슬롯 장착 스킬이 전투 시계 및 자동 전투와 완벽히 연동된다. |
+| IRPG-703 | 캐릭터 장비창·인벤토리·스킬 슬롯 UI | P1 | Done | 701,702,704 | FE-GAME, UX-FEEDBACK | 부위별 장비창, 가방 Grid, 스킬 슬롯 UI가 접근성과 visual gate를 충족한다. |
+| IRPG-800 | 포획·생체카드·2.5D 캠프 확장 제품 범위 | P1 | Draft | 425,426,427,428,700,701,702,703,704 | PROD-LOOP, NARRATIVE, ENG-STATE | 사람형 캡티브는 동의 기반, 야수형은 포획 기반이라는 구분과 IRPG-801~804 분해가 승인된다. |
+| IRPG-801 | 결정론적 포획 엔진·`livingCards` 실제 상태화 | P1 | Test | 800,101,104,106 | ENG-STATE, ENG-SIM, GD-BAL | capturable 몬스터 처치 시 captureLoyalty가 결정론적으로 누적되고 비-capturable 몬스터는 영향받지 않는다. |
+| IRPG-802 | LivingCardConsole 실데이터 연동 | P1 | Test | 801 | FE-GAME, UX-FEEDBACK, QA-DOMAIN | 포획 콘솔이 클라이언트 가짜 수치 대신 실제 livingCards와 전투 이벤트만 표시한다. |
+| IRPG-803 | 2.5D 캠프 오브젝트 캔버스(R1: 팝업 기반 기본 화면) | P1 | Test | 419,424,425,403,506 | FE-GAME, UX-FEEDBACK, A11Y, ART-2D, QA-E2E | 조감도가 기본 화면이고 건물 클릭 시 팝업으로 조작하며 기존 회귀가 없다. |
+| IRPG-804 | 동료화·캠프 크래프팅·합동 연성(교배) 확장 | P2 | Draft | 801,802,803,427 | PROD-LOOP, GD-BAL, ENG-STATE, NARRATIVE | 미해결 질문 답변 후 Ready 전환, 포획 개체의 동료화·크래프팅·교배 경로가 결정론적으로 정의된다. |
+| IRPG-805 | 전장 Floating HUD 폴리시(머리 위 체력바·원형 스킬 닷) | P2 | Draft | 416,422,424,506 | FE-GAME, UX-FEEDBACK, ART-2D, QA-E2E | 머리 위 실체력 태그와 실쿨다운 원형 스킬 버튼이 기존 판정 변경 없이 표시되고 DirectHotbar 고아 코드가 제거된다. |
+| IRPG-806 | 캐릭터 탭 동시 표시 레이아웃(IRPG-703 재구성) | P2 | Draft | 703,701,702,704,403 | FE-GAME, UX-FEEDBACK, A11Y | 캐릭터 탭이 2단 동시 표시로 재배치되고 기존 장착·해제 로직과 테스트가 그대로 통과한다. |
 
 `Blocked`는 기술 문제가 아니라 제품 요구가 아직 없는 의도적 보류다. 신규 기능은 선행 티켓과 G4 게이트를 우회하지 않는다.
 

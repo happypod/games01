@@ -138,8 +138,10 @@ export async function openVisualFixture(
   }
 
   if (fixture.setupAction === 'open-stage-map') {
-    await page.getByRole('button', { name: '3지역 원정 지도 열기' }).click()
-    await page.getByRole('button', { name: '원정 지도 열기', exact: true }).click()
+    await page.getByRole('tab', { name: '지도' }).click()
+    await page.locator('[data-intel-panel="map"]')
+      .getByRole('button', { name: '원정 지도 열기', exact: true })
+      .click()
     await expect(page.getByRole('tab', { name: /월락 고개/ })).toHaveAttribute(
       'aria-selected',
       'true',
@@ -217,6 +219,29 @@ export async function openVisualFixture(
     await expect(art).toHaveAttribute('data-state', 'loaded')
   }
 
+  if (fixture.setupAction === 'open-bond-synthesis-reward') {
+    await page.getByRole('tab', { name: '합동 연성실', exact: true }).click()
+    const facilities = page.getByTestId('camp-special-facilities')
+    await expect(facilities).toHaveAttribute('data-active-facility', 'jointSynthesis')
+    await expect(facilities).toHaveAttribute('data-consent-status', 'granted')
+    const synthesis = page.getByTestId('joint-synthesis')
+    const costume = synthesis.locator('[data-asset-id="costume.chapter1.sera.ember-bond"]')
+    await expect(costume).toHaveAttribute('data-state', 'loaded')
+    await synthesis.getByRole('button', { name: '합동 연성 시작', exact: true }).click()
+    const rewardDialog = page.getByTestId('synthesis-reward-dialog')
+    await expect(rewardDialog).toBeVisible()
+    await expect(rewardDialog).toHaveAttribute(
+      'data-reward-id',
+      'chapter1.weapon.ember-vow-card',
+    )
+    const rewardArt = rewardDialog.locator('[data-asset-id="equipment.ember-blade"]')
+    await expect(rewardArt).toHaveAttribute('data-state', 'loaded')
+    await expect(rewardArt).toHaveAttribute('data-resolved-asset-id', 'equipment.ember-blade')
+    await expect(synthesis).toHaveAttribute('data-synthesis-phase', 'reward')
+    await expect(synthesis.getByRole('button', { name: '보상 지급 완료', exact: true }))
+      .toBeDisabled()
+  }
+
   const target = page.locator(fixture.captureTarget)
   await expect(target).toBeVisible()
   if (fixture.id === 'visual.events.tactical-overlay') {
@@ -239,7 +264,10 @@ export async function openVisualFixture(
     }
   }
   if (fixture.failureRoute === 'cards-corrupt') {
-    const cardAssets = target.locator('.tactical-action-bar__slot-asset')
+    const cardAssets = target.locator(
+      '[data-action-kind="equipment"] .tactical-action-bar__slot-asset, ' +
+      '[data-action-kind="skill"] .tactical-action-bar__slot-asset',
+    )
     await expect(cardAssets).toHaveCount(6)
     for (let index = 0; index < 6; index += 1) {
       await expect(cardAssets.nth(index)).toHaveAttribute('data-state', 'fallback')
@@ -326,6 +354,7 @@ export async function verifyResponsiveVisualSurface(
         return style.display !== 'none'
           && style.visibility !== 'hidden'
           && button.closest('.tactical-action-bar__slots') === null
+          && button.closest('.stage-map-compact__timeline') === null
       })
       .map((button) => {
         const rect = button.getBoundingClientRect()

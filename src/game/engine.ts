@@ -2,7 +2,6 @@ import {
   COMBAT_ROUND_MS,
   COMPANION_ATTACK_INTERVAL_MS,
   COMPANION_DEFINITIONS,
-  CRITICAL_CHANCE,
   CRITICAL_DAMAGE_MULTIPLIER,
   MAX_OFFLINE_MS,
   MAX_STAGE,
@@ -37,12 +36,13 @@ import {
 import { createRngState, nextRandom, seedFromText } from './rng'
 import {
   CAMP_STRUCTURE_MAX_LEVEL,
-  CAMP_FOCUS_CRITICAL_BONUS,
   CAMP_GOLD_STEW_ROUNDS,
+  CAMP_JOINT_SYNTHESIS_DEFINITIONS,
   CAMP_MERCHANT_OFFER_SLOTS,
   CAMP_MERCHANT_REFRESH_MS,
   CAMP_RECIPE_DEFINITIONS,
   CAMP_TRAINING_EFFECTS,
+  getCampHealingAshCost,
   getCampCraftDurationMs,
   getCampMaterialYield,
   getCampMerchantOfferCost,
@@ -51,11 +51,28 @@ import {
   getCampStructureUpgradeCost,
   getCampTrainingCost,
   getCampTrainingRankCap,
+  getHealingPotionRecoveryAmount,
   getSeraTrustCost,
   createInitialCampState,
+  isChapter1CostumeId,
+  isChapter1SynthesisId,
+  CHAPTER1_COSTUME_DEFINITIONS,
   type CampMerchantOfferSlot,
 } from './camp'
-import { CAMP_MATERIAL_IDS, SAVE_VERSION } from './types'
+import {
+  createInitialInventoryState,
+  createInitialPlayerEquippedState,
+  createInitialSkillSlotsState,
+} from './stateDefaults'
+import { getItemDefinition } from './itemRegistry'
+import { rollEnemyEquipmentLoot } from './lootRegistry'
+import {
+  CAMP_MATERIAL_IDS,
+  CAMP_QUICK_CONSUMABLE_IDS,
+  EQUIPMENT_SLOTS,
+  SAVE_VERSION,
+  getActorDamageStage,
+} from './types'
 import type {
   AdvanceReport,
   AdvanceResult,
@@ -66,18 +83,23 @@ import type {
   BossMilestoneRewardSnapshot,
   CampConsumableId,
   CampRecipeId,
+  CampQuickConsumableId,
   CampStructureId,
   CampTrainingId,
   CompanionId,
   CommandResult,
+  EnemyDefinition,
+  EquipmentSlot,
   ExpeditionChoiceId,
   GameMode,
   GameState,
+  LivingCardState,
   SkillId,
   UpgradeId,
 } from './types'
 
 export const MAX_COMBAT_EVENTS = 100
+export const FOCUS_TONIC_CRITICAL_CHANCE = 0.35
 
 const COMBAT_EVENT_ORDINAL = {
   skill: 10,
@@ -224,6 +246,13 @@ const cloneState = (state: GameState): GameState => ({
     residents: {
       sera: { ...state.camp.residents.sera },
     },
+    bond: { ...state.camp.bond },
+  },
+  inventory: {
+    ...state.inventory,
+    lootBag: { ...state.inventory.lootBag },
+    heroInventory: { ...state.inventory.heroInventory },
+    campStorage: { ...state.inventory.campStorage },
   },
   expeditionEvents: {
     ...state.expeditionEvents,
@@ -241,9 +270,12 @@ const cloneState = (state: GameState): GameState => ({
     upgrades: { ...state.player.upgrades },
     skills: { ...state.player.skills },
     companion: { ...state.player.companion },
+    equipped: { ...state.player.equipped },
+    skillSlots: [...state.player.skillSlots],
   },
   battle: { ...state.battle },
   stats: { ...state.stats },
+  livingCards: state.livingCards ? { ...state.livingCards } : {},
 })
 
 export function createInitialState(
@@ -256,6 +288,7 @@ export function createInitialState(
     lastSavedAt: now,
     currentMode: 'BATTLE',
     camp: createInitialCampState(),
+    inventory: createInitialInventoryState(),
     claimedBossMilestoneMask: 0,
     expeditionEvents: createInitialExpeditionEventState(),
     rng: createRngState(seed),
@@ -269,6 +302,8 @@ export function createInitialState(
       upgrades: { weapon: 0, armor: 0, charm: 0 },
       skills: { powerStrike: 1, ironWill: 0, fortune: 0 },
       companion: { id: null, rank: 0 },
+      equipped: createInitialPlayerEquippedState(),
+      skillSlots: createInitialSkillSlotsState(),
     },
     battle: {
       stage: 1,
@@ -285,6 +320,7 @@ export function createInitialState(
       enemiesDefeated: 0,
       prestiges: 0,
     },
+    livingCards: {},
   }
 }
 
@@ -302,6 +338,48 @@ function grantExperience(state: GameState, amount: number, report: AdvanceReport
   }
 }
 
+function grantEnemyLootDrop(state: GameState, isBoss: boolean) {
+  const itemId = rollEnemyEquipmentLoot({
+    gameSeed: state.rng.seed,
+    enemyDefeatOrdinal: state.stats.enemiesDefeated,
+    stage: state.battle.stage,
+    isBoss,
+  })
+  if (itemId === null) return
+
+  const current = state.inventory.lootBag[itemId] ?? 0
+  state.inventory.lootBag[itemId] = addSafeIntegers(current, 1)
+}
+
+export const CAPTURE_LOYALTY_BASE_GAIN = 12
+export const CAPTURE_LOYALTY_HP_BONUS_MAX = 8
+
+// IRPG-801: pure function of already-computed state — never draws from state.rng,
+// so it cannot shift the combat RNG substream or the IRPG-104 seed-replay invariant.
+export function applyCaptureProgress(
+  state: GameState,
+  enemy: EnemyDefinition,
+  playerHpRatio: number,
+): void {
+  if (!enemy.capturable) return
+  const existing = state.livingCards[enemy.assetId]
+  if (existing?.isCaptured) return
+  const safeRatio = Number.isFinite(playerHpRatio)
+    ? Math.max(0, Math.min(1, playerHpRatio))
+    : 0
+  const gain = CAPTURE_LOYALTY_BASE_GAIN +
+    Math.round(CAPTURE_LOYALTY_HP_BONUS_MAX * safeRatio)
+  const nextLoyalty = Math.min(100, (existing?.captureLoyalty ?? 0) + gain)
+  const card: LivingCardState = {
+    cardId: enemy.assetId,
+    hStage: getActorDamageStage(0, enemy.maxHp),
+    captureLoyalty: nextLoyalty,
+    corruptionLevel: existing?.corruptionLevel ?? 0,
+    isCaptured: nextLoyalty >= 100,
+  }
+  state.livingCards[enemy.assetId] = card
+}
+
 function resolveEnemyDefeat(
   state: GameState,
   report: AdvanceReport,
@@ -310,6 +388,7 @@ function resolveEnemyDefeat(
   const enemy = getEnemyDefinition(state.battle.stage)
   const defeatedStage = state.battle.stage
   let hero = getHeroStats(state)
+  applyCaptureProgress(state, enemy, state.player.currentHp / hero.maxHp)
   const gold = toSafeInteger(enemy.goldReward * hero.goldMultiplier, 1)
   state.player.gold = addSafeIntegers(state.player.gold, gold)
   state.stats.goldEarned = addSafeIntegers(state.stats.goldEarned, gold)
@@ -324,6 +403,7 @@ function resolveEnemyDefeat(
       materialYield[id],
     )
   }
+  grantEnemyLootDrop(state, enemy.isBoss)
 
   let milestoneReward: BossMilestoneRewardSnapshot | null = null
   const configuredMilestone = enemy.isBoss ? getBossMilestoneReward(defeatedStage) : null
@@ -409,21 +489,28 @@ function resolveCombatRound(
   }
   const hero = getHeroStats(state)
   state.player.currentHp = Math.min(state.player.currentHp, hero.maxHp)
-  state.battle.powerStrikeCooldownMs = Math.max(
-    0,
-    state.battle.powerStrikeCooldownMs - COMBAT_ROUND_MS,
-  )
+  const isPowerStrikeEquipped = state.player.skillSlots.includes('powerStrike')
+  if (isPowerStrikeEquipped) {
+    state.battle.powerStrikeCooldownMs = Math.max(
+      0,
+      state.battle.powerStrikeCooldownMs - COMBAT_ROUND_MS,
+    )
+  } else {
+    state.battle.powerStrikeCooldownMs = 0
+  }
   state.battle.companionCooldownMs = state.player.companion.id === null
     ? 0
     : Math.max(0, state.battle.companionCooldownMs - COMBAT_ROUND_MS)
 
   const usesPowerStrike =
-    state.player.skills.powerStrike > 0 && state.battle.powerStrikeCooldownMs === 0
+    isPowerStrikeEquipped &&
+    state.player.skills.powerStrike > 0 &&
+    state.battle.powerStrikeCooldownMs === 0
   const draw = nextRandom(state.rng)
   state.rng = draw.rng
   const criticalChance = state.camp.buffs.bossFocusStage === enemy.stage
-    ? CRITICAL_CHANCE + CAMP_FOCUS_CRITICAL_BONUS
-    : CRITICAL_CHANCE
+    ? FOCUS_TONIC_CRITICAL_CHANCE
+    : hero.critChance
   const isCritical = draw.value < criticalChance
   const heroDamage = toSafeInteger(
     hero.attack *
@@ -643,6 +730,29 @@ export function advanceGame(
   }
 }
 
+export function settleLootAtCamp(input: GameState): GameState {
+  const loot = input.inventory.lootBag
+  if (Object.keys(loot).length === 0) return input
+  const state = cloneState(input)
+  const remainingLoot: Record<string, number> = {}
+  for (const [itemId, count] of Object.entries(loot)) {
+    if (count > 0) {
+      const currentCamp = state.inventory.campStorage[itemId] ?? 0
+      const spaceAvailable = Number.MAX_SAFE_INTEGER - currentCamp
+      const addCount = Math.min(count, spaceAvailable)
+      if (addCount > 0) {
+        state.inventory.campStorage[itemId] = currentCamp + addCount
+      }
+      const unadded = count - addCount
+      if (unadded > 0) {
+        remainingLoot[itemId] = unadded
+      }
+    }
+  }
+  state.inventory.lootBag = remainingLoot
+  return state
+}
+
 export function advanceOfflineGame(
   input: GameState,
   rawElapsedMs: number,
@@ -653,9 +763,9 @@ export function advanceOfflineGame(
     rawElapsedMs,
     startCursor,
   )
-  return input.currentMode === 'BATTLE'
-    ? result
-    : { ...result, state: { ...result.state, currentMode: input.currentMode } }
+  if (input.currentMode === 'BATTLE') return result
+  const restoredState = settleLootAtCamp({ ...result.state, currentMode: 'CAMP' })
+  return { ...result, state: restoredState }
 }
 
 export function switchGameMode(input: GameState, mode: GameMode): CommandResult {
@@ -666,8 +776,11 @@ export function switchGameMode(input: GameState, mode: GameMode): CommandResult 
       message: mode === 'CAMP' ? '이미 캠프에서 쉬고 있습니다.' : '이미 자동 전투 중입니다.',
     }
   }
-  const state = cloneState(input)
+  let state = cloneState(input)
   state.currentMode = mode
+  if (mode === 'CAMP') {
+    state = settleLootAtCamp(state)
+  }
   return {
     state,
     success: true,
@@ -740,6 +853,32 @@ export function trainAtCamp(
   }
 }
 
+export function healAtCamp(input: GameState): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프 치유 화로에서만 회복할 수 있습니다.' }
+  }
+  const ashCost = getCampHealingAshCost(input)
+  if (ashCost === null) {
+    return { state: input, success: false, message: '이미 최대 체력입니다.' }
+  }
+  if (input.camp.materials.ashShard < ashCost) {
+    return {
+      state: input,
+      success: false,
+      message: `치유 화로에 재의 파편 ${ashCost}개가 필요합니다.`,
+    }
+  }
+
+  const state = cloneState(input)
+  state.camp.materials.ashShard -= ashCost
+  state.player.currentHp = getHeroStats(state).maxHp
+  return {
+    state,
+    success: true,
+    message: `재의 파편 ${ashCost}개로 체력을 완전히 회복했습니다.`,
+  }
+}
+
 export function startCampCraft(
   input: GameState,
   recipeId: CampRecipeId,
@@ -775,6 +914,13 @@ export function consumeCampConsumable(
   if (input.currentMode !== 'CAMP') {
     return { state: input, success: false, message: '캠프에서만 전투 보급품을 준비할 수 있습니다.' }
   }
+  if (id === 'healingPotion') {
+    return {
+      state: input,
+      success: false,
+      message: '회복 물약은 빠른 슬롯에 장착해 전투 중 사용해야 합니다.',
+    }
+  }
   if (input.camp.consumables[id] < 1) {
     return { state: input, success: false, message: '사용할 보급품이 없습니다.' }
   }
@@ -789,7 +935,7 @@ export function consumeCampConsumable(
   state.camp.consumables[id] -= 1
   if (id === 'goldStew') {
     state.camp.buffs.goldBoostRounds = CAMP_GOLD_STEW_ROUNDS
-  } else {
+  } else if (id === 'focusTonic') {
     state.camp.buffs.bossFocusStage = 0
   }
   return {
@@ -798,6 +944,66 @@ export function consumeCampConsumable(
     message: id === 'goldStew'
       ? '다음 1,800 전투 라운드의 골드 획득량이 50% 증가합니다.'
       : '다음 보스전의 치명타 확률이 35%로 준비되었습니다.',
+  }
+}
+
+export function equipQuickConsumable(
+  input: GameState,
+  id: CampQuickConsumableId | null,
+): CommandResult {
+  if (
+    id !== null &&
+    !CAMP_QUICK_CONSUMABLE_IDS.some((candidate) => candidate === id)
+  ) {
+    return { state: input, success: false, message: '빠른 슬롯에 장착할 수 없는 소모품입니다.' }
+  }
+  if (input.camp.quickConsumable === id) {
+    return {
+      state: input,
+      success: false,
+      message: id === null ? '빠른 소모품 슬롯이 이미 비어 있습니다.' : '회복 물약이 이미 장착되어 있습니다.',
+    }
+  }
+  if (id !== null && input.camp.consumables[id] < 1) {
+    return { state: input, success: false, message: '장착할 회복 물약이 없습니다.' }
+  }
+
+  const state = cloneState(input)
+  state.camp.quickConsumable = id
+  return {
+    state,
+    success: true,
+    message: id === null ? '빠른 소모품 슬롯을 비웠습니다.' : '회복 물약을 빠른 슬롯에 장착했습니다.',
+  }
+}
+
+export function useEquippedConsumable(input: GameState): CommandResult {
+  if (input.currentMode !== 'BATTLE') {
+    return { state: input, success: false, message: '전투 중에만 빠른 회복 물약을 사용할 수 있습니다.' }
+  }
+  const id = input.camp.quickConsumable
+  if (id === null) {
+    return { state: input, success: false, message: '빠른 슬롯에 회복 물약이 장착되지 않았습니다.' }
+  }
+  if (input.camp.consumables[id] < 1) {
+    return { state: input, success: false, message: '사용할 회복 물약이 없습니다.' }
+  }
+  const maxHp = getHeroStats(input).maxHp
+  if (input.player.currentHp >= maxHp) {
+    return { state: input, success: false, message: '이미 최대 체력입니다.' }
+  }
+
+  const state = cloneState(input)
+  const hpBefore = state.player.currentHp
+  state.camp.consumables[id] -= 1
+  state.player.currentHp = Math.min(
+    maxHp,
+    addSafeIntegers(state.player.currentHp, getHealingPotionRecoveryAmount(state)),
+  )
+  return {
+    state,
+    success: true,
+    message: `회복 물약으로 체력을 ${state.player.currentHp - hpBefore} 회복했습니다.`,
   }
 }
 
@@ -890,6 +1096,155 @@ export function increaseSeraTrust(input: GameState): CommandResult {
   }
 }
 
+export function hasActiveSeraBondConsent(input: GameState): boolean {
+  return (
+    input.camp.residents.sera.status === 'contracted' &&
+    input.camp.bond.adultAccessConfirmed &&
+    input.camp.bond.seraConsent === 'granted'
+  )
+}
+
+export function setAdultContentAccess(
+  input: GameState,
+  confirmed: boolean,
+): CommandResult {
+  if (typeof confirmed !== 'boolean') {
+    return { state: input, success: false, message: '성인 콘텐츠 확인 값이 올바르지 않습니다.' }
+  }
+  if (input.camp.bond.adultAccessConfirmed === confirmed) {
+    return {
+      state: input,
+      success: false,
+      message: confirmed
+        ? '18세 이상 확인이 이미 완료되었습니다.'
+        : '성인 콘텐츠 접근이 이미 꺼져 있습니다.',
+    }
+  }
+  if (confirmed && input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프에서만 18세 이상 확인을 진행할 수 있습니다.' }
+  }
+
+  const state = cloneState(input)
+  state.camp.bond.adultAccessConfirmed = confirmed
+  if (!confirmed && state.camp.bond.seraConsent === 'granted') {
+    state.camp.bond.seraConsent = 'withdrawn'
+  }
+  return {
+    state,
+    success: true,
+    message: confirmed
+      ? '18세 이상 확인을 완료했습니다. 세라의 별도 동의가 필요합니다.'
+      : '성인 콘텐츠 접근을 껐습니다. 기존 해금과 보상 원장은 유지됩니다.',
+  }
+}
+
+export function setSeraBondConsent(
+  input: GameState,
+  consent: 'granted' | 'withdrawn',
+): CommandResult {
+  if (consent !== 'granted' && consent !== 'withdrawn') {
+    return { state: input, success: false, message: '세라 동의 상태가 올바르지 않습니다.' }
+  }
+  if (consent === 'withdrawn') {
+    if (input.camp.bond.seraConsent !== 'granted') {
+      return { state: input, success: false, message: '철회할 활성 동의가 없습니다.' }
+    }
+    const state = cloneState(input)
+    state.camp.bond.seraConsent = 'withdrawn'
+    return {
+      state,
+      success: true,
+      message: '세라의 동의를 철회했습니다. 기존 신뢰·해금·보상은 유지됩니다.',
+    }
+  }
+
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프에서만 세라의 동의를 확인할 수 있습니다.' }
+  }
+  if (input.camp.residents.sera.status !== 'contracted') {
+    return {
+      state: input,
+      success: false,
+      message: '세라의 자발적 상점 조언 계약을 먼저 완료해야 합니다.',
+    }
+  }
+  if (!input.camp.bond.adultAccessConfirmed) {
+    return { state: input, success: false, message: '먼저 18세 이상임을 확인해야 합니다.' }
+  }
+  if (input.camp.bond.seraConsent === 'granted') {
+    return { state: input, success: false, message: '세라의 동의가 이미 활성화되어 있습니다.' }
+  }
+
+  const state = cloneState(input)
+  state.camp.bond.seraConsent = 'granted'
+  return { state, success: true, message: '세라가 유대 시설 이용에 명시적으로 동의했습니다.' }
+}
+
+export function selectCampCostume(
+  input: GameState,
+  costumeId: string,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프 의상실에서만 복장을 바꿀 수 있습니다.' }
+  }
+  if (!hasActiveSeraBondConsent(input)) {
+    return { state: input, success: false, message: '18세 이상 확인과 세라의 별도 동의가 필요합니다.' }
+  }
+  if (!isChapter1CostumeId(costumeId)) {
+    return { state: input, success: false, message: '지원하지 않는 CHAPTER I 의상입니다.' }
+  }
+  const definition = CHAPTER1_COSTUME_DEFINITIONS[costumeId]
+  if ((input.camp.bond.unlockedCostumeMask & definition.unlockBit) === 0) {
+    return { state: input, success: false, message: '아직 해금하지 않은 의상입니다.' }
+  }
+  if (input.camp.bond.currentCostumeId === costumeId) {
+    return { state: input, success: false, message: '이미 선택한 의상입니다.' }
+  }
+
+  const state = cloneState(input)
+  state.camp.bond.currentCostumeId = costumeId
+  return { state, success: true, message: `${definition.name}으로 갈아입었습니다.` }
+}
+
+export function synthesizeJointBond(
+  input: GameState,
+  synthesisId: string,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프 합동 연성실에서만 연성할 수 있습니다.' }
+  }
+  if (!hasActiveSeraBondConsent(input)) {
+    return { state: input, success: false, message: '18세 이상 확인과 세라의 별도 동의가 필요합니다.' }
+  }
+  if (!isChapter1SynthesisId(synthesisId)) {
+    return { state: input, success: false, message: '지원하지 않는 CHAPTER I 합동 연성입니다.' }
+  }
+  const definition = CAMP_JOINT_SYNTHESIS_DEFINITIONS[synthesisId]
+  if ((input.camp.bond.claimedSynthesisRewardMask & definition.reward.claimBit) !== 0) {
+    return { state: input, success: false, message: '이미 수령한 합동 연성 보상입니다.' }
+  }
+  if (input.player.gold < definition.cost.gold) {
+    return { state: input, success: false, message: `합동 연성에 골드 ${definition.cost.gold}이 필요합니다.` }
+  }
+  for (const id of CAMP_MATERIAL_IDS) {
+    if (input.camp.materials[id] < definition.cost.materials[id]) {
+      return { state: input, success: false, message: `${definition.name} 연성 재료가 부족합니다.` }
+    }
+  }
+
+  const state = cloneState(input)
+  state.player.gold -= definition.cost.gold
+  for (const id of CAMP_MATERIAL_IDS) {
+    state.camp.materials[id] -= definition.cost.materials[id]
+  }
+  state.camp.bond.claimedSynthesisRewardMask |= definition.reward.claimBit
+  return {
+    state,
+    success: true,
+    message: `${definition.reward.name}를 수집 보상으로 해금했습니다.`,
+  }
+}
+
 export function purchaseUpgrade(input: GameState, id: UpgradeId): CommandResult {
   const definition = UPGRADE_DEFINITIONS[id]
   const currentLevel = input.player.upgrades[id]
@@ -943,6 +1298,59 @@ export function upgradeSkill(input: GameState, id: SkillId): CommandResult {
   return { state, success: true, message: `${definition.name} 랭크 상승` }
 }
 
+export function equipSkillSlot(
+  input: GameState,
+  slotIndex: number,
+  id: SkillId,
+): CommandResult {
+  if (slotIndex < 0 || slotIndex >= 3 || !Number.isInteger(slotIndex)) {
+    return { state: input, success: false, message: '유효하지 않은 스킬 슬롯입니다.' }
+  }
+  const definition = SKILL_DEFINITIONS[id]
+  if (!definition) {
+    return { state: input, success: false, message: '등록되지 않은 스킬입니다.' }
+  }
+  const rank = input.player.skills[id]
+  if (rank <= 0 || !isSkillUnlocked(input, id)) {
+    return { state: input, success: false, message: '해금되지 않은 스킬입니다.' }
+  }
+
+  const state = cloneState(input)
+  const currentSlots: [SkillId | null, SkillId | null, SkillId | null] = [
+    ...state.player.skillSlots,
+  ]
+
+  for (let i = 0; i < currentSlots.length; i++) {
+    if (currentSlots[i] === id) {
+      currentSlots[i] = null
+    }
+  }
+
+  currentSlots[slotIndex] = id
+  state.player.skillSlots = currentSlots
+  return { state, success: true, message: `${definition.name} 스킬 장착 완료` }
+}
+
+export function unequipSkillSlot(
+  input: GameState,
+  slotIndex: number,
+): CommandResult {
+  if (slotIndex < 0 || slotIndex >= 3 || !Number.isInteger(slotIndex)) {
+    return { state: input, success: false, message: '유효하지 않은 스킬 슬롯입니다.' }
+  }
+  if (input.player.skillSlots[slotIndex] === null) {
+    return { state: input, success: true, message: '이미 비어있는 슬롯입니다.' }
+  }
+
+  const state = cloneState(input)
+  const currentSlots: [SkillId | null, SkillId | null, SkillId | null] = [
+    ...state.player.skillSlots,
+  ]
+  currentSlots[slotIndex] = null
+  state.player.skillSlots = currentSlots
+  return { state, success: true, message: '스킬 해제 완료' }
+}
+
 export function recruitCompanion(input: GameState, id: CompanionId): CommandResult {
   const definition = COMPANION_DEFINITIONS[id]
   if (input.player.companion.id !== null) {
@@ -983,6 +1391,9 @@ export function trainCompanion(input: GameState): CommandResult {
 }
 
 export function selectStage(input: GameState, rawStage: number): CommandResult {
+  if (!Number.isFinite(rawStage)) {
+    return { state: input, success: false, message: '아직 선택할 수 없는 스테이지입니다.' }
+  }
   const stage = Math.floor(rawStage)
   if (stage < 1 || stage > input.battle.highestStage || stage > MAX_STAGE) {
     return { state: input, success: false, message: '아직 선택할 수 없는 스테이지입니다.' }
@@ -997,8 +1408,7 @@ export function selectStage(input: GameState, rawStage: number): CommandResult {
   }
   state.battle.stage = stage
   state.battle.enemyHp = getEnemyDefinition(stage).maxHp
-  state.player.currentHp = getHeroStats(state).maxHp
-  state.battle.powerStrikeCooldownMs = 0
+  state.player.currentHp = Math.min(state.player.currentHp, getHeroStats(state).maxHp)
   return { state, success: true, message: `${stage} 스테이지로 이동` }
 }
 
@@ -1069,7 +1479,9 @@ export function performPrestige(input: GameState): CommandResult {
 
   const reward = getPrestigeReward(input.battle.highestStage)
   const state = createInitialState(input.lastSavedAt)
-  state.camp = cloneState(input).camp
+  const inputClone = cloneState(input)
+  state.camp = inputClone.camp
+  state.inventory = inputClone.inventory
   if (state.camp.buffs.bossFocusStage !== null && state.camp.buffs.bossFocusStage !== 0) {
     state.camp.buffs.bossFocusStage = null
   }
@@ -1079,6 +1491,8 @@ export function performPrestige(input: GameState): CommandResult {
   state.player.companion = input.player.companion.id === null
     ? { id: null, rank: 0 }
     : { id: input.player.companion.id, rank: 1 }
+  state.player.equipped = inputClone.player.equipped
+  state.player.skillSlots = inputClone.player.skillSlots
   state.player.currentHp = getHeroStats(state).maxHp
   state.stats = {
     goldEarned: input.stats.goldEarned,
@@ -1096,3 +1510,152 @@ export function performPrestige(input: GameState): CommandResult {
     message: `불씨 정수 ${reward}개를 획득했습니다.${discardedMessage}`,
   }
 }
+
+export function equipItem(
+  input: GameState,
+  slot: EquipmentSlot,
+  itemId: string,
+): CommandResult {
+  const itemDef = getItemDefinition(itemId)
+  if (!itemDef || itemDef.slot !== slot) {
+    return { state: input, success: false, message: '장착할 수 없는 아이템입니다.' }
+  }
+  const heroCount = input.inventory.heroInventory[itemId] ?? 0
+  const storageCount = input.inventory.campStorage[itemId] ?? 0
+  if (heroCount < 1 && storageCount < 1) {
+    return { state: input, success: false, message: '가방이나 보관함에 해당 장비가 없습니다.' }
+  }
+
+  const currentlyEquippedId = input.player.equipped[slot]
+  if (currentlyEquippedId !== null) {
+    const returnCount = input.inventory.heroInventory[currentlyEquippedId] ?? 0
+    if (returnCount >= Number.MAX_SAFE_INTEGER) {
+      return { state: input, success: false, message: '가방이 가득 차 기존 장비를 해제할 수 없습니다.' }
+    }
+  }
+
+  const state = cloneState(input)
+
+  if (heroCount >= 1) {
+    if (heroCount === 1) {
+      delete state.inventory.heroInventory[itemId]
+    } else {
+      state.inventory.heroInventory[itemId] = heroCount - 1
+    }
+  } else if (storageCount >= 1) {
+    if (storageCount === 1) {
+      delete state.inventory.campStorage[itemId]
+    } else {
+      state.inventory.campStorage[itemId] = storageCount - 1
+    }
+  }
+
+  if (currentlyEquippedId !== null) {
+    state.inventory.heroInventory[currentlyEquippedId] =
+      (state.inventory.heroInventory[currentlyEquippedId] ?? 0) + 1
+  }
+
+  state.player.equipped[slot] = itemId
+
+  const newMaxHp = getHeroStats(state).maxHp
+  state.player.currentHp = Math.min(input.player.currentHp, newMaxHp)
+
+  return {
+    state,
+    success: true,
+    message: `${itemDef.name} 장비를 장착했습니다.`,
+  }
+}
+
+export function unequipItem(
+  input: GameState,
+  slot: EquipmentSlot,
+): CommandResult {
+  if (!EQUIPMENT_SLOTS.some((candidate) => candidate === slot)) {
+    return { state: input, success: false, message: '해제할 수 없는 장비 슬롯입니다.' }
+  }
+  const currentlyEquippedId = input.player.equipped[slot]
+  if (currentlyEquippedId === null) {
+    return { state: input, success: false, message: '장착된 장비가 없습니다.' }
+  }
+
+  const itemDef = getItemDefinition(currentlyEquippedId)
+  if (itemDef === null || itemDef.slot !== slot) {
+    return { state: input, success: false, message: '해제할 수 없는 장비입니다.' }
+  }
+
+  const heroCount = input.inventory.heroInventory[currentlyEquippedId] ?? 0
+  if (heroCount >= Number.MAX_SAFE_INTEGER) {
+    return { state: input, success: false, message: '가방이 가득 차 장비를 해제할 수 없습니다.' }
+  }
+
+  const state = cloneState(input)
+  state.inventory.heroInventory[currentlyEquippedId] = heroCount + 1
+  state.player.equipped[slot] = null
+
+  const newMaxHp = getHeroStats(state).maxHp
+  state.player.currentHp = Math.min(input.player.currentHp, newMaxHp)
+
+  return {
+    state,
+    success: true,
+    message: `${itemDef.name} 장비를 해제했습니다.`,
+  }
+}
+
+export function moveItem(
+  input: GameState,
+  source: 'heroInventory' | 'campStorage',
+  target: 'heroInventory' | 'campStorage',
+  itemId: string,
+  amount = 1,
+): CommandResult {
+  if (input.currentMode !== 'CAMP') {
+    return { state: input, success: false, message: '캠프에서만 가방과 보관함 사이로 이동할 수 있습니다.' }
+  }
+  if (
+    (source !== 'heroInventory' && source !== 'campStorage') ||
+    (target !== 'heroInventory' && target !== 'campStorage')
+  ) {
+    return { state: input, success: false, message: '아이템 이동 경로가 올바르지 않습니다.' }
+  }
+  if (source === target) {
+    return { state: input, success: false, message: '동일한 공간으로는 이동할 수 없습니다.' }
+  }
+  if (!Number.isSafeInteger(amount) || amount < 1) {
+    return { state: input, success: false, message: '이동 수량이 올바르지 않습니다.' }
+  }
+  const itemDef = getItemDefinition(itemId)
+  if (itemDef === null) {
+    return { state: input, success: false, message: '이동할 수 없는 아이템입니다.' }
+  }
+  const sourceCount = input.inventory[source][itemId] ?? 0
+  if (sourceCount < amount) {
+    return { state: input, success: false, message: '이동할 아이템 수량이 부족합니다.' }
+  }
+
+  const targetCount = input.inventory[target][itemId] ?? 0
+  const spaceAvailable = Number.MAX_SAFE_INTEGER - targetCount
+  if (spaceAvailable < 1) {
+    return { state: input, success: false, message: '이동 대상 공간의 수량이 최대치에 도달했습니다.' }
+  }
+
+  const moveAmount = Math.min(amount, spaceAvailable)
+  const state = cloneState(input)
+  if (sourceCount === moveAmount) {
+    delete state.inventory[source][itemId]
+  } else {
+    state.inventory[source][itemId] = sourceCount - moveAmount
+  }
+
+  state.inventory[target][itemId] = targetCount + moveAmount
+
+  const targetName = target === 'heroInventory' ? '캐릭터 가방' : '캠프 보관함'
+
+  return {
+    state,
+    success: true,
+    message: `${itemDef.name} ${moveAmount}개를 ${targetName}으로 이동했습니다.`,
+  }
+}
+

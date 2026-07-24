@@ -13,18 +13,18 @@
 
 | 계층 | 현재 | 검증 내용 |
 |---|---:|---|
-| 엔진 단위 | 구현 | 최초 상태, 보상, 결정론, 텐트별 경과 시간 상한, 구매 원자성, 캠프 시설·영구 훈련·고정 재료·단일 제작·소모 버프·30분 상인·구조/계약/신뢰, 스킬·동료 잠금, 동료 영입·훈련·협공, 전투/캠프 전환·전경 정지·오프라인 mode 복원, 스테이지, 환생, 숫자 불변식 |
-| RNG·치명타 | 구현 | xorshift32 vector, 1 draw/round, 치명타 수식, 동일 seed·분할 실행·환생 연속성 |
+| 엔진 단위 | 구현 | 최초 상태, 보상, 결정론, 텐트별 경과 시간 상한, 구매 원자성, 캠프 시설·영구 훈련·치유 화로·고정 재료·단일 제작·회복 물약 빠른 슬롯·소모 버프·30분 상인·구조/계약/신뢰, 장비 드롭·이관·이동·장착·해제·포화 총량, 스킬·동료 잠금, 동료 영입·훈련·협공, 전투/캠프 전환·전경 정지·오프라인 mode 복원, 스테이지, 인벤토리·장비·스킬 슬롯을 보존하는 환생, 숫자 불변식 |
+| RNG·치명타 | 구현 | xorshift32 vector, 1 draw/round, 일반 치명타 장비 bonus, 집중 물약 정확히 35%, 장비 드롭 독립 substream, 동일 seed·분할·offline·reload 실행·환생 연속성 |
 | 전투 이벤트 스트림 | 구현 | skill·critical·companionAssist·kill·bossVictory·defeat 고정 순서, 단일·분할 ID, 최근 100개, MAX_SAFE 초과 cursor, 저장 비영속 |
-| 저장 통합 | 구현 | A/B 교대, revision 선택·동률, 부분 쓰기, 손상 fallback, 미래 포맷·camp definition 차단, schema1~5→6 migration, 캠프 포함 오프라인 진행 1회 적용, reader 무쓰기, 초기화 |
+| 저장 통합 | 구현 | A/B 교대, revision 선택·동률, 부분 쓰기, 손상 fallback, 미래 state·expedition·camp·bond·inventory definition 차단, 독립 legacy schema1~8→9 migration, strict item own ID·equipment slot·3개 고유 skill slot, 캠프·회복 물약 빠른 슬롯 포함 오프라인 진행 1회 적용, reader 무쓰기, 초기화 |
 | 저장 전송 | 구현 | portable checksum·버전·크기, preview no-write, stale CAS, target rollback, export/import 브라우저 왕복 |
-| UI 컴포넌트 | 구현 | 첫 화면 landmark, 전투/캠프 radiogroup·단일 활성 surface, 캠프 offer·갱신·세라 상태·자발적 계약 copy, 구매 불가 상태, 비영속 승패 queue·dedupe·pinned snapshot·focus 복원 |
+| UI 컴포넌트 | 구현 | 첫 화면 landmark, 전투/캠프 radiogroup·단일 활성 surface, 치유 화로·회복 물약 제작/장착/사용, 하단 고정 8슬롯, 현재 적과 지도·캐릭터·가방·스킬·도감 roving tab, 캠프 offer·갱신·세라 상태·자발적 계약 copy, 구매 불가 상태, 비영속 승패 queue·dedupe·pinned snapshot·focus 복원 |
 | 밸런스 회귀 | 구현 | 고정 seed·3개 장비 전략·5~20초 판단 주기의 첫 환생 10세션과 비동료·동료 각 10개 paired 재도달 ratio, milestone, 정체, 숫자 불변식, 최종 상태 해시 |
-| 브라우저 E2E | 구현 | 신규 시작, UI 강화, 전투→캠프 정지, 시설·훈련·제작·상인·자발적 계약, 실제 페이지 종료·오프라인 제작 완료·캠프 복원, 같은 구간 중복 방지, page/console error |
+| 브라우저 E2E | 구현 | 신규 시작, UI 강화, 전투→캠프 정지, 시설·훈련·치유·회복 물약 제작/장착/전투 사용·상인·자발적 계약, 실제 페이지 종료·오프라인 제작 완료·캠프 복원, 같은 구간 중복 방지, page/console error |
 | 다중 탭 E2E | 구현 | 두 번째 탭 읽기 전용, 열린 reader 동기화, writer 종료 뒤 lock 인계 |
 | 접근성 E2E | 구현 | 360px overflow·44px target·skip link·키보드 mode 명령·progressbar·modal focus·200% 확대·모션 감소 |
-| 시각 자산 | 구현 | 필수 30 ID·로컬 경로·실제 포맷/픽셀/바이트·권리 metadata, fallback 2단계, production cold-load 600 KiB와 lazy namespace |
-| 시각 회귀 | 구현 | Ubuntu 24.04·고정 Chromium/font/time/seed에서 18 named fixture × 4 viewport/motion variant = 72 canonical screenshot, 같은 runner 3회 반복 216개, state/event hash, overflow·motion, screenshot diff artifact |
+| 시각 자산 | 구현 | 필수 31 ID·로컬 경로·실제 포맷/픽셀/정규 LF 바이트·권리 metadata, SVG CRLF checkout 동치와 내용 변경 거부, fallback 2단계, production cold-load 600 KiB와 lazy namespace |
+| 시각 회귀 | 구현 | Ubuntu 24.04·고정 Chromium/font/time/seed에서 19 named fixture × 4 viewport/motion variant = 76 canonical screenshot, 같은 runner 3회 반복 228개, state/event hash, overflow·motion, screenshot diff artifact |
 | 장시간 soak | 구현 | 1x·10x·100x의 8·16·24시간 전체 상태·누적 report, safe integer·HP·stage·RNG·정체·고정 fixture |
 
 IRPG-107 Done 기준선은 Vitest 34파일·274테스트다. schema5 run-pinned marker, markerless schema5 literal-v1 transition, frozen v1 shuffle golden hash, 10~300 milestone, pending 3·overflow 27 상한, 선택 transaction·중복 no-write, MAX_SAFE, schema1~4 migration, 빈 queue·pending-only future A/B·legacy·portable fence, portable rollback, split/offline·24시간 soak를 포함한다. 4개 선택 조합 × 10 seed × 솔로/동료 80 paired session은 80/80 통과했고 첫 환생 cohort 중앙값 1,863.5~2,013.5초, 재도달 ratio 54.3562~69.9886%, aggregate hash `b2a62828`을 기록했다. 회복률 5%·5%·5%의 각 +5%p 인접 후보는 79/80로 실패해 승인 격자 경계를 확인했다. 로컬 `npm run verify`와 commit `da731ea`의 push·PR quality-gate가 성공했고 Ubuntu canonical 40/40 및 3회 반복 120/120도 통과했다.
@@ -69,19 +69,21 @@ IRPG-414 Done 기준선은 Vitest 36파일·297테스트, 자산 validator 32테
 | 스킬 잠금·비용 | 레벨·포인트 경계 | 잠금 사유 시각 확인 |
 | 동료 영입·훈련·협공 | 첫 보스 경계, 비용·최대 rank, 3초 cooldown, 마무리 일격 단일 보상, RNG·분할 결정론 | 전투·오프라인 표시와 첫 영입 흐름 체감 확인 |
 | 스테이지·패배 | 선택 범위·장시간 엔진, IRPG-410 패배 art·복귀/최고점 snapshot E2E | 장기 플레이 체감 확인 |
-| 환생 유지·초기화 | 영구·임시 필드 비교 | 확인 대화상자와 예상 보상 |
+| 환생 유지·초기화 | 영구·임시 필드 비교, `inventory`·`equipped`·`skillSlots` deep-clone 보존 | 확인 대화상자와 예상 보상 |
 | 환생 후 재도달 | 비동료·동료 20개 paired ratio 50~70%, exact timing·상태 hash·RNG, A/B 600초 중간 저장 재개 | IRPG-205 외부 사용자 체감 검증 |
 | 결정론적 원정 이벤트 | v1 shuffle golden hash, 30-bit prefix, pending 3·overflow, 320개 선택 RNG 불변, 중복 no-write, 환생 폐기·MAX 거부, IRPG-412 pointer·keyboard·reload exact-once | 실제 보조공학 조합의 외부 전문 감사 |
 | 전투·캠프 활동 모드 | mode-only transaction, 캠프 60초 전경 정지, offline normal-engine 동치·mode 복원, 환생 시 캠프 기반 보존과 `BATTLE` 복귀 | 360×800·1440×900 전환 흐름의 수동 체감 확인 |
 | 캠프 시설·영구 훈련 | 시설별 고정 비용, 캠프 전용 원자 transaction, 텐트 8~12시간 상한, 작업대 100~60%, 단련소 rank cap, +2 공격·+20 HP, vitality 회복, 환생 보존 | 비용·현재/다음 효과·잠금 사유와 44px 조작의 브라우저 확인 |
-| 캠프 재료·제작·버프 | 모든 처치 ash +1, 늑대 hide +1, 보스 core +1, RNG 불변, 두 고정 레시피, 단일 job·시작 시간 snapshot·1ms 완료, 1,800-round gold +0.5, 다음 보스 crit 15→35% | 실제 offline 종료·복원과 360px 키보드 제작·사용 흐름 |
+| 캠프 재료·제작·버프 | 모든 처치 ash +1, 늑대 hide +1, 보스 core +1, RNG 불변, 세 고정 레시피, 단일 job·시작 시간 snapshot·1ms 완료, 1,800-round gold +0.5, 다음 보스 최종 crit 정확히 35% | 실제 offline 종료·복원과 360px 키보드 제작·사용 흐름 |
+| IRPG-700~702 인벤토리·장비 | schema8→9 무손실 기본값, strict ID/slot/skill 및 future fence, 일반 적 15%·보스 100% `equipment-loot-v1`, single/split/offline/reload exact ID/count와 기존 전투 1 draw/round 외 추가 draw 없음, 포화 잔여·총량 보존, HP 비회복, 환생 원장 보존 | Ubuntu quality `29944192954`와 visual `29944190250` 확인 완료; IRPG-424 실제 보조공학 감사와 최종 병합 검토 |
+| IRPG-423 캠프 회복 | 잃은 HP 비율별 화로 비용 1~5, 캠프 전용 원자 완전 회복, 회복 물약 `{4,2,0}`·120초 exact-once 제작, 전투 최대 HP 35% 회복·수량 1 차감, 스테이지 선택 무료 회복/쿨다운 초기화 차단, schema6→7 원장 보존, Playwright 치유→제작→장착→피격→1회 사용 | 없음 — 화면 canonical은 IRPG-424가 소유 |
 | 캠프 이벤트 상인·세라 | 30분 경계·분할 동치·RNG 불변, 3×3 고정 offer, cycle별 3-bit exact-once 구매, 비용-1·정확 일치, 구조→별도 계약, 신뢰 0~5 비용·0~10% 할인, reload·offline·portable·환생 원장 보존 | 360×800·1440×900에서 키보드 거래, 갱신·구매 완료·골드 부족·지원 완료·신뢰 MAX 상태와 비강압 copy 확인 |
 | 저장 복구 | A/B fallback·부분 쓰기·미래 포맷·v1 migration | 실제 저장 차단 환경 |
 | 저장 백업 | checksum·크기·schema·stale revision·read-back rollback, Playwright 다운로드·취소·복원 | 다른 기기 파일 이동 |
 | 오프라인 중복 방지 | 같은 시각 재부팅, Playwright 닫기·재접속·재새로고침 | 탭 숨김과 OS 절전 복귀 |
 | 다중 탭 충돌 | stale revision 원문 불변, reader 무쓰기, 동일 revision 충돌 차단, 두 페이지 lock 인계 | 비정상 브라우저 종료 복구 |
 | 반응형·접근성 | progressbar·modal focus 컴포넌트 테스트, 360px·키보드·reduced-motion Playwright | 실제 보조공학 조합의 외부 전문 감사 |
-| IRPG-422 단일 전술 화면 | 과거 layout preference 무시, `.tactical-layout` 단일 분기, 8슬롯 고정 순서·6개 manifest ID·2개 캠프 소모품 아이콘, 강화/각인 exact-once | 360·1024·1440px 및 200%에서 전장 우선순위와 슬롯 상세 체감 확인 |
+| IRPG-424 전술 정보·명령 화면 | 과거 layout preference 무시, `.tactical-layout` 단일 분기, 장비3·스킬3·동료·회복 물약의 8슬롯 고정 순서, 강화/각인·동료·소모품 exact-once, 현재 적 고정 요약, 지도·캐릭터·가방·스킬·도감 controlled roving tab, 360·1024·1440px·200%·모션 감소·가방 focus E2E | Ubuntu 전체 canonical `76/76`·3회 `228/228`과 artifact diff 완료; 실제 보조공학 감사 |
 | IRPG-422 유틸리티 도크 | 4개 accessible icon name, tooltip·단일 popover, 상세 heading focus, Escape/명시적 닫기 뒤 trigger focus 복귀, 외부 클릭 대상 focus 보존, 중첩 modal Escape 소유권, 기존 로그·결과·환생·백업 동작 | 실제 스크린리더에서 tooltip과 popover reading order 확인 |
 | 시각 자산 | manifest validator fixture, production URL·gzip·lazy-load, 적·보스 8종·결과 2종·원정 이벤트 3종 stable mapping, 카드별 lazy-load, 360px·200%·fallback·A/B 저장 지속, IRPG-412 Ubuntu event baseline 8개 승인 | 외부 미술 방향 검토 |
 | 첫 환생 목표 | 10회 결정론적 가속 세션과 대표 브라우저 상태 | IRPG-205 외부 사용자 10회 실제 플레이 |
@@ -117,6 +119,8 @@ IRPG-414 Done 기준선은 Vitest 36파일·297테스트, 자산 validator 32테
 - 제작 job 1,000/999/1ms와 초과 elapsed의 단일 완료, `BATTLE`·`CAMP`·offline timer 동치
 - 황금 스튜 라운드 1·1,800·1,801, 캠프 전경 불소비, 기본 처치 골드 +50%와 boss milestone 불변, 활성 중 재사용 거절
 - 집중 물약 unbound 일반 적 통과·다음 보스 bind, 동일 RNG draw에서 15% 실패/35% 성공 vector, 보스 승리·패배·stage 이탈·환생 종료, 준비/활성 중 재사용 거절
+- 치유 화로 잃은 HP 0·1·20·21·100%의 비용 경계, 비용보다 재의 파편 1 부족·정확 일치, `BATTLE`·최대 HP·reader 거절과 RNG·보상 불변
+- 회복 물약 `{4,2,0}`·120초의 비용보다 1 부족·정확 일치·119,999/120,000ms, 미장착·수량 0·최대 HP·`CAMP` 사용 거절, 전투 최대 HP 35% 반올림·상한·1개 차감
 - 상인 cycle 0~2의 9개 고정 지급물·기본 비용, 슬롯별 mask 1·2·4와 중복 구매, 비용보다 1 부족·정확히 일치, cycle 경계의 mask 0 초기화
 - 세라 `unmet → rescued → contracted`, 구조 지원 800G와 계약 분리, 신뢰 비용 `250·500·900·1,500·2,400G`, rank별 0·2·4·6·8·10% 할인과 rank 5 재시도
 - 최대 안전 정수의 보상·경험치·처치·패배·스킬 포인트·환생 포화와 저장 가능 상태 유지
@@ -130,6 +134,7 @@ IRPG-414 Done 기준선은 Vitest 36파일·297테스트, 자산 validator 32테
 - 미래 envelope·state schema, schema1·2·3 A/B·portable migration, 잘못된 동료 ID·rank, 잘못된 RNG algorithm/state/draws, revision overflow, 과대 쿨다운 정규화, 저장소 read/write/remove 예외
 - schema4→5 무소급 migration, stage/highest 불일치, 비연속 milestone mask, pending 0~3, overflow 0~27, future definitionVersion, resolved effect 변조, portable 과거 계보 rollback
 - schema5→6 무소급 캠프 migration, reader 무쓰기·writer revision+1 checkpoint, 잘못된 mode·camp 필수 키·시설 1..5·훈련 `0..trainingGround × 5`, future camp definition의 A/B·legacy·portable 원문 보존과 write 차단
+- schema6→7 원장 보존 migration, `healingPotion: 0`·`quickConsumable: null` 기본값, 세 소모품 필수 key, quick slot `null | healingPotion`, schema별 camp future fence
 - 재료·소모품 필수 key 누락·음수·소수·MAX 초과, 알 수 없는 recipe, craft remaining 0·1·MAX, gold rounds 0·1,800·1,801, boss focus `null`·0·10·300과 일반 stage·범위 초과
 - merchant cycle 음수·소수·MAX 초과, refresh remaining 0·1·1,800,000·초과, purchase mask 0·7·8, resident status 변조, 비계약 trust 1, 계약 trust 0·5·6
 
@@ -148,7 +153,8 @@ G4에서 아래 조합을 기록한다.
 - 전투 로그를 키보드로 펼쳐 최근 20개·overflow·6종 label을 확인하고 filter 중 focus가 이동하지 않는지 확인
 - 키보드로 전투↔캠프를 왕복해 한 surface만 표시되는지, 캠프의 정지 설명·마지막 전투 stage가 읽히는지, 360×800·200%에서 overflow와 가려진 44px 조작이 없는지 확인
 - 캠프에서 텐트·작업대·단련소 확장과 공격·체력 훈련을 키보드로 실행해 골드·단계·현재/다음 효과가 함께 갱신되는지, 골드 부족·상한·reader에서 명확히 비활성화되는지 확인
-- 캠프 보관함에서 세 재료 수량과 두 레시피 비용·남은 시간을 읽고, 키보드로 단일 제작과 완성 소모품 사용을 실행해 재료·job·버프 상태와 중복 거절 사유가 즉시 갱신되는지 확인
+- 캠프 보관함에서 세 재료 수량과 세 레시피 비용·남은 시간을 읽고, 키보드로 치유 화로·단일 제작·회복 물약 장착을 실행한 뒤 전투 하단 슬롯에서 1회 사용해 HP·수량·저장이 즉시 갱신되는지 확인
+- 우측 현재 적 요약과 지도·캐릭터·가방·스킬·도감을 Arrow/Home/End로 전환하고, 미장착 빠른 슬롯의 `인벤토리 열기`가 가방 탭을 선택하는지 확인
 - 저장된 제작 job을 둔 채 페이지를 닫고 경계 시간 뒤 다시 열어 offline에서 소모품이 정확히 한 번 완성되는지, 같은 시각 reload에서 재완료·오프라인 보고 중복이 없는지 확인
 - 캠프 상인의 세 슬롯을 키보드로 구매해 완료 상태가 재입력을 막는지, 30분 갱신 뒤 새 cycle·가격·남은 시간이 표시되는지, 구조 지원 뒤에도 계약이 자동 체결되지 않고 별도 자발적 의사 확인과 보류 설명이 보이는지 확인
 - 세라 계약 뒤 신뢰 0~5 비용과 2% 단위 할인이 모든 제안에 반영되고 신뢰 MAX·골드 부족·reader 상태가 명확히 비활성화되는지, 전투 동료 루미의 편성이 변하지 않는지 확인
@@ -206,6 +212,28 @@ IRPG-422 게이트는 유형 1 대시보드와 레이아웃 선택 상태를 제
 일반 Playwright는 360×800·1024×768·1440×900과 effective 360px/200%에서 페이지 가로 overflow 없음, 최소 44px 조작 대상, DOM/키보드 읽기 순서, 전장·액션바·도크 배치, 캠프 왕복, 전투 로그·승패 결과·환생·내보내기·가져오기 실제 동작을 검증한다. reduced-motion에서는 상시 이동·flash를 제거한 정적 대체를 요구한다. production 자산 검사는 최초 전투에서 영웅·현재 적과 액션바의 6개 실제 자산만 eager이고, 소모품 이미지 요청과 비활성 지역·이벤트·damage/result 자산 요청은 disclosure 전 0개인지 확인한다. visual gate는 기존 18개 fixture·72개 canonical 이름과 variant 수를 유지하되 전투 fixture를 단일 전술 surface로 의도적으로 재승인하고, 캠프 fixture 및 저장 canonical의 비의도 변경이 없음을 hash·artifact metadata로 분리해 검토한다. `npm run verify` 뒤 push/PR quality와 Ubuntu visual 결과를 IRPG-422 `Test evidence`에 기록하기 전에는 Done으로 전환하지 않는다.
 
 IRPG-422 병합 리뷰 보정 head `726f3ce2a25a5fa12646ae7ca247e75678fcb533`에서 모달 portal 실제 hit-test, reset/import tick 기준 재설정, 읽기 전용 CAMP export, 8슬롯 roving focus와 CAMP 전환 focus return을 추가로 고정했다. 로컬 게이트는 Vitest `404/404`, 일반 Playwright `61/61`, production asset `5/5`를 통과했고, [push quality `29887435986`](https://github.com/happypod/games01/actions/runs/29887435986), [PR quality `29887437893`](https://github.com/happypod/games01/actions/runs/29887437893), [Ubuntu visual `29887435978`](https://github.com/happypod/games01/actions/runs/29887435978)이 성공했다. visual artifact `8517169076`의 canonical `72/72`와 3회 반복 `216/216`은 기존 baseline을 보존한다.
+
+IRPG-423 Done 증거는 치유 화로의 손실 HP별 비용 `1..5`, 재료 부족·최대 HP·BATTLE·reader no-write, 회복 물약 `{4,2,0}`·120초 제작의 1ms 경계와 exact-once, 빠른 슬롯 장착·해제·수량 0 유지, 전투 최대 HP 35% 회복·1개 차감, 스테이지 재선택의 HP·스킬·동료 cooldown 보존을 고정한다. schema6 raw·A/B·portable fixture는 기존 캠프·job·RNG·보상 원장을 보존하고 schema7의 `healingPotion: 0`과 `quickConsumable: null`만 추가한다. 독립 결정론·저장 리뷰에서 P0/P1은 없었고 `e2e/camp-recovery.spec.ts`의 치유→제작→장착→피격→전투 사용 흐름을 포함한 일반 Playwright `62/62`가 통과했다.
+
+IRPG-424 Test 증거는 우측 성장 센터를 현재 적 고정 요약과 지도·캐릭터·가방·스킬·도감의 조회 중심 정보 레일로 바꾸고, 장비 3·스킬 3·동료 1·빠른 소모품 1의 mutation을 하단 8슬롯으로 단일화한 계약을 고정한다. 독립 React·접근성 리뷰의 모바일 가방 viewport P2를 활성 탭 focus·scroll 연동으로 수정했고 360×800, 1024×768, 1440×900, effective 360px/200%, reduced-motion과 keyboard roving 흐름이 일반 Playwright에서 통과했다. [PR quality `29944192954`](https://github.com/happypod/games01/actions/runs/29944192954)는 일반 Playwright `65/65`, production asset `6/6`, tracked Ubuntu visual `76/76`을 포함한 전체 게이트를 통과했다. [Ubuntu visual `29944190250`](https://github.com/happypod/games01/actions/runs/29944190250)은 전체 19 fixture의 canonical `76/76`과 3회 반복 `228/228`을 통과했다. 실제 보조공학 조합의 외부 전문 감사 전에는 Done으로 올리지 않는다.
+
+IRPG-425 동의 게이트는 상점 조언 계약을 친밀 동의로 재사용하지 않는지, 미계약·미성인 확인·미동의·철회 상태에서 시설 명령이 입력 객체·RNG·재화·revision을 보존하는지 검증한다. 승인·철회·재동의는 CAMP 순수 명령과 저장 transaction을 통과하고, 성인 접근 해제는 활성 동의를 철회하되 신뢰·의상·연성 원장을 유지한다. 컴포넌트와 Playwright는 동의 문구·별도 실행·철회 불이익 없음·reader no-write를 확인한다.
+
+IRPG-426 저장 게이트는 checked-in schema7 fixture를 schema8/camp definition v3으로 이행하면서 기존 시설·job·buff·상인·세라·RNG·전투·원정·보상 원장이 동일하고 bond 기본값만 추가되는지 고정한다. raw/A/B/portable reader는 원문을 쓰지 않고 writer만 반대 슬롯에 checkpoint하며, 잘못된 동의 조합·mask·잠긴/알 수 없는 의상·future bond/camp/state definition을 거부한다. asset gate는 기존 core ID와 `costume.chapter1.*`만 허용하고 manifest 값과 미등록 배포 파일 경로 모두에서 CHAPTER II·III를 차단하며, 제공 샘플 한 개의 768×768 WebP·250 KiB·SHA·권리·prompt record를 검증한다.
+
+IRPG-427 결정론 게이트는 CAMP·동의·비용·미수령 조건의 경계를 순서대로 고정한다. 비용-1·unknown·duplicate는 입력 상태를 보존하고, 정확 비용은 900G·재의 파편 12·야수 가죽 6·불씨 핵 1과 수집 카드 bit를 정확히 한 번 교환한다. single/split elapsed, reload·offline·환생과 portable 왕복에서 claim이 보존되며 연성 전후 RNG state/draws·전투·원정·`getHeroStats`는 같다.
+
+IRPG-428 일반 Playwright는 360×800과 1440×900에서 캠프 중앙 4개 roving tab의 Arrow/Home/End, 44px 조작, 가로 overflow 0, 동의→의상실 lazy-load→연성 committed→보상 dialog→reload 중복 거절→철회 원장 보존을 실제 A/B 저장 UI로 통과한다. reduced-motion에서는 JS 지연과 transform·flash 없이 동일 정적 보상 카드가 즉시 보이고 dialog Escape 뒤 trigger focus가 복귀해야 한다. production cold-load는 초기 전투·기본 캠프에서 의상 요청 0개, 동의 뒤 의상실 disclosure에서 샘플 한 개만 요청한다.
+
+IRPG-428 Ubuntu visual gate는 안정된 최종 보상 상태 `visual.camp.bond-synthesis-reward` 한 fixture를 포함해 19 fixture × 4 variant = canonical 76개와 3회 반복 228개를 고정한다. canonical 생성 [run `29942940050`](https://github.com/happypod/games01/actions/runs/29942940050)의 artifact `8539290545`는 digest `sha256:1ae9b39ad27c9cf718bcdad52571ca43d43928ce09e90654914aceb34598941d`를 검증했고, 수동 diff는 동일 16개·의도 변경 60개·추가/누락 0개다. 이를 채택한 commit `059d42a`에서 [quality `29944192954`](https://github.com/happypod/games01/actions/runs/29944192954)의 tracked 비교 `76/76`과 [visual `29944190250`](https://github.com/happypod/games01/actions/runs/29944190250)의 생성 `76/76`·반복 `228/228`이 성공했다. 최종 artifact `8539741608`은 24,943,869 bytes, digest `sha256:40cdaa05b99334a4965d1622dd6b353c212c30ac5d9d6648064b6bd063e2bd4f`다.
+
+IRPG-700~702 저장 게이트는 V1~V8을 현재 타입과 분리된 allow-list decoder로 읽고 각 migration 단계와 최종 schema9를 재검증한다. schema8→9는 기존 전투·캠프 v3·bond v1·원정·RNG·보상 값을 보존하면서 빈 삼원 인벤토리, 빈 네 장비 슬롯, `[powerStrike, null, null]`만 추가한다. schema9는 배열·prototype 상속 map, 미등록 ItemId, present key의 0·음수·비안전 정수 수량, 부위가 다른 장비, 길이가 3이 아닌 슬롯, 미지원·중복 SkillId를 거부한다. 0개는 key 삭제로만 표현한다. malformed 최신 A/B는 이전 유효 슬롯로 fallback하고 state·expedition·camp·bond·inventory의 더 높은 version은 raw·A/B·portable 쓰기를 모두 차단한다. schema8 camp definition v3은 정상 legacy로 허용하는 회귀를 별도 고정한다.
+
+IRPG-702 결정론 게이트는 `equipment-loot-v1`의 일반 적 매 처치 15% COMMON 4종 균등·보스 매 처치 100% RARE 3종 균등을 exact item ID/count로 고정한다. encounter identity substream은 저장된 전투 RNG를 읽거나 전진시키지 않아 기존 1 draw/round 외 추가 draw가 없어야 하며 single/split/offline/reload와 영웅·동료 마무리 공통 처치 분기가 같은 결과를 내야 한다. 이관·이동은 registry own ID만 받고 `Number.MAX_SAFE_INTEGER` 여유만 옮기며 source 잔여와 ItemId별 총량을 보존한다. 장비 교환·해제 반환 공간이 없으면 입력 객체를 유지한다. 장비 HP는 현재 HP를 올리지 않고 새 상한으로만 clamp하며 집중 물약 bound 보스의 최종 임계값은 장비 bonus와 무관하게 정확히 0.35다. 환생 전후 `inventory`·`equipped`·고정 3-tuple `skillSlots` 값은 같고 참조는 분리되어야 한다. 슬롯 배치가 자동 시전을 제어하는 계약은 IRPG-704에서 검증한다.
+
+IRPG-700~702는 2026-07-23 독립 리뷰의 P0/P1/P2를 모두 닫아 `Verify`로 승인한 뒤 Ubuntu 전체 실행 증거를 확보해 `Test`로 전환했다. IRPG-428 registry의 19 fixture·76 canonical 중 `visual.camp.bond-synthesis-reward` 4 variant를 추가하고 schema9·레이아웃 변화가 반영된 Ubuntu 기준선을 재확정했다. artifact 수동 diff는 동일 16개·의도 변경 60개·추가/누락 0개이며, 76개 모두 채택 commit `059d42a`와 byte-identical이다.
+
+2026-07-23 보정 뒤 저장 표적 2파일·82/82, 엔진 38/38, 저장·엔진·집중 물약 묶음 4파일·127/127을 통과했다. `npm run verify:code`는 Vitest 51파일·482/482, asset validator 40/40, manifest 31 ID, lint·typecheck·production build를 통과했고, Chromium 일반 Playwright 65/65와 production asset 6/6도 통과했다. SVG checkout의 LF·CRLF canonical byte 동치와 EOL 정규화 뒤 실제 내용 변경의 `BYTES_MISMATCH`를 함께 고정하며 unsafe SVG·path escape·hash·권리 검사는 유지한다. 동일 수치는 Ubuntu [quality-gate #146](https://github.com/happypod/games01/actions/runs/29944192954)에서 재현됐고 tracked visual `76/76`도 통과했다.
 
 ## 8. 현재 브라우저 증거
 

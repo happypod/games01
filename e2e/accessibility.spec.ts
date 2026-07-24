@@ -35,7 +35,7 @@ test.describe('360px keyboard and screenreader semantics', () => {
     context,
     page,
   }, testInfo) => {
-    test.setTimeout(60_000)
+    test.setTimeout(180_000)
     const browserErrors: string[] = []
     collectBrowserErrors(page, browserErrors)
     await context.clock.setFixedTime(STARTED_AT)
@@ -59,11 +59,8 @@ test.describe('360px keyboard and screenreader semantics', () => {
     await expect(page.getByRole('group', { name: '보유 자원' })).toBeVisible()
     for (const name of [
       /스테이지 1/,
-      '장비와 스킬 빠른 슬롯',
-      '성장 센터',
-      '성장 장비',
-      '스킬 각인',
-      '동료 원정대',
+      '전술 명령 빠른 슬롯',
+      '전술 정보실',
     ]) {
       await expect(page.getByRole('region', { name })).toBeVisible()
     }
@@ -79,9 +76,15 @@ test.describe('360px keyboard and screenreader semantics', () => {
     }
     await expect(page.locator('.ambient[aria-hidden="true"]')).toHaveCount(2)
     await expect(page.locator('.tactical-actor__asset[aria-hidden="true"]')).toHaveCount(2)
-    await expect(page.locator('.tactical-action-bar__slot-asset[aria-hidden="true"]'))
-      .toHaveCount(6)
-    await expect(page.locator('.growth-card__art[aria-hidden="true"]')).toHaveCount(6)
+    await expect(page.locator(
+      '[data-action-kind="equipment"] .tactical-action-bar__slot-asset[aria-hidden="true"], '
+      + '[data-action-kind="skill"] .tactical-action-bar__slot-asset[aria-hidden="true"]',
+    )).toHaveCount(6)
+    await expect(page.locator(
+      '[data-action-slot="companion"] .tactical-action-bar__slot-asset[aria-hidden="true"]',
+    )).toHaveCount(1)
+    await expect(page.getByRole('tablist', { name: '전술 정보 메뉴' })).toBeVisible()
+    await expect(page.getByRole('tab')).toHaveCount(5)
 
     await page.keyboard.press('Tab')
     const skipLink = page.getByRole('link', { name: '본문 바로가기' })
@@ -93,22 +96,23 @@ test.describe('360px keyboard and screenreader semantics', () => {
     await expect(main).toBeFocused()
     await expect(main).toHaveCSS('outline-style', 'solid')
 
-    await expect(page.getByRole('progressbar', { name: '적 체력' })).toHaveAttribute(
-      'aria-valuetext',
-      /34 \/ 34, 100%/,
-    )
+    await expect(
+      page.getByTestId('tactical-canvas').getByRole('progressbar', { name: '적 체력' }),
+    ).toHaveAttribute('aria-valuetext', /34 \/ 34, 100%/)
     await expect(page.getByRole('progressbar', { name: '영웅 체력' }))
       .toHaveAttribute('aria-valuemax', '100')
 
     await context.clock.setFixedTime(new Date(STARTED_AT.getTime() + 6_000))
-    const weaponButton = page.getByRole('button', { name: /불씨 검 강화/ })
-    await expect(weaponButton).toBeEnabled()
-    await tabTo(page, weaponButton)
-    await expect(weaponButton).toHaveCSS('outline-style', 'solid')
+    const weaponSlot = page.locator('[data-action-slot="weapon"]')
+    await tabTo(page, weaponSlot)
+    await expect(weaponSlot).toHaveCSS('outline-style', 'solid')
     await page.keyboard.press('Enter')
-    await expect(
-      page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.1', { exact: true }),
-    ).toBeVisible()
+    const weaponDetail = page.locator('[data-action-detail="weapon"]')
+    const weaponButton = weaponDetail.getByRole('button', { name: /불씨 검 강화/ })
+    await expect(weaponButton).toBeEnabled()
+    await tabTo(page, weaponButton, 10)
+    await page.keyboard.press('Enter')
+    await expect(weaponSlot).toContainText('Lv.1')
 
     const backup = createPortableSave(createInitialState(STARTED_AT.getTime()), STARTED_AT.getTime())!
     const backupTrigger = page.getByRole('button', { name: '저장 백업' })

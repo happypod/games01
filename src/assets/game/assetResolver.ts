@@ -51,6 +51,7 @@ function inferPurpose(purposeOrAssetId: string): GameAssetPurpose {
   if (
     namespace === 'hero' ||
     namespace === 'companion' ||
+    namespace === 'costume' ||
     namespace === 'enemy' ||
     namespace === 'boss'
   ) return 'character'

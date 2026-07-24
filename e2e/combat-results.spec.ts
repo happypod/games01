@@ -33,11 +33,11 @@ async function applyResultFixture(
 ) {
   const expected = fixtureId === 'visual.result.boss-victory'
     ? {
-        stateHash: 'fnv1a32-v1:4646250d',
+        stateHash: 'fnv1a32-v1:4ffaa837',
         eventHash: 'fnv1a32-v1:b6a6c062',
       }
     : {
-        stateHash: 'fnv1a32-v1:9590030d',
+        stateHash: 'fnv1a32-v1:dd04ef33',
         eventHash: 'fnv1a32-v1:492c61f7',
       }
   const panel = page.getByTestId('debug-panel')
@@ -92,12 +92,12 @@ test.describe('IRPG-410 foreground result status', () => {
     await page.goto('/')
     await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
 
-    const stageMapToggle = page.getByRole('button', { name: '3지역 원정 지도 열기' })
-    await stageMapToggle.focus()
-    await expect(stageMapToggle).toBeFocused()
+    const mapTab = page.getByRole('tab', { name: '지도' })
+    await mapTab.focus()
+    await expect(mapTab).toBeFocused()
     await context.clock.setFixedTime(new Date(FOREGROUND_NOW.getTime() + 50_000))
 
-    await expect(stageMapToggle).toBeFocused()
+    await expect(mapTab).toBeFocused()
     await expect(page.getByTestId('combat-result-dialog')).toHaveCount(0)
     await expect(page.getByTestId('tactical-utility-result-announcement')).toContainText(
       '새 전투 결과: 스테이지 10 패배, 스테이지 9 복귀',

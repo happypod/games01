@@ -9,6 +9,14 @@ function collectBrowserErrors(page: Page, errors: string[]) {
   })
 }
 
+async function openWeaponDetail(page: Page) {
+  const slot = page.locator('[data-action-slot="weapon"]')
+  const detail = page.locator('[data-action-detail="weapon"]')
+  if (!(await detail.isVisible())) await slot.click()
+  await expect(detail).toBeVisible()
+  return { slot, detail }
+}
+
 test('신규 원정에서 강화하고 재접속·오프라인 정산을 한 번만 적용한다', async ({ context }) => {
   const browserErrors: string[] = []
   await context.clock.setFixedTime(STARTED_AT)
@@ -21,20 +29,19 @@ test('신규 원정에서 강화하고 재접속·오프라인 정산을 한 번
   await expect(page.getByText('자동 원정 중', { exact: true })).toBeVisible()
   await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
 
-  let weaponCard = page.getByRole('article').filter({ hasText: '불씨 검' })
-  const weaponButton = page.getByRole('button', { name: /불씨 검 강화/ })
-  await expect(weaponCard.getByText('Lv.0', { exact: true })).toBeVisible()
+  const weapon = await openWeaponDetail(page)
+  const weaponButton = weapon.detail.getByRole('button', { name: /불씨 검 강화/ })
+  await expect(weapon.slot).toContainText('Lv.0')
   await expect(weaponButton).toBeDisabled()
 
   await context.clock.setFixedTime(new Date(STARTED_AT.getTime() + 6_000))
   await expect(weaponButton).toBeEnabled()
   await weaponButton.click()
-  await expect(weaponCard.getByText('Lv.1', { exact: true })).toBeVisible()
+  await expect(weapon.slot).toContainText('Lv.1')
   await expect(page.getByText('불씨 검 강화 완료', { exact: true })).toBeVisible()
 
   await page.reload()
-  weaponCard = page.getByRole('article').filter({ hasText: '불씨 검' })
-  await expect(weaponCard.getByText('Lv.1', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-action-slot="weapon"]')).toContainText('Lv.1')
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
   await page.close()
@@ -51,9 +58,7 @@ test('신규 원정에서 강화하고 재접속·오프라인 정산을 한 번
   await expect(
     offlineDialog.locator('dl > div').filter({ hasText: '획득 골드' }).locator('dd'),
   ).not.toHaveText('0')
-  await expect(
-    page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.1', { exact: true }),
-  ).toBeVisible()
+  await expect(page.locator('[data-action-slot="weapon"]')).toContainText('Lv.1')
 
   await offlineDialog.getByRole('button', { name: '보상 확인' }).click()
   await expect(offlineDialog).toHaveCount(0)

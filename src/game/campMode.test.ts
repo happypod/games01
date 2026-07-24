@@ -4,6 +4,7 @@ import {
   advanceOfflineGame,
   createInitialState,
   performPrestige,
+  settleLootAtCamp,
   switchGameMode,
 } from './engine'
 
@@ -53,7 +54,7 @@ describe('IRPG-418 camp activity mode', () => {
     const offline = advanceOfflineGame(camp, 60_000)
 
     expect(offline.report).toEqual(expected.report)
-    expect(offline.state).toEqual({ ...expected.state, currentMode: 'CAMP' })
+    expect(offline.state).toEqual(settleLootAtCamp({ ...expected.state, currentMode: 'CAMP' }))
     expect(offline.nextCursor).toBe(expected.nextCursor)
     expect(camp.battle).toEqual(initial.battle)
     expect(camp.rng).toEqual(initial.rng)

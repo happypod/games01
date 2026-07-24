@@ -4,19 +4,32 @@ import {
   acceptSeraContract as acceptSeraContractCommand,
   chooseExpeditionEvent as chooseExpeditionEventCommand,
   createInitialState,
+  equipQuickConsumable as equipQuickConsumableCommand,
+  healAtCamp as healAtCampCommand,
   mergeCombatEventBatches,
   performPrestige,
   purchaseCampMerchantOffer as purchaseCampMerchantOfferCommand,
   purchaseUpgrade,
   recruitCompanion as recruitCompanionCommand,
+  selectCampCostume as selectCampCostumeCommand,
   selectStage,
+  setAdultContentAccess as setAdultContentAccessCommand,
+  setSeraBondConsent as setSeraBondConsentCommand,
   startCampCraft as startCampCraftCommand,
   switchGameMode,
+  synthesizeJointBond as synthesizeJointBondCommand,
   increaseSeraTrust as increaseSeraTrustCommand,
   trainAtCamp as trainAtCampCommand,
   trainCompanion as trainCompanionCommand,
   upgradeCampStructure as upgradeCampStructureCommand,
   consumeCampConsumable as consumeCampConsumableCommand,
+  useEquippedConsumable as consumeEquippedConsumableCommand,
+  equipItem as equipItemCommand,
+  unequipItem as unequipItemCommand,
+  moveItem as moveItemCommand,
+  settleLootAtCamp as settleLootAtCampCommand,
+  equipSkillSlot as equipSkillSlotCommand,
+  unequipSkillSlot as unequipSkillSlotCommand,
   upgradeSkill,
 } from '../game/engine'
 import {
@@ -33,14 +46,18 @@ import {
 import { commitPortableSave, type SaveImportPreview } from '../game/saveTransfer'
 import type {
   AdvanceReport,
+  Chapter1CostumeId,
+  Chapter1SynthesisId,
   CombatEventBatch,
   CombatEventCursor,
   CompanionId,
   CampStructureId,
   CampTrainingId,
   CampConsumableId,
+  CampQuickConsumableId,
   CampRecipeId,
   CommandResult,
+  EquipmentSlot,
   ExpeditionChoiceId,
   GameState,
   GameMode,
@@ -90,11 +107,29 @@ export interface GameController {
   trainAtCamp: (id: CampTrainingId) => void
   startCampCraft: (id: CampRecipeId) => void
   useCampConsumable: (id: CampConsumableId) => void
+  healAtCamp: () => void
+  equipQuickConsumable: (id: CampQuickConsumableId | null) => void
+  useEquippedConsumable: () => void
   purchaseCampMerchantOffer: (slot: CampMerchantOfferSlot) => void
   acceptSeraContract: () => void
   increaseSeraTrust: () => void
+  setAdultContentAccess: (confirmed: boolean) => GameCommandFeedback
+  setSeraBondConsent: (consent: 'granted' | 'withdrawn') => GameCommandFeedback
+  selectCampCostume: (id: Chapter1CostumeId) => GameCommandFeedback
+  synthesizeJointBond: (id: Chapter1SynthesisId) => GameCommandFeedback
   buyUpgrade: (id: UpgradeId) => void
   buySkill: (id: SkillId) => void
+  equipItem: (slot: EquipmentSlot, itemId: string) => void
+  unequipItem: (slot: EquipmentSlot) => void
+  moveItem: (
+    source: 'heroInventory' | 'campStorage',
+    target: 'heroInventory' | 'campStorage',
+    itemId: string,
+    amount?: number,
+  ) => void
+  settleLootAtCamp: () => void
+  equipSkillSlot: (slotIndex: number, skillId: SkillId) => void
+  unequipSkillSlot: (slotIndex: number) => void
   recruitCompanion: (id: CompanionId) => void
   trainCompanion: () => void
   chooseStage: (stage: number) => void
@@ -461,6 +496,19 @@ export function useGame(): GameController {
     (id: CampConsumableId) => runCommand((current) => consumeCampConsumableCommand(current, id)),
     [runCommand],
   )
+  const healAtCamp = useCallback(
+    () => runCommand((current) => healAtCampCommand(current)),
+    [runCommand],
+  )
+  const equipQuickConsumable = useCallback(
+    (id: CampQuickConsumableId | null) =>
+      runCommand((current) => equipQuickConsumableCommand(current, id)),
+    [runCommand],
+  )
+  const useEquippedConsumable = useCallback(
+    () => runCommand((current) => consumeEquippedConsumableCommand(current)),
+    [runCommand],
+  )
   const purchaseCampMerchantOffer = useCallback(
     (slot: CampMerchantOfferSlot) =>
       runCommand((current) => purchaseCampMerchantOfferCommand(current, slot)),
@@ -474,12 +522,73 @@ export function useGame(): GameController {
     () => runCommand((current) => increaseSeraTrustCommand(current)),
     [runCommand],
   )
+  const setAdultContentAccess = useCallback(
+    (confirmed: boolean) =>
+      runCommand((current) => setAdultContentAccessCommand(current, confirmed)),
+    [runCommand],
+  )
+  const setSeraBondConsent = useCallback(
+    (consent: 'granted' | 'withdrawn') =>
+      runCommand((current) => setSeraBondConsentCommand(current, consent)),
+    [runCommand],
+  )
+  const selectCampCostume = useCallback(
+    (id: Chapter1CostumeId) =>
+      runCommand((current) => selectCampCostumeCommand(current, id)),
+    [runCommand],
+  )
+  const synthesizeJointBond = useCallback(
+    (id: Chapter1SynthesisId) =>
+      runCommand((current) => synthesizeJointBondCommand(current, id)),
+    [runCommand],
+  )
   const changeMode = useCallback(
     (mode: GameMode) => runCommand((current) => switchGameMode(current, mode)),
     [runCommand],
   )
   const buySkill = useCallback(
     (id: SkillId) => runCommand((current) => upgradeSkill(current, id)),
+    [runCommand],
+  )
+  const equipItem = useCallback(
+    (slot: EquipmentSlot, itemId: string) =>
+      runCommand((current) => equipItemCommand(current, slot, itemId)),
+    [runCommand],
+  )
+  const unequipItem = useCallback(
+    (slot: EquipmentSlot) =>
+      runCommand((current) => unequipItemCommand(current, slot)),
+    [runCommand],
+  )
+  const moveItem = useCallback(
+    (
+      source: 'heroInventory' | 'campStorage',
+      target: 'heroInventory' | 'campStorage',
+      itemId: string,
+      amount = 1,
+    ) =>
+      runCommand((current) =>
+        moveItemCommand(current, source, target, itemId, amount),
+      ),
+    [runCommand],
+  )
+  const settleLootAtCamp = useCallback(
+    () =>
+      runCommand((current) => ({
+        state: settleLootAtCampCommand(current),
+        success: true,
+        message: '임시 전리품 가방의 모든 전리품을 캠프 보관함으로 옮겼습니다.',
+      })),
+    [runCommand],
+  )
+  const equipSkillSlot = useCallback(
+    (slotIndex: number, skillId: SkillId) =>
+      runCommand((current) => equipSkillSlotCommand(current, slotIndex, skillId)),
+    [runCommand],
+  )
+  const unequipSkillSlot = useCallback(
+    (slotIndex: number) =>
+      runCommand((current) => unequipSkillSlotCommand(current, slotIndex)),
     [runCommand],
   )
   const recruitCompanion = useCallback(
@@ -593,11 +702,24 @@ export function useGame(): GameController {
     trainAtCamp,
     startCampCraft,
     useCampConsumable,
+    healAtCamp,
+    equipQuickConsumable,
+    useEquippedConsumable,
     purchaseCampMerchantOffer,
     acceptSeraContract,
     increaseSeraTrust,
+    setAdultContentAccess,
+    setSeraBondConsent,
+    selectCampCostume,
+    synthesizeJointBond,
     buyUpgrade,
     buySkill,
+    equipItem,
+    unequipItem,
+    moveItem,
+    settleLootAtCamp,
+    equipSkillSlot,
+    unequipSkillSlot,
     recruitCompanion,
     trainCompanion,
     chooseStage,

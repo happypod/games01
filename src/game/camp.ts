@@ -1,17 +1,31 @@
-import { toSafeInteger } from './formulas'
+import { getHeroStats, toSafeInteger } from './formulas'
 import type {
+  Chapter1CostumeId,
+  Chapter1RewardId,
+  Chapter1SynthesisId,
+  CampBondState,
   CampMaterialInventory,
   CampRecipeId,
   CampState,
   CampStructureId,
   CampTrainingId,
   EnemyDefinition,
+  GameState,
+} from './types'
+import {
+  ACTIVE_CONTENT_CHAPTER,
+  CHAPTER1_COSTUME_IDS,
+  CHAPTER1_REWARD_IDS,
+  CHAPTER1_SYNTHESIS_IDS,
 } from './types'
 
-export const CAMP_DEFINITION_VERSION = 1 as const
+export const CAMP_DEFINITION_VERSION = 3 as const
+export const CAMP_BOND_DEFINITION_VERSION = 1 as const
 export const CAMP_MERCHANT_REFRESH_MS = 30 * 60 * 1_000
 export const CAMP_STRUCTURE_MAX_LEVEL = 5
 export const CAMP_TRAINING_RANKS_PER_LEVEL = 5
+export const CAMP_HEALING_MAX_ASH_COST = 5
+export const CAMP_HEALING_POTION_RECOVERY_RATIO = 0.35
 
 const HOUR_MS = 60 * 60 * 1_000
 
@@ -31,10 +45,128 @@ export const CAMP_TRAINING_EFFECTS: Readonly<Record<CampTrainingId, number>> = O
   vitality: 20,
 })
 
+export const CAMP_MATERIAL_LABELS: Readonly<Record<keyof CampMaterialInventory, string>> = Object.freeze({
+  ashShard: '재의 파편',
+  beastHide: '야수 가죽',
+  emberCore: '불씨 핵',
+})
+
+export interface CampFacilityDefinition {
+  readonly id: CampStructureId
+  readonly name: string
+  readonly assetId: string
+  readonly copy: string
+}
+
+// IRPG-803: shared by the card-grid (CampDashboard) and 2.5D canvas (CampCanvas)
+// presentations so both stay in sync from a single definition.
+export const CAMP_FACILITY_DEFINITIONS: readonly CampFacilityDefinition[] = Object.freeze([
+  Object.freeze({
+    id: 'tent',
+    name: '원정 텐트',
+    assetId: 'event.ash-camp',
+    copy: '휴식과 오프라인 원정 시간을 관리합니다.',
+  }),
+  Object.freeze({
+    id: 'workbench',
+    name: '불씨 작업대',
+    assetId: 'event.wandering-smith',
+    copy: '전리품을 확정 레시피로 가공하는 공간입니다.',
+  }),
+  Object.freeze({
+    id: 'trainingGround',
+    name: '단련소',
+    assetId: 'event.ember-shrine',
+    copy: '영구 공격력과 체력 훈련을 준비합니다.',
+  }),
+] as const)
+
 export const CAMP_GOLD_STEW_ROUNDS = 1_800
 export const CAMP_FOCUS_CRITICAL_BONUS = 0.2
 export const CAMP_MERCHANT_OFFER_SLOTS = [0, 1, 2] as const
 export type CampMerchantOfferSlot = (typeof CAMP_MERCHANT_OFFER_SLOTS)[number]
+
+export const CHAPTER1_ADULT_CHARACTER_DEFINITIONS = Object.freeze({
+  sera: Object.freeze({
+    id: 'sera',
+    chapterId: ACTIVE_CONTENT_CHAPTER,
+    adult: true,
+    consentRequired: true,
+  }),
+} as const)
+
+export interface Chapter1CostumeDefinition {
+  readonly id: Chapter1CostumeId
+  readonly name: string
+  readonly manifestAssetId: `costume.chapter1.${string}`
+  readonly unlockBit: number
+}
+
+export const CHAPTER1_COSTUME_DEFINITIONS: Readonly<
+  Record<Chapter1CostumeId, Chapter1CostumeDefinition>
+> = Object.freeze({
+  'chapter1.sera.field': Object.freeze({
+    id: 'chapter1.sera.field',
+    name: '세라의 잿불 정찰복',
+    manifestAssetId: 'costume.chapter1.sera.ember-bond',
+    unlockBit: 1,
+  }),
+})
+
+export const MAX_CHAPTER1_COSTUME_MASK = (2 ** CHAPTER1_COSTUME_IDS.length) - 1
+export const MAX_CHAPTER1_SYNTHESIS_REWARD_MASK = (2 ** CHAPTER1_REWARD_IDS.length) - 1
+
+export interface CampJointSynthesisDefinition {
+  readonly id: Chapter1SynthesisId
+  readonly name: string
+  readonly cost: Readonly<{
+    gold: number
+    materials: Readonly<CampMaterialInventory>
+  }>
+  readonly reward: Readonly<{
+    id: Chapter1RewardId
+    name: string
+    claimBit: number
+  }>
+}
+
+export const CAMP_JOINT_SYNTHESIS_DEFINITIONS: Readonly<
+  Record<Chapter1SynthesisId, CampJointSynthesisDefinition>
+> = Object.freeze({
+  'chapter1.sera.ember-vow': Object.freeze({
+    id: 'chapter1.sera.ember-vow',
+    name: '잿불의 서약 합동 연성',
+    cost: Object.freeze({
+      gold: 900,
+      materials: Object.freeze({ ashShard: 12, beastHide: 6, emberCore: 1 }),
+    }),
+    reward: Object.freeze({
+      id: 'chapter1.weapon.ember-vow-card',
+      name: '잿불의 서약 무기 카드',
+      claimBit: 1,
+    }),
+  }),
+})
+
+export function isChapter1CostumeId(value: unknown): value is Chapter1CostumeId {
+  return typeof value === 'string' && CHAPTER1_COSTUME_IDS.some((id) => id === value)
+}
+
+export function isChapter1SynthesisId(value: unknown): value is Chapter1SynthesisId {
+  return typeof value === 'string' && CHAPTER1_SYNTHESIS_IDS.some((id) => id === value)
+}
+
+export function createInitialCampBondState(): CampBondState {
+  const initialCostumeId = CHAPTER1_COSTUME_IDS[0]
+  return {
+    definitionVersion: CAMP_BOND_DEFINITION_VERSION,
+    adultAccessConfirmed: false,
+    seraConsent: 'notGranted',
+    currentCostumeId: initialCostumeId,
+    unlockedCostumeMask: CHAPTER1_COSTUME_DEFINITIONS[initialCostumeId].unlockBit,
+    claimedSynthesisRewardMask: 0,
+  }
+}
 
 type CampMerchantOfferEffect =
   | { readonly type: 'material'; readonly id: keyof CampMaterialInventory; readonly amount: number }
@@ -120,7 +252,30 @@ export const CAMP_RECIPE_DEFINITIONS: Readonly<Record<CampRecipeId, CampRecipeDe
     baseDurationMs: 10 * 60 * 1_000,
     ingredients: Object.freeze({ ashShard: 6, beastHide: 2, emberCore: 1 }),
   }),
+  healingPotion: Object.freeze({
+    id: 'healingPotion',
+    name: '회복 물약',
+    baseDurationMs: 2 * 60 * 1_000,
+    ingredients: Object.freeze({ ashShard: 4, beastHide: 2, emberCore: 0 }),
+  }),
 })
+
+export function getCampHealingAshCost(state: GameState): number | null {
+  const maxHp = getHeroStats(state).maxHp
+  const missingHp = Math.max(0, maxHp - state.player.currentHp)
+  if (missingHp === 0) return null
+  return Math.min(
+    CAMP_HEALING_MAX_ASH_COST,
+    Math.max(1, Math.ceil((missingHp / maxHp) * CAMP_HEALING_MAX_ASH_COST)),
+  )
+}
+
+export function getHealingPotionRecoveryAmount(state: GameState): number {
+  return toSafeInteger(
+    getHeroStats(state).maxHp * CAMP_HEALING_POTION_RECOVERY_RATIO,
+    1,
+  )
+}
 
 export function getCampMaterialYield(
   enemy: Pick<EnemyDefinition, 'assetId' | 'isBoss'>,
@@ -183,6 +338,32 @@ export function getCampTrainingCost(id: CampTrainingId, currentRank: number): nu
   return toSafeInteger(definition.base * definition.growth ** Math.max(0, currentRank), 1)
 }
 
+// Distinct from game/format.ts's formatDuration: camp countdowns (craft jobs,
+// merchant refresh) always show minutes even at 0, matching existing display copy.
+export function formatCampCountdown(milliseconds: number): string {
+  const totalSeconds = Math.ceil(milliseconds / 1_000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}분 ${seconds}초`
+}
+
+export function getCampFacilityNextEffect(id: CampStructureId, level: number): string {
+  const nextLevel = Math.min(CAMP_STRUCTURE_MAX_LEVEL, level + 1)
+  if (id === 'tent') {
+    return `오프라인 ${CAMP_OFFLINE_CAP_HOURS[level - 1]}시간 → ${CAMP_OFFLINE_CAP_HOURS[nextLevel - 1]}시간`
+  }
+  if (id === 'workbench') {
+    return `제작 시간 ${CAMP_WORKBENCH_DURATION_PERCENT[level - 1]}% → ${CAMP_WORKBENCH_DURATION_PERCENT[nextLevel - 1]}%`
+  }
+  return `훈련 상한 ${level * 5} → ${nextLevel * 5} rank`
+}
+
+export function getCampFacilityCurrentEffect(id: CampStructureId, level: number): string {
+  if (id === 'tent') return `오프라인 상한 ${CAMP_OFFLINE_CAP_HOURS[level - 1]}시간`
+  if (id === 'workbench') return `제작 시간 ${CAMP_WORKBENCH_DURATION_PERCENT[level - 1]}%`
+  return `훈련 상한 ${level * 5} rank`
+}
+
 export function createInitialCampState(): CampState {
   return {
     definitionVersion: CAMP_DEFINITION_VERSION,
@@ -203,7 +384,9 @@ export function createInitialCampState(): CampState {
     consumables: {
       goldStew: 0,
       focusTonic: 0,
+      healingPotion: 0,
     },
+    quickConsumable: null,
     craftJob: null,
     buffs: {
       goldBoostRounds: 0,
@@ -220,5 +403,6 @@ export function createInitialCampState(): CampState {
         trust: 0,
       },
     },
+    bond: createInitialCampBondState(),
   }
 }

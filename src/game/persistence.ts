@@ -4,16 +4,21 @@ import {
   EXPEDITION_DEFINITION_VERSION,
   EXPEDITION_MILESTONE_COUNT,
   MAX_STAGE,
-  SKILL_DEFINITIONS,
   UPGRADE_DEFINITIONS,
   getEnemyDefinition,
 } from './content'
 import { advanceOfflineGame, createInitialState } from './engine'
 import {
+  CAMP_BOND_DEFINITION_VERSION,
   CAMP_DEFINITION_VERSION,
   CAMP_MERCHANT_REFRESH_MS,
   CAMP_RECIPE_DEFINITIONS,
+  CHAPTER1_COSTUME_DEFINITIONS,
+  MAX_CHAPTER1_COSTUME_MASK,
+  MAX_CHAPTER1_SYNTHESIS_REWARD_MASK,
+  createInitialCampBondState,
   createInitialCampState,
+  isChapter1CostumeId,
 } from './camp'
 import { getHeroStats } from './formulas'
 import {
@@ -24,15 +29,24 @@ import {
   deriveLegacyExpeditionMilestoneMask,
   isValidExpeditionEventState,
 } from './expedition'
+import { getItemDefinition } from './itemRegistry'
 import { MAX_UINT32, createRngState, seedFromText } from './rng'
+import {
+  createInitialInventoryState,
+  createInitialPlayerEquippedState,
+  createInitialSkillSlotsState,
+} from './stateDefaults'
 import {
   COMPANION_IDS,
   CAMP_CONSUMABLE_IDS,
   CAMP_MATERIAL_IDS,
+  CAMP_QUICK_CONSUMABLE_IDS,
   CAMP_RECIPE_IDS,
   CAMP_STRUCTURE_IDS,
   CAMP_TRAINING_IDS,
+  EQUIPMENT_SLOTS,
   EXPEDITION_DEFINITION_IDS,
+  INVENTORY_DEFINITION_VERSION,
   RNG_ALGORITHM,
   SAVE_VERSION,
   SKILL_IDS,
@@ -41,14 +55,25 @@ import {
 import type {
   AdvanceReport,
   BattleState,
+  CampBondState,
   CampState,
   ExpeditionEventState,
   GameState,
+  InventoryState,
   LifetimeStats,
+  PlayerEquippedState,
   PlayerState,
   RngState,
+  SkillId,
+  SkillSlotState,
   StorageLike,
 } from './types'
+
+export {
+  createInitialInventoryState,
+  createInitialPlayerEquippedState,
+  createInitialSkillSlotsState,
+} from './stateDefaults'
 
 export const LEGACY_SAVE_FORMAT_VERSION = 2 as const
 export const SAVE_FORMAT_VERSION = 3 as const
@@ -99,33 +124,63 @@ type LegacyRead =
   | { status: 'error' }
   | { status: 'valid'; state: GameState }
 
-type LegacyPlayerState = Omit<PlayerState, 'companion'>
-type LegacyBattleState = Omit<BattleState, 'companionCooldownMs'>
+type LegacyPlayerState = Pick<
+  PlayerState,
+  | 'level'
+  | 'xp'
+  | 'gold'
+  | 'essence'
+  | 'currentHp'
+  | 'skillPoints'
+  | 'upgrades'
+  | 'skills'
+>
+type LegacyPlayerStateV3 = LegacyPlayerState & Pick<PlayerState, 'companion'>
+type LegacyBattleState = Pick<
+  BattleState,
+  | 'stage'
+  | 'highestStage'
+  | 'enemyHp'
+  | 'roundRemainderMs'
+  | 'powerStrikeCooldownMs'
+  | 'kills'
+  | 'defeats'
+>
+type LegacyBattleStateV3 = LegacyBattleState & Pick<BattleState, 'companionCooldownMs'>
+type LegacyLifetimeStats = Pick<
+  LifetimeStats,
+  'goldEarned' | 'enemiesDefeated' | 'prestiges'
+>
+type LegacyRngState = Pick<RngState, 'algorithm' | 'seed' | 'state' | 'draws'>
+type LegacyExpeditionEventState = Pick<
+  ExpeditionEventState,
+  'definitionVersion' | 'runPrestige' | 'milestoneMask' | 'pending' | 'overflowCount'
+>
 
 interface LegacyGameStateV1 {
   schemaVersion: 1
   lastSavedAt: number
   player: LegacyPlayerState
   battle: LegacyBattleState
-  stats: LifetimeStats
+  stats: LegacyLifetimeStats
 }
 
 interface LegacyGameStateV2 {
   schemaVersion: 2
   lastSavedAt: number
-  rng: RngState
+  rng: LegacyRngState
   player: LegacyPlayerState
   battle: LegacyBattleState
-  stats: LifetimeStats
+  stats: LegacyLifetimeStats
 }
 
 interface LegacyGameStateV3 {
   schemaVersion: 3
   lastSavedAt: number
-  rng: RngState
-  player: PlayerState
-  battle: BattleState
-  stats: LifetimeStats
+  rng: LegacyRngState
+  player: LegacyPlayerStateV3
+  battle: LegacyBattleStateV3
+  stats: LegacyLifetimeStats
 }
 
 type LegacyGameStateV4 = Omit<LegacyGameStateV3, 'schemaVersion'> & {
@@ -133,15 +188,113 @@ type LegacyGameStateV4 = Omit<LegacyGameStateV3, 'schemaVersion'> & {
   claimedBossMilestoneMask: number
 }
 
-type LegacyGameStateV5 = Omit<
-  GameState,
-  'schemaVersion' | 'currentMode' | 'camp'
-> & {
+interface LegacyGameStateV5 {
   schemaVersion: 5
+  lastSavedAt: number
+  claimedBossMilestoneMask: number
+  expeditionEvents: LegacyExpeditionEventState
+  rng: LegacyRngState
+  player: LegacyPlayerStateV3
+  battle: LegacyBattleStateV3
+  stats: LegacyLifetimeStats
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
+const LEGACY_CAMP_DEFINITION_VERSION = 1 as const
+const LEGACY_CAMP_CONSUMABLE_IDS = ['goldStew', 'focusTonic'] as const
+const LEGACY_CAMP_RECIPE_IDS = ['goldStew', 'focusTonic'] as const
+type LegacyCampConsumableId = (typeof LEGACY_CAMP_CONSUMABLE_IDS)[number]
+type LegacyCampRecipeId = (typeof LEGACY_CAMP_RECIPE_IDS)[number]
+
+type LegacyCampStateV1 = Pick<
+  CampState,
+  'structures' | 'training' | 'materials' | 'buffs' | 'merchant' | 'residents'
+> & {
+  definitionVersion: typeof LEGACY_CAMP_DEFINITION_VERSION
+  consumables: Record<LegacyCampConsumableId, number>
+  craftJob: {
+    recipeId: LegacyCampRecipeId
+    remainingMs: number
+  } | null
+}
+
+interface LegacyGameStateV6 {
+  schemaVersion: 6
+  lastSavedAt: number
+  currentMode: 'BATTLE' | 'CAMP'
+  camp: LegacyCampStateV1
+  claimedBossMilestoneMask: number
+  expeditionEvents: LegacyExpeditionEventState
+  rng: LegacyRngState
+  player: LegacyPlayerStateV3
+  battle: LegacyBattleStateV3
+  stats: LegacyLifetimeStats
+}
+
+const LEGACY_CAMP_DEFINITION_VERSION_V2 = 2 as const
+const LEGACY_CAMP_DEFINITION_VERSION_V3 = 3 as const
+
+type LegacyCampStateV2 = Pick<
+  CampState,
+  | 'structures'
+  | 'training'
+  | 'materials'
+  | 'consumables'
+  | 'quickConsumable'
+  | 'craftJob'
+  | 'buffs'
+  | 'merchant'
+  | 'residents'
+> & {
+  definitionVersion: typeof LEGACY_CAMP_DEFINITION_VERSION_V2
+}
+
+interface LegacyGameStateV7 {
+  schemaVersion: 7
+  lastSavedAt: number
+  currentMode: 'BATTLE' | 'CAMP'
+  camp: LegacyCampStateV2
+  claimedBossMilestoneMask: number
+  expeditionEvents: LegacyExpeditionEventState
+  rng: LegacyRngState
+  player: LegacyPlayerStateV3
+  battle: LegacyBattleStateV3
+  stats: LegacyLifetimeStats
+}
+
+type LegacyCampStateV3 = Pick<
+  CampState,
+  | 'structures'
+  | 'training'
+  | 'materials'
+  | 'consumables'
+  | 'quickConsumable'
+  | 'craftJob'
+  | 'buffs'
+  | 'merchant'
+  | 'residents'
+  | 'bond'
+> & {
+  definitionVersion: typeof LEGACY_CAMP_DEFINITION_VERSION_V3
+}
+
+interface LegacyGameStateV8 {
+  schemaVersion: 8
+  lastSavedAt: number
+  currentMode: 'BATTLE' | 'CAMP'
+  camp: LegacyCampStateV3
+  claimedBossMilestoneMask: number
+  expeditionEvents: LegacyExpeditionEventState
+  rng: LegacyRngState
+  player: LegacyPlayerStateV3
+  battle: LegacyBattleStateV3
+  stats: LegacyLifetimeStats
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
 
 const isSafeNonNegativeInteger = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
@@ -299,8 +452,15 @@ function hasValidExpeditionEvents(
   )
 }
 
-function hasValidCampState(value: unknown): value is CampState {
-  if (!isRecord(value) || value.definitionVersion !== CAMP_DEFINITION_VERSION) {
+function hasValidCampStateForDefinition(
+  value: unknown,
+  definitionVersion: number,
+  consumableIds: readonly string[],
+  recipeIds: readonly string[],
+  requireQuickConsumable: boolean,
+  requireBondState: boolean,
+): boolean {
+  if (!isRecord(value) || value.definitionVersion !== definitionVersion) {
     return false
   }
   const structures = value.structures
@@ -332,7 +492,7 @@ function hasValidCampState(value: unknown): value is CampState {
         training[id] <= Number(structures.trainingGround) * 5,
     ) ||
     !CAMP_MATERIAL_IDS.every((id) => isSafeNonNegativeInteger(materials[id])) ||
-    !CAMP_CONSUMABLE_IDS.every((id) => isSafeNonNegativeInteger(consumables[id]))
+    !consumableIds.every((id) => isSafeNonNegativeInteger(consumables[id]))
   ) {
     return false
   }
@@ -342,6 +502,7 @@ function hasValidCampState(value: unknown): value is CampState {
     const recipeId = CAMP_RECIPE_IDS.find((id) => id === craftJob.recipeId)
     if (
       recipeId === undefined ||
+      !recipeIds.some((id) => id === recipeId) ||
       !isSafeNonNegativeInteger(craftJob.remainingMs) ||
       craftJob.remainingMs < 1 ||
       craftJob.remainingMs > CAMP_RECIPE_DEFINITIONS[recipeId].baseDurationMs
@@ -370,11 +531,88 @@ function hasValidCampState(value: unknown): value is CampState {
       residents.sera.status !== 'contracted') ||
     !isSafeNonNegativeInteger(residents.sera.trust) ||
     residents.sera.trust > 5 ||
-    (residents.sera.status !== 'contracted' && residents.sera.trust !== 0)
+    (residents.sera.status !== 'contracted' && residents.sera.trust !== 0) ||
+    (requireQuickConsumable &&
+      value.quickConsumable !== null &&
+      !CAMP_QUICK_CONSUMABLE_IDS.some((id) => id === value.quickConsumable))
   ) {
     return false
   }
+  if (requireBondState && !hasValidCampBondState(value.bond, residents.sera)) {
+    return false
+  }
   return true
+}
+
+function hasValidCampBondState(
+  value: unknown,
+  sera: Record<string, unknown>,
+): value is CampBondState {
+  if (
+    !isRecord(value) ||
+    value.definitionVersion !== CAMP_BOND_DEFINITION_VERSION ||
+    typeof value.adultAccessConfirmed !== 'boolean' ||
+    (value.seraConsent !== 'notGranted' &&
+      value.seraConsent !== 'granted' &&
+      value.seraConsent !== 'withdrawn') ||
+    !isChapter1CostumeId(value.currentCostumeId) ||
+    !isSafeNonNegativeInteger(value.unlockedCostumeMask) ||
+    value.unlockedCostumeMask > MAX_CHAPTER1_COSTUME_MASK ||
+    !isSafeNonNegativeInteger(value.claimedSynthesisRewardMask) ||
+    value.claimedSynthesisRewardMask > MAX_CHAPTER1_SYNTHESIS_REWARD_MASK
+  ) {
+    return false
+  }
+  const costumeBit = CHAPTER1_COSTUME_DEFINITIONS[value.currentCostumeId].unlockBit
+  if ((value.unlockedCostumeMask & costumeBit) === 0) return false
+  return (
+    value.seraConsent !== 'granted' ||
+    (value.adultAccessConfirmed && sera.status === 'contracted')
+  )
+}
+
+function hasValidCampState(value: unknown): value is CampState {
+  return hasValidCampStateForDefinition(
+    value,
+    CAMP_DEFINITION_VERSION,
+    CAMP_CONSUMABLE_IDS,
+    CAMP_RECIPE_IDS,
+    true,
+    true,
+  )
+}
+
+function hasValidLegacyCampStateV1(value: unknown): value is LegacyCampStateV1 {
+  return hasValidCampStateForDefinition(
+    value,
+    LEGACY_CAMP_DEFINITION_VERSION,
+    LEGACY_CAMP_CONSUMABLE_IDS,
+    LEGACY_CAMP_RECIPE_IDS,
+    false,
+    false,
+  )
+}
+
+function hasValidLegacyCampStateV2(value: unknown): value is LegacyCampStateV2 {
+  return hasValidCampStateForDefinition(
+    value,
+    LEGACY_CAMP_DEFINITION_VERSION_V2,
+    CAMP_CONSUMABLE_IDS,
+    CAMP_RECIPE_IDS,
+    true,
+    false,
+  )
+}
+
+function hasValidLegacyCampStateV3(value: unknown): value is LegacyCampStateV3 {
+  return hasValidCampStateForDefinition(
+    value,
+    LEGACY_CAMP_DEFINITION_VERSION_V3,
+    CAMP_CONSUMABLE_IDS,
+    CAMP_RECIPE_IDS,
+    true,
+    true,
+  )
 }
 
 function isLegacyGameStateV5(value: unknown): value is LegacyGameStateV5 {
@@ -396,23 +634,163 @@ function isLegacyGameStateV5(value: unknown): value is LegacyGameStateV5 {
   )
 }
 
+function hasValidCampBattleRelation(
+  camp: Pick<CampState, 'buffs'> | Pick<LegacyCampStateV1, 'buffs'>,
+  battle: BattleState,
+): boolean {
+  const bossFocusStage = camp.buffs.bossFocusStage
+  return (
+    bossFocusStage === null ||
+    bossFocusStage === 0 ||
+    (bossFocusStage === battle.stage &&
+      battle.stage % 10 === 0 &&
+      battle.stage <= battle.highestStage)
+  )
+}
+
+function isLegacyGameStateV6(value: unknown): value is LegacyGameStateV6 {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 6 ||
+    !hasValidSharedState(value) ||
+    (value.currentMode !== 'BATTLE' && value.currentMode !== 'CAMP') ||
+    !hasValidLegacyCampStateV1(value.camp) ||
+    !isBossMilestoneMask(value.claimedBossMilestoneMask) ||
+    !hasValidCompanionState(value) ||
+    !hasValidRng(value.rng)
+  ) {
+    return false
+  }
+  const battle = value.battle as BattleState
+  return (
+    hasValidCampBattleRelation(value.camp, battle) &&
+    hasValidExpeditionEvents(
+      value.expeditionEvents,
+      value.stats as LifetimeStats,
+      value.rng,
+      battle,
+    )
+  )
+}
+
+function isLegacyGameStateV7(value: unknown): value is LegacyGameStateV7 {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 7 ||
+    !hasValidSharedState(value) ||
+    (value.currentMode !== 'BATTLE' && value.currentMode !== 'CAMP') ||
+    !hasValidLegacyCampStateV2(value.camp) ||
+    !isBossMilestoneMask(value.claimedBossMilestoneMask) ||
+    !hasValidCompanionState(value) ||
+    !hasValidRng(value.rng)
+  ) {
+    return false
+  }
+  const battle = value.battle as BattleState
+  return (
+    hasValidCampBattleRelation(value.camp, battle) &&
+    hasValidExpeditionEvents(
+      value.expeditionEvents,
+      value.stats as LifetimeStats,
+      value.rng,
+      battle,
+    )
+  )
+}
+
+function isLegacyGameStateV8(value: unknown): value is LegacyGameStateV8 {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 8 ||
+    !hasValidSharedState(value) ||
+    (value.currentMode !== 'BATTLE' && value.currentMode !== 'CAMP') ||
+    !hasValidLegacyCampStateV3(value.camp) ||
+    !isBossMilestoneMask(value.claimedBossMilestoneMask) ||
+    !hasValidCompanionState(value) ||
+    !hasValidRng(value.rng)
+  ) {
+    return false
+  }
+  const battle = value.battle as BattleState
+  return (
+    hasValidCampBattleRelation(value.camp, battle) &&
+    hasValidExpeditionEvents(
+      value.expeditionEvents,
+      value.stats as LifetimeStats,
+      value.rng,
+      battle,
+    )
+  )
+}
+
+function hasValidInventoryState(value: unknown): value is InventoryState {
+  if (
+    !isRecord(value) ||
+    value.definitionVersion !== INVENTORY_DEFINITION_VERSION ||
+    !isRecord(value.lootBag) ||
+    !isRecord(value.heroInventory) ||
+    !isRecord(value.campStorage)
+  ) {
+    return false
+  }
+  const isRegisteredItemId = (itemId: string) => {
+    const definition = getItemDefinition(itemId)
+    return definition !== null && definition.id === itemId
+  }
+  const checkCounts = (inv: Record<string, unknown>) =>
+    Object.entries(inv).every(
+      ([itemId, count]) =>
+        isRegisteredItemId(itemId) &&
+        isSafeNonNegativeInteger(count) &&
+        count >= 1,
+    )
+  return checkCounts(value.lootBag) && checkCounts(value.heroInventory) && checkCounts(value.campStorage)
+}
+
+function hasValidPlayerEquippedState(value: unknown): value is PlayerEquippedState {
+  if (!isRecord(value)) return false
+  const keys = Object.keys(value)
+  if (keys.length !== EQUIPMENT_SLOTS.length) return false
+  return EQUIPMENT_SLOTS.every((slot) => {
+    const item = value[slot]
+    if (item === null) return true
+    if (typeof item !== 'string') return false
+    const def = getItemDefinition(item)
+    return def !== null && def.id === item && def.slot === slot
+  })
+}
+
+function hasValidSkillSlotsState(value: unknown): value is SkillSlotState {
+  if (!Array.isArray(value) || value.length !== 3) return false
+  const seenSkills = new Set<string>()
+  for (const skillId of value) {
+    if (skillId === null) continue
+    if (typeof skillId !== 'string') return false
+    if (!SKILL_IDS.includes(skillId as SkillId)) return false
+    if (seenSkills.has(skillId)) return false
+    seenSkills.add(skillId)
+  }
+  return true
+}
+
 export function isGameState(value: unknown): value is GameState {
   if (!isRecord(value) || value.schemaVersion !== SAVE_VERSION || !hasValidSharedState(value)) {
     return false
   }
   const camp = value.camp
   const battle = value.battle as BattleState
-  if (!hasValidCampState(camp)) return false
-  const bossFocusStage = camp.buffs.bossFocusStage
-  const hasValidCampBattleRelation =
-    bossFocusStage === null ||
-    bossFocusStage === 0 ||
-    (bossFocusStage === battle.stage &&
-      battle.stage % 10 === 0 &&
-      battle.stage <= battle.highestStage)
+  const player = value.player as PlayerState
+  if (
+    !hasValidCampState(camp) ||
+    !hasValidInventoryState(value.inventory) ||
+    !hasValidPlayerEquippedState(player.equipped) ||
+    !hasValidSkillSlotsState(player.skillSlots)
+  ) {
+    return false
+  }
   return (
     (value.currentMode === 'BATTLE' || value.currentMode === 'CAMP') &&
-    hasValidCampBattleRelation &&
+    hasValidCampBattleRelation(camp, battle) &&
     isBossMilestoneMask(value.claimedBossMilestoneMask) &&
     hasValidCompanionState(value) &&
     hasValidRng(value.rng) &&
@@ -427,6 +805,15 @@ export function isGameState(value: unknown): value is GameState {
 
 function normalizeGameState(value: GameState): GameState {
   const state = structuredClone(value)
+  if (!state.inventory) {
+    state.inventory = createInitialInventoryState()
+  }
+  if (!state.player.equipped) {
+    state.player.equipped = createInitialPlayerEquippedState()
+  }
+  if (!state.player.skillSlots) {
+    state.player.skillSlots = createInitialSkillSlotsState()
+  }
   state.battle.stage = Math.min(MAX_STAGE, Math.max(1, state.battle.stage))
   state.battle.highestStage = Math.min(
     MAX_STAGE,
@@ -456,11 +843,231 @@ function normalizeGameState(value: GameState): GameState {
       state.player.upgrades[id],
     )
   }
-  for (const id of SKILL_IDS) {
-    state.player.skills[id] = Math.min(SKILL_DEFINITIONS[id].maxRank, state.player.skills[id])
+  if (!state.livingCards) {
+    state.livingCards = {}
   }
   state.player.currentHp = Math.min(getHeroStats(state).maxHp, Math.max(1, state.player.currentHp))
   return state
+}
+
+export function migrateToSchema5(state: GameState): GameState {
+  const cloned = structuredClone(state)
+  cloned.schemaVersion = SAVE_VERSION
+  if (!cloned.livingCards) {
+    cloned.livingCards = {}
+  }
+  return normalizeGameState(cloned)
+}
+
+function finalizeMigratedGameState(value: GameState): GameState | null {
+  const normalized = normalizeGameState(value)
+  return isGameState(normalized) ? normalized : null
+}
+
+function migrateLegacyPlayerState(
+  player: LegacyPlayerState,
+  companion: PlayerState['companion'],
+): PlayerState {
+  return {
+    level: player.level,
+    xp: player.xp,
+    gold: player.gold,
+    essence: player.essence,
+    currentHp: player.currentHp,
+    skillPoints: player.skillPoints,
+    upgrades: {
+      weapon: player.upgrades.weapon,
+      armor: player.upgrades.armor,
+      charm: player.upgrades.charm,
+    },
+    skills: {
+      powerStrike: player.skills.powerStrike,
+      ironWill: player.skills.ironWill,
+      fortune: player.skills.fortune,
+    },
+    companion: { id: companion.id, rank: companion.rank },
+    equipped: createInitialPlayerEquippedState(),
+    skillSlots: createInitialSkillSlotsState(),
+  }
+}
+
+function copyLegacyRngState(rng: LegacyRngState): RngState {
+  return {
+    algorithm: rng.algorithm,
+    seed: rng.seed,
+    state: rng.state,
+    draws: rng.draws,
+  }
+}
+
+function copyLegacyBattleState(
+  battle: LegacyBattleState,
+  companionCooldownMs: number,
+): BattleState {
+  return {
+    stage: battle.stage,
+    highestStage: battle.highestStage,
+    enemyHp: battle.enemyHp,
+    roundRemainderMs: battle.roundRemainderMs,
+    powerStrikeCooldownMs: battle.powerStrikeCooldownMs,
+    companionCooldownMs,
+    kills: battle.kills,
+    defeats: battle.defeats,
+  }
+}
+
+function copyLegacyLifetimeStats(stats: LegacyLifetimeStats): LifetimeStats {
+  return {
+    goldEarned: stats.goldEarned,
+    enemiesDefeated: stats.enemiesDefeated,
+    prestiges: stats.prestiges,
+  }
+}
+
+function copyLegacyExpeditionEvents(
+  events: LegacyExpeditionEventState,
+): ExpeditionEventState {
+  return {
+    definitionVersion: events.definitionVersion,
+    runPrestige: events.runPrestige,
+    milestoneMask: events.milestoneMask,
+    pending: events.pending.map((pending) => ({
+      eventId: pending.eventId,
+      definitionId: pending.definitionId,
+      definitionVersion: pending.definitionVersion,
+      milestoneIndex: pending.milestoneIndex,
+      milestoneStage: pending.milestoneStage,
+      maxHpAtOffer: pending.maxHpAtOffer,
+      resolvedChoices: pending.resolvedChoices.map((choice) => ({
+        choiceId: choice.choiceId,
+        effect: choice.effect.type === 'grantGold'
+          ? { type: 'grantGold', amount: choice.effect.amount }
+          : { type: 'restoreHp', amount: choice.effect.amount },
+      })),
+    })),
+    overflowCount: events.overflowCount,
+  }
+}
+
+function copyCampStructures(camp: Pick<CampState, 'structures'>): CampState['structures'] {
+  return {
+    tent: camp.structures.tent,
+    workbench: camp.structures.workbench,
+    trainingGround: camp.structures.trainingGround,
+  }
+}
+
+function copyCampTraining(camp: Pick<CampState, 'training'>): CampState['training'] {
+  return {
+    attack: camp.training.attack,
+    vitality: camp.training.vitality,
+  }
+}
+
+function copyCampMaterials(camp: Pick<CampState, 'materials'>): CampState['materials'] {
+  return {
+    ashShard: camp.materials.ashShard,
+    beastHide: camp.materials.beastHide,
+    emberCore: camp.materials.emberCore,
+  }
+}
+
+function copyCampBuffs(camp: Pick<CampState, 'buffs'>): CampState['buffs'] {
+  return {
+    goldBoostRounds: camp.buffs.goldBoostRounds,
+    bossFocusStage: camp.buffs.bossFocusStage,
+  }
+}
+
+function copyCampMerchant(camp: Pick<CampState, 'merchant'>): CampState['merchant'] {
+  return {
+    cycle: camp.merchant.cycle,
+    refreshRemainingMs: camp.merchant.refreshRemainingMs,
+    purchasedOfferMask: camp.merchant.purchasedOfferMask,
+  }
+}
+
+function copyCampResidents(camp: Pick<CampState, 'residents'>): CampState['residents'] {
+  return {
+    sera: {
+      status: camp.residents.sera.status,
+      trust: camp.residents.sera.trust,
+    },
+  }
+}
+
+function copyCampCraftJob(
+  job: CampState['craftJob'] | LegacyCampStateV1['craftJob'],
+): CampState['craftJob'] {
+  return job === null
+    ? null
+    : { recipeId: job.recipeId, remainingMs: job.remainingMs }
+}
+
+function migrateLegacyCampStateV1(camp: LegacyCampStateV1): LegacyCampStateV2 {
+  return {
+    definitionVersion: LEGACY_CAMP_DEFINITION_VERSION_V2,
+    structures: copyCampStructures(camp),
+    training: copyCampTraining(camp),
+    materials: copyCampMaterials(camp),
+    consumables: {
+      goldStew: camp.consumables.goldStew,
+      focusTonic: camp.consumables.focusTonic,
+      healingPotion: 0,
+    },
+    quickConsumable: null,
+    craftJob: copyCampCraftJob(camp.craftJob),
+    buffs: copyCampBuffs(camp),
+    merchant: copyCampMerchant(camp),
+    residents: copyCampResidents(camp),
+  }
+}
+
+function migrateLegacyCampStateV2(camp: LegacyCampStateV2): CampState {
+  return {
+    definitionVersion: CAMP_DEFINITION_VERSION,
+    structures: copyCampStructures(camp),
+    training: copyCampTraining(camp),
+    materials: copyCampMaterials(camp),
+    consumables: {
+      goldStew: camp.consumables.goldStew,
+      focusTonic: camp.consumables.focusTonic,
+      healingPotion: camp.consumables.healingPotion,
+    },
+    quickConsumable: camp.quickConsumable,
+    craftJob: copyCampCraftJob(camp.craftJob),
+    buffs: copyCampBuffs(camp),
+    merchant: copyCampMerchant(camp),
+    residents: copyCampResidents(camp),
+    bond: createInitialCampBondState(),
+  }
+}
+
+function copyLegacyCampStateV3(camp: LegacyCampStateV3): CampState {
+  return {
+    definitionVersion: CAMP_DEFINITION_VERSION,
+    structures: copyCampStructures(camp),
+    training: copyCampTraining(camp),
+    materials: copyCampMaterials(camp),
+    consumables: {
+      goldStew: camp.consumables.goldStew,
+      focusTonic: camp.consumables.focusTonic,
+      healingPotion: camp.consumables.healingPotion,
+    },
+    quickConsumable: camp.quickConsumable,
+    craftJob: copyCampCraftJob(camp.craftJob),
+    buffs: copyCampBuffs(camp),
+    merchant: copyCampMerchant(camp),
+    residents: copyCampResidents(camp),
+    bond: {
+      definitionVersion: camp.bond.definitionVersion,
+      adultAccessConfirmed: camp.bond.adultAccessConfirmed,
+      seraConsent: camp.bond.seraConsent,
+      currentCostumeId: camp.bond.currentCostumeId,
+      unlockedCostumeMask: camp.bond.unlockedCostumeMask,
+      claimedSynthesisRewardMask: camp.bond.claimedSynthesisRewardMask,
+    },
+  }
 }
 
 function deriveLegacySeed(state: LegacyGameStateV1): number {
@@ -504,101 +1111,152 @@ function createMigratedExpeditionEvents(
 function migrateLegacyGameState(
   state: LegacyGameStateV1 | LegacyGameStateV2,
   rng: RngState,
-): GameState {
-  const legacy = structuredClone(state)
+): GameState | null {
   const migrated: GameState = {
     schemaVersion: SAVE_VERSION,
-    lastSavedAt: legacy.lastSavedAt,
+    lastSavedAt: state.lastSavedAt,
     currentMode: 'BATTLE',
     camp: createInitialCampState(),
+    inventory: createInitialInventoryState(),
     claimedBossMilestoneMask: deriveLegacyBossMilestoneMask(
-      legacy.battle.highestStage,
-      legacy.stats.prestiges,
+      state.battle.highestStage,
+      state.stats.prestiges,
     ),
     expeditionEvents: createMigratedExpeditionEvents(
-      legacy.battle.highestStage,
-      legacy.stats.prestiges,
+      state.battle.highestStage,
+      state.stats.prestiges,
     ),
-    rng: { ...rng },
-    player: {
-      ...legacy.player,
-      companion: { id: null, rank: 0 },
-    },
-    battle: {
-      ...legacy.battle,
-      companionCooldownMs: 0,
-    },
-    stats: { ...legacy.stats },
+    rng: copyLegacyRngState(rng),
+    player: migrateLegacyPlayerState(state.player, { id: null, rank: 0 }),
+    battle: copyLegacyBattleState(state.battle, 0),
+    stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
-  return normalizeGameState(migrated)
+  return finalizeMigratedGameState(migrated)
 }
 
-function migrateLegacyGameStateV3(state: LegacyGameStateV3): GameState {
-  const legacy = structuredClone(state)
+function migrateLegacyGameStateV3(state: LegacyGameStateV3): GameState | null {
   const migrated: GameState = {
     schemaVersion: SAVE_VERSION,
-    lastSavedAt: legacy.lastSavedAt,
+    lastSavedAt: state.lastSavedAt,
     currentMode: 'BATTLE',
     camp: createInitialCampState(),
+    inventory: createInitialInventoryState(),
     claimedBossMilestoneMask: deriveLegacyBossMilestoneMask(
-      legacy.battle.highestStage,
-      legacy.stats.prestiges,
+      state.battle.highestStage,
+      state.stats.prestiges,
     ),
     expeditionEvents: createMigratedExpeditionEvents(
-      legacy.battle.highestStage,
-      legacy.stats.prestiges,
+      state.battle.highestStage,
+      state.stats.prestiges,
     ),
-    rng: { ...legacy.rng },
-    player: {
-      ...legacy.player,
-      upgrades: { ...legacy.player.upgrades },
-      skills: { ...legacy.player.skills },
-      companion: { ...legacy.player.companion },
-    },
-    battle: { ...legacy.battle },
-    stats: { ...legacy.stats },
+    rng: copyLegacyRngState(state.rng),
+    player: migrateLegacyPlayerState(state.player, state.player.companion),
+    battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
+    stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
-  return normalizeGameState(migrated)
+  return finalizeMigratedGameState(migrated)
 }
 
-function migrateLegacyGameStateV4(state: LegacyGameStateV4): GameState {
-  const legacy = structuredClone(state)
+function migrateLegacyGameStateV4(state: LegacyGameStateV4): GameState | null {
   const migrated: GameState = {
     schemaVersion: SAVE_VERSION,
-    lastSavedAt: legacy.lastSavedAt,
+    lastSavedAt: state.lastSavedAt,
     currentMode: 'BATTLE',
     camp: createInitialCampState(),
-    claimedBossMilestoneMask: legacy.claimedBossMilestoneMask,
+    inventory: createInitialInventoryState(),
+    claimedBossMilestoneMask: state.claimedBossMilestoneMask,
     expeditionEvents: createMigratedExpeditionEvents(
-      legacy.battle.highestStage,
-      legacy.stats.prestiges,
+      state.battle.highestStage,
+      state.stats.prestiges,
     ),
-    rng: { ...legacy.rng },
-    player: {
-      ...legacy.player,
-      upgrades: { ...legacy.player.upgrades },
-      skills: { ...legacy.player.skills },
-      companion: { ...legacy.player.companion },
-    },
-    battle: { ...legacy.battle },
-    stats: { ...legacy.stats },
+    rng: copyLegacyRngState(state.rng),
+    player: migrateLegacyPlayerState(state.player, state.player.companion),
+    battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
+    stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
-  return normalizeGameState(migrated)
+  return finalizeMigratedGameState(migrated)
 }
 
-function migrateLegacyGameStateV5(state: LegacyGameStateV5): GameState {
-  const legacy = structuredClone(state)
+function migrateLegacyGameStateV5(state: LegacyGameStateV5): GameState | null {
   const migrated: GameState = {
-    ...legacy,
     schemaVersion: SAVE_VERSION,
+    lastSavedAt: state.lastSavedAt,
     currentMode: 'BATTLE',
     camp: createInitialCampState(),
+    inventory: createInitialInventoryState(),
+    claimedBossMilestoneMask: state.claimedBossMilestoneMask,
+    expeditionEvents: copyLegacyExpeditionEvents(state.expeditionEvents),
+    rng: copyLegacyRngState(state.rng),
+    player: migrateLegacyPlayerState(state.player, state.player.companion),
+    battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
+    stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
-  return normalizeGameState(migrated)
+  return finalizeMigratedGameState(migrated)
+}
+
+function migrateLegacyGameStateV6(state: LegacyGameStateV6): GameState | null {
+  const migrated: GameState = {
+    schemaVersion: SAVE_VERSION,
+    lastSavedAt: state.lastSavedAt,
+    currentMode: state.currentMode,
+    camp: migrateLegacyCampStateV2(migrateLegacyCampStateV1(state.camp)),
+    inventory: createInitialInventoryState(),
+    claimedBossMilestoneMask: state.claimedBossMilestoneMask,
+    expeditionEvents: copyLegacyExpeditionEvents(state.expeditionEvents),
+    rng: copyLegacyRngState(state.rng),
+    player: migrateLegacyPlayerState(state.player, state.player.companion),
+    battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
+    stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
+  }
+  return finalizeMigratedGameState(migrated)
+}
+
+function migrateLegacyGameStateV7(state: LegacyGameStateV7): GameState | null {
+  const migrated: GameState = {
+    schemaVersion: SAVE_VERSION,
+    lastSavedAt: state.lastSavedAt,
+    currentMode: state.currentMode,
+    camp: migrateLegacyCampStateV2(state.camp),
+    inventory: createInitialInventoryState(),
+    claimedBossMilestoneMask: state.claimedBossMilestoneMask,
+    expeditionEvents: copyLegacyExpeditionEvents(state.expeditionEvents),
+    rng: copyLegacyRngState(state.rng),
+    player: migrateLegacyPlayerState(state.player, state.player.companion),
+    battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
+    stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
+  }
+  return finalizeMigratedGameState(migrated)
+}
+
+function migrateLegacyGameStateV8(state: LegacyGameStateV8): GameState | null {
+  const migrated: GameState = {
+    schemaVersion: SAVE_VERSION,
+    lastSavedAt: state.lastSavedAt,
+    currentMode: state.currentMode,
+    camp: copyLegacyCampStateV3(state.camp),
+    inventory: createInitialInventoryState(),
+    claimedBossMilestoneMask: state.claimedBossMilestoneMask,
+    expeditionEvents: copyLegacyExpeditionEvents(state.expeditionEvents),
+    rng: copyLegacyRngState(state.rng),
+    player: migrateLegacyPlayerState(state.player, state.player.companion),
+    battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
+    stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
+  }
+  return finalizeMigratedGameState(migrated)
 }
 
 export function decodeGameState(value: unknown): GameState | null {
   if (isGameState(value)) return normalizeGameState(value)
+  if (isLegacyGameStateV8(value)) return migrateLegacyGameStateV8(value)
+  if (isLegacyGameStateV7(value)) return migrateLegacyGameStateV7(value)
+  if (isLegacyGameStateV6(value)) return migrateLegacyGameStateV6(value)
   if (
     isRecord(value) &&
     value.schemaVersion === 5 &&
@@ -690,12 +1348,21 @@ export function isFutureGameStateValue(value: unknown): boolean {
   ) {
     return true
   }
-  return hasFutureExpeditionDefinitionVersion(value) || hasFutureCampDefinitionVersion(value)
+  return (
+    hasFutureExpeditionDefinitionVersion(value) ||
+    hasFutureCampDefinitionVersion(value) ||
+    hasFutureBondDefinitionVersion(value) ||
+    hasFutureInventoryDefinitionVersion(value)
+  )
 }
 
 function hasFutureExpeditionDefinitionVersion(value: Record<string, unknown>): boolean {
   if (
-    (value.schemaVersion !== 5 && value.schemaVersion !== SAVE_VERSION) ||
+    (value.schemaVersion !== 5 &&
+      value.schemaVersion !== 6 &&
+      value.schemaVersion !== 7 &&
+      value.schemaVersion !== 8 &&
+      value.schemaVersion !== SAVE_VERSION) ||
     !isRecord(value.expeditionEvents)
   ) {
     return false
@@ -717,12 +1384,45 @@ function hasFutureExpeditionDefinitionVersion(value: Record<string, unknown>): b
 }
 
 function hasFutureCampDefinitionVersion(value: Record<string, unknown>): boolean {
+  if (!isRecord(value.camp) || !isSafeNonNegativeInteger(value.camp.definitionVersion)) {
+    return false
+  }
+  const supportedDefinitionVersion = value.schemaVersion === 6
+    ? LEGACY_CAMP_DEFINITION_VERSION
+    : value.schemaVersion === 7
+      ? LEGACY_CAMP_DEFINITION_VERSION_V2
+    : value.schemaVersion === 8
+      ? LEGACY_CAMP_DEFINITION_VERSION_V3
+    : value.schemaVersion === SAVE_VERSION
+      ? CAMP_DEFINITION_VERSION
+      : null
   return (
-    value.schemaVersion === SAVE_VERSION &&
-    isRecord(value.camp) &&
-    isSafeNonNegativeInteger(value.camp.definitionVersion) &&
-    value.camp.definitionVersion > CAMP_DEFINITION_VERSION
+    supportedDefinitionVersion !== null &&
+    value.camp.definitionVersion > supportedDefinitionVersion
   )
+}
+
+function hasFutureBondDefinitionVersion(value: Record<string, unknown>): boolean {
+  if (
+    (value.schemaVersion !== 8 && value.schemaVersion !== SAVE_VERSION) ||
+    !isRecord(value.camp) ||
+    !isRecord(value.camp.bond) ||
+    !isSafeNonNegativeInteger(value.camp.bond.definitionVersion)
+  ) {
+    return false
+  }
+  return value.camp.bond.definitionVersion > CAMP_BOND_DEFINITION_VERSION
+}
+
+function hasFutureInventoryDefinitionVersion(value: Record<string, unknown>): boolean {
+  if (
+    value.schemaVersion !== SAVE_VERSION ||
+    !isRecord(value.inventory) ||
+    !isSafeNonNegativeInteger(value.inventory.definitionVersion)
+  ) {
+    return false
+  }
+  return value.inventory.definitionVersion > INVENTORY_DEFINITION_VERSION
 }
 
 function readSlot(storage: StorageLike, key: SaveSlotKey): SlotRead {

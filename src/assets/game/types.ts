@@ -1,6 +1,7 @@
 export const VISUAL_ASSET_KINDS = [
   'hero',
   'companion',
+  'costume',
   'enemy',
   'boss',
   'region',

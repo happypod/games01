@@ -15,6 +15,13 @@ function getFocusableElements(dialog: HTMLElement) {
   )
 }
 
+function canRestoreFocus(element: HTMLElement | null): element is HTMLElement {
+  return element !== null
+    && element.isConnected
+    && !element.matches(':disabled')
+    && element.closest('[inert]') === null
+}
+
 export function useModalFocus<T extends HTMLElement>(
   onClose: () => void,
   active = true,
@@ -75,9 +82,9 @@ export function useModalFocus<T extends HTMLElement>(
     return () => {
       dialog.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('focusin', handleFocusIn, true)
-      if (previousFocus?.isConnected) {
+      if (canRestoreFocus(previousFocus)) {
         previousFocus.focus()
-      } else if (fallbackFocus?.isConnected) {
+      } else if (canRestoreFocus(fallbackFocus)) {
         fallbackFocus.focus()
       }
     }

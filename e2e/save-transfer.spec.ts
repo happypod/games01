@@ -15,6 +15,14 @@ async function openSaveBackup(page: Page) {
   )
 }
 
+async function openWeaponDetail(page: Page) {
+  const slot = page.locator('[data-action-slot="weapon"]')
+  const detail = page.locator('[data-action-detail="weapon"]')
+  if (!(await detail.isVisible())) await slot.click()
+  await expect(detail).toBeVisible()
+  return { slot, detail }
+}
+
 async function expectModalToBlockActionSlot(page: Page) {
   const slot = page.locator('[data-action-slot="armor"]')
   await expect(slot).toHaveAttribute('aria-expanded', 'false')
@@ -44,12 +52,11 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
   await expect(page.getByText('● 자동 저장 정상', { exact: true })).toBeVisible()
 
   await context.clock.setFixedTime(new Date(STARTED_AT.getTime() + 6_000))
-  const weaponButton = page.getByRole('button', { name: /불씨 검 강화/ })
+  const weapon = await openWeaponDetail(page)
+  const weaponButton = weapon.detail.getByRole('button', { name: /불씨 검 강화/ })
   await expect(weaponButton).toBeEnabled()
   await weaponButton.click()
-  await expect(
-    page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.1', { exact: true }),
-  ).toBeVisible()
+  await expect(weapon.slot).toContainText('Lv.1')
 
   await openSaveBackup(page)
   const downloadPromise = page.waitForEvent('download')
@@ -62,9 +69,7 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
 
   page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: '진행 초기화' }).click()
-  await expect(
-    page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.0', { exact: true }),
-  ).toBeVisible()
+  await expect(page.locator('[data-action-slot="weapon"]')).toContainText('Lv.0')
 
   await openSaveBackup(page)
   const fileInput = page.getByLabel('저장 파일 선택')
@@ -76,9 +81,7 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
   await expect(page.getByText('JSON 형식이 올바르지 않습니다.', { exact: true })).toBeVisible()
   await page.reload()
   await openSaveBackup(page)
-  await expect(
-    page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.0', { exact: true }),
-  ).toBeVisible()
+  await expect(page.locator('[data-action-slot="weapon"]')).toContainText('Lv.0')
 
   await page.getByLabel('저장 파일 선택').setInputFiles({
     name: 'emberwatch-save.json',
@@ -93,9 +96,7 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
   await expect(preview).toHaveCount(0)
   await page.reload()
   await openSaveBackup(page)
-  await expect(
-    page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.0', { exact: true }),
-  ).toBeVisible()
+  await expect(page.locator('[data-action-slot="weapon"]')).toContainText('Lv.0')
 
   await page.getByLabel('저장 파일 선택').setInputFiles({
     name: 'emberwatch-save.json',
@@ -107,13 +108,9 @@ test('저장을 내보내고 잘못된 파일은 거부한 뒤 검증된 백업�
   await preview.getByRole('button', { name: '검증된 저장 복원' }).click()
   expect(browserErrors).toEqual([])
   await expect(preview).toHaveCount(0)
-  await expect(
-    page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.1', { exact: true }),
-  ).toBeVisible()
+  await expect(page.locator('[data-action-slot="weapon"]')).toContainText('Lv.1')
 
   await page.reload()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(
-    page.getByRole('article').filter({ hasText: '불씨 검' }).getByText('Lv.1', { exact: true }),
-  ).toBeVisible()
+  await expect(page.locator('[data-action-slot="weapon"]')).toContainText('Lv.1')
 })

@@ -1,12 +1,16 @@
-import { useRef, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { CampDashboard } from './CampDashboard'
 import { GameModeSelector } from './GameModeSelector'
-import { GrowthTabs } from './GrowthTabs'
 import { OfflineReport } from './OfflineReport'
 import { SaveTransferPanel } from './SaveTransferPanel'
 import { TacticalActionBar } from './TacticalActionBar'
+import {
+  TacticalIntelPanel,
+  type TacticalIntelTabId,
+} from './TacticalIntelPanel'
 import { TacticalStage } from './TacticalStage'
 import { TacticalUtilityDock } from './TacticalUtilityDock'
+import { LivingCardConsole } from './LivingCardConsole'
 import { formatNumber } from '../game/format'
 import type { GameController } from '../hooks/useGame'
 import { useCombatResults } from '../hooks/useCombatResults'
@@ -38,7 +42,7 @@ export function GameScreen({
   showSaveTransfer = true,
   footerSuffix = '',
 }: GameScreenProps) {
-  const shellRef = useRef<HTMLDivElement>(null)
+  const [activeIntelTab, setActiveIntelTab] = useState<TacticalIntelTabId>('map')
   const controlsDisabled = !game.ready || game.readOnly
   const combatResults = useCombatResults(
     game.combatEventBatch,
@@ -63,15 +67,8 @@ export function GameScreen({
       game.prestige()
     }
   }
-  const enterCampFromActionBar = () => {
-    game.changeMode('CAMP')
-    shellRef.current
-      ?.querySelector<HTMLButtonElement>('[data-game-mode="CAMP"]')
-      ?.focus()
-  }
-
   return (
-    <div ref={shellRef} className="app-shell">
+    <div className="app-shell">
       <a className="skip-link" href="#main-content">본문 바로가기</a>
       <div className="ambient ambient--one" aria-hidden="true" />
       <div className="ambient ambient--two" aria-hidden="true" />
@@ -164,11 +161,17 @@ export function GameScreen({
               disabled={controlsDisabled}
               onUpgradeStructure={game.upgradeCampStructure}
               onTrain={game.trainAtCamp}
+              onHealAtCamp={game.healAtCamp}
+              onEquipQuickConsumable={game.equipQuickConsumable}
               onStartCraft={game.startCampCraft}
               onUseConsumable={game.useCampConsumable}
               onPurchaseMerchantOffer={game.purchaseCampMerchantOffer}
               onAcceptSeraContract={game.acceptSeraContract}
               onIncreaseSeraTrust={game.increaseSeraTrust}
+              onSetAdultContentAccess={game.setAdultContentAccess}
+              onSetSeraBondConsent={game.setSeraBondConsent}
+              onSelectCostume={game.selectCampCostume}
+              onSynthesizeJointBond={game.synthesizeJointBond}
             />
             {showSaveTransfer && game.ready && game.readOnly && (
               <SaveTransferPanel
@@ -182,12 +185,12 @@ export function GameScreen({
         ) : (
           <div className="tactical-layout" data-testid="tactical-layout">
             <div className="tactical-battlefield">
+
               <TacticalStage
                 state={game.state}
                 batch={game.combatEventBatch}
                 streamGeneration={game.combatEventGeneration}
                 notice={game.notice}
-                onChooseStage={game.chooseStage}
                 onChooseExpeditionEvent={game.chooseExpeditionEvent}
                 disabled={controlsDisabled}
                 {...(disabledReason ? { disabledReason } : {})}
@@ -197,20 +200,37 @@ export function GameScreen({
                 state={game.state}
                 onBuyUpgrade={game.buyUpgrade}
                 onBuySkill={game.buySkill}
-                onEnterCamp={enterCampFromActionBar}
+                onRecruitCompanion={game.recruitCompanion}
+                onTrainCompanion={game.trainCompanion}
+                onUseEquippedConsumable={game.useEquippedConsumable}
+                onOpenInventory={() => setActiveIntelTab('inventory')}
                 disabled={controlsDisabled}
                 {...(disabledReason ? { disabledReason } : {})}
               />
+
+
             </div>
 
-            <aside className="tactical-command-dock" aria-label="성장과 원정 관리">
-              <GrowthTabs
+            <aside className="tactical-command-dock" aria-label="전술 정보와 원정 관리">
+              <LivingCardConsole
                 state={game.state}
-                onBuyUpgrade={game.buyUpgrade}
-                onBuySkill={game.buySkill}
-                onRecruitCompanion={game.recruitCompanion}
-                onTrainCompanion={game.trainCompanion}
+                batch={game.combatEventBatch}
+                onChooseExpeditionEvent={game.chooseExpeditionEvent}
+              />
+              <TacticalIntelPanel
+                state={game.state}
+                activeTab={activeIntelTab}
+                onActiveTabChange={setActiveIntelTab}
+                onChooseStage={game.chooseStage}
+                onEquipQuickConsumable={game.equipQuickConsumable}
+                onEquipItem={game.equipItem}
+                onUnequipItem={game.unequipItem}
+                onMoveItem={game.moveItem}
+                onSettleLoot={game.settleLootAtCamp}
+                onEquipSkillSlot={game.equipSkillSlot}
+                onUnequipSkillSlot={game.unequipSkillSlot}
                 disabled={controlsDisabled}
+                {...(disabledReason ? { disabledReason } : {})}
               />
 
               <TacticalUtilityDock

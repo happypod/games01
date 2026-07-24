@@ -21,6 +21,10 @@ import {
   SAVE_SLOT_KEYS,
   bootstrapGame,
   clearSave,
+  createInitialInventoryState,
+  createInitialPlayerEquippedState,
+  isFutureGameStateValue,
+  isGameState,
   parseSave,
   parseSaveEnvelope,
   saveGame,
@@ -232,6 +236,9 @@ describe('A/B game persistence', () => {
     const reordered = {
       schemaVersion: migrated.schemaVersion,
       lastSavedAt: migrated.lastSavedAt,
+      currentMode: migrated.currentMode,
+      camp: structuredClone(migrated.camp),
+      inventory: structuredClone(migrated.inventory),
       claimedBossMilestoneMask: migrated.claimedBossMilestoneMask,
       expeditionEvents: structuredClone(migrated.expeditionEvents),
       rng: { ...migrated.rng },
@@ -245,6 +252,8 @@ describe('A/B game persistence', () => {
         skillPoints: migrated.player.skillPoints,
         upgrades: { ...migrated.player.upgrades },
         skills: { ...migrated.player.skills },
+        equipped: structuredClone(migrated.player.equipped),
+        skillSlots: [...migrated.player.skillSlots],
       },
       battle: {
         companionCooldownMs: migrated.battle.companionCooldownMs,
@@ -344,7 +353,7 @@ describe('A/B game persistence', () => {
     expect(parseSaveEnvelope(storage.getItem(SAVE_SLOT_B_KEY)!)?.revision).toBe(10)
   })
 
-  it('migrates the checked-in v1 fixture to a verified schema5 envelope with a stable RNG', () => {
+  it('migrates the checked-in v1 fixture to a verified current-schema envelope with a stable RNG', () => {
     const storage = new MemoryStorage()
     storage.setItem(LEGACY_SAVE_KEY, JSON.stringify(legacySaveV1))
 
@@ -356,11 +365,15 @@ describe('A/B game persistence', () => {
       lastSavedAt: legacySaveV1.lastSavedAt,
       currentMode: 'BATTLE',
       camp: createInitialCampState(),
+      inventory: createInitialInventoryState(),
+      livingCards: {},
       claimedBossMilestoneMask: 0,
       expeditionEvents: migratedExpeditionEvents(legacySaveV1.battle.highestStage, 0),
       player: {
         ...legacySaveV1.player,
         companion: { id: null, rank: 0 },
+        equipped: createInitialPlayerEquippedState(),
+        skillSlots: ['powerStrike', null, null],
       },
       battle: {
         ...legacySaveV1.battle,
@@ -410,7 +423,7 @@ describe('A/B game persistence', () => {
     expect(parseSave(JSON.stringify(reordered))?.rng.seed).toBe(canonical?.rng.seed)
   })
 
-  it('reads a v2/schema1 envelope without writing and checkpoints schema5 only as writer', () => {
+  it('reads a v2/schema1 envelope without writing and checkpoints the current schema only as writer', () => {
     const storage = new MemoryStorage()
     const legacyEnvelope = JSON.stringify({
       formatVersion: LEGACY_SAVE_FORMAT_VERSION,
@@ -444,6 +457,8 @@ describe('A/B game persistence', () => {
       schemaVersion: SAVE_VERSION,
       currentMode: 'BATTLE',
       camp: createInitialCampState(),
+      inventory: createInitialInventoryState(),
+      livingCards: {},
       claimedBossMilestoneMask: 0,
       expeditionEvents: migratedExpeditionEvents(
         legacySaveV2.battle.highestStage,
@@ -453,6 +468,8 @@ describe('A/B game persistence', () => {
       player: {
         ...legacySaveV2.player,
         companion: { id: null, rank: 0 },
+        equipped: createInitialPlayerEquippedState(),
+        skillSlots: ['powerStrike', null, null],
       },
       battle: {
         ...legacySaveV2.battle,
@@ -461,7 +478,7 @@ describe('A/B game persistence', () => {
     })
   })
 
-  it('reads a format3/schema2 A/B winner and checkpoints schema5 only as writer', () => {
+  it('reads a format3/schema2 A/B winner and checkpoints the current schema only as writer', () => {
     const storage = new MemoryStorage()
     const legacyEnvelope = JSON.stringify({
       formatVersion: SAVE_FORMAT_VERSION,
@@ -627,7 +644,7 @@ describe('A/B game persistence', () => {
     })
   })
 
-  it('reads a schema4 A/B winner in memory and checkpoints schema5 only as writer', () => {
+  it('reads a schema4 A/B winner in memory and checkpoints the current schema only as writer', () => {
     const storage = new MemoryStorage()
     const current = createInitialState(1_000, 0x0107_0005)
     current.claimedBossMilestoneMask = 1
@@ -909,6 +926,36 @@ describe('A/B game persistence', () => {
     expect(bootstrapGame(legacyStorage, 500).saveBlocked).toBe(true)
     expect(saveGame(legacyStorage, createInitialState(500))).toBe(false)
     expect(legacyStorage.getItem(LEGACY_SAVE_KEY)).toBe(futureLegacy)
+    expect(legacyStorage.getItem(SAVE_SLOT_A_KEY)).toBeNull()
+  })
+
+  it('blocks a future nested bond definition in A/B and legacy raw saves', () => {
+    const storage = new MemoryStorage()
+    const stable = createInitialState(100, 0x4260_2001)
+    expect(saveGameAtRevision(storage, stable, null)).toMatchObject({ revision: 1 })
+
+    const future = createInitialState(200, stable.rng.seed)
+    future.camp.bond.definitionVersion = 2
+    const futureRaw = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 2,
+      savedAt: future.lastSavedAt,
+      state: future,
+    })
+    storage.setItem(SAVE_SLOT_B_KEY, futureRaw)
+
+    expect(bootstrapGame(storage, 500, 'writer').saveBlocked).toBe(true)
+    expect(saveGameAtRevision(storage, createInitialState(500), 1)).toMatchObject({
+      status: 'blocked',
+    })
+    expect(storage.getItem(SAVE_SLOT_B_KEY)).toBe(futureRaw)
+
+    const legacyStorage = new MemoryStorage()
+    const futureLegacyRaw = JSON.stringify(future)
+    legacyStorage.setItem(LEGACY_SAVE_KEY, futureLegacyRaw)
+    expect(bootstrapGame(legacyStorage, 500, 'writer').saveBlocked).toBe(true)
+    expect(saveGame(legacyStorage, createInitialState(500))).toBe(false)
+    expect(legacyStorage.getItem(LEGACY_SAVE_KEY)).toBe(futureLegacyRaw)
     expect(legacyStorage.getItem(SAVE_SLOT_A_KEY)).toBeNull()
   })
 
@@ -1445,6 +1492,175 @@ describe('A/B game persistence', () => {
     expect(clearSave(storage)).toBe(true)
     expect(SAVE_SLOT_KEYS.every((key) => storage.getItem(key) === null)).toBe(true)
     expect(storage.getItem(LEGACY_SAVE_KEY)).toBeNull()
+  })
+
+  it('migrates Schema 8 to Schema 9 with powerStrike in slot 0 regardless of legacy rank', () => {
+    const schema8State: Record<string, unknown> = JSON.parse(JSON.stringify(createInitialState(1_000)))
+    delete schema8State.inventory
+    delete (schema8State.player as Record<string, unknown>).equipped
+    delete (schema8State.player as Record<string, unknown>).skillSlots
+    ;((schema8State.player as Record<string, unknown>).skills as Record<string, unknown>)
+      .powerStrike = 0
+    schema8State.schemaVersion = 8
+
+    const decoded = parseSave(JSON.stringify(schema8State))
+    expect(decoded).not.toBeNull()
+    expect(decoded?.schemaVersion).toBe(SAVE_VERSION)
+    expect(decoded?.inventory).toEqual({
+      definitionVersion: 1,
+      lootBag: {},
+      heroInventory: {},
+      campStorage: {},
+    })
+    expect(decoded?.player.equipped).toEqual({
+      weapon: null,
+      armor: null,
+      helmet: null,
+      accessory: null,
+    })
+    expect(decoded?.player.skillSlots).toEqual(['powerStrike', null, null])
+  })
+
+  it('copies only allow-listed nested Schema 8 fields into Schema 9', () => {
+    const schema8 = JSON.parse(JSON.stringify(createInitialState(1_000))) as Record<string, unknown>
+    delete schema8.inventory
+    const player = schema8.player as Record<string, unknown>
+    delete player.equipped
+    delete player.skillSlots
+    schema8.schemaVersion = 8
+
+    const marker = 'schema8-unknown-field-must-not-survive'
+    const inject = (value: unknown) => {
+      ;(value as Record<string, unknown>).injected = marker
+    }
+    inject(schema8)
+    inject(player)
+    inject(player.upgrades)
+    inject(player.skills)
+    inject(player.companion)
+    inject(schema8.battle)
+    inject(schema8.stats)
+    inject(schema8.rng)
+    inject(schema8.expeditionEvents)
+    const camp = schema8.camp as Record<string, unknown>
+    inject(camp)
+    for (const key of [
+      'structures',
+      'training',
+      'materials',
+      'consumables',
+      'buffs',
+      'merchant',
+      'residents',
+      'bond',
+    ]) {
+      inject(camp[key])
+    }
+    inject((camp.residents as Record<string, unknown>).sera)
+
+    const decoded = parseSave(JSON.stringify(schema8))
+    expect(decoded).not.toBeNull()
+    expect(isGameState(decoded)).toBe(true)
+    expect(JSON.stringify(decoded)).not.toContain(marker)
+  })
+
+  it('rejects invalid item IDs, invalid equipment slots, and duplicate skill slots in isGameState', () => {
+    const valid = createInitialState(1_000)
+
+    // Unregistered item in inventory
+    const invalidInv = JSON.parse(JSON.stringify(valid))
+    invalidInv.inventory.heroInventory['invalid.unknown-item'] = 1
+    expect(isGameState(invalidInv)).toBe(false)
+
+    // Invalid item slot in equipped (weapon in armor slot)
+    const invalidSlot = JSON.parse(JSON.stringify(valid))
+    invalidSlot.player.equipped.armor = 'weapon.novice-sword'
+    expect(isGameState(invalidSlot)).toBe(false)
+
+    // Duplicate skills in skillSlots
+    const duplicateSkills = JSON.parse(JSON.stringify(valid))
+    duplicateSkills.player.skillSlots = ['powerStrike', 'powerStrike', null]
+    expect(isGameState(duplicateSkills)).toBe(false)
+
+    // Arrays are not plain inventory records.
+    const arrayInventory = JSON.parse(JSON.stringify(valid))
+    arrayInventory.inventory.heroInventory = []
+    expect(isGameState(arrayInventory)).toBe(false)
+
+    // Object.prototype keys are not registered item IDs.
+    const prototypeItem = JSON.parse(JSON.stringify(valid))
+    prototypeItem.inventory.heroInventory = { toString: 1 }
+    expect(isGameState(prototypeItem)).toBe(false)
+  })
+
+  it('recovers the previous A/B slot from malformed Schema 9 inventory, equipment, and skills', () => {
+    const mutations: Array<(state: ReturnType<typeof createInitialState>) => void> = [
+      (state) => { state.inventory.heroInventory['invalid.unknown-item'] = 1 },
+      (state) => { state.player.equipped.armor = 'weapon.novice-sword' },
+      (state) => { state.player.skillSlots = ['powerStrike', 'powerStrike', null] },
+    ]
+
+    for (const mutate of mutations) {
+      const storage = new MemoryStorage()
+      const stable = withGold(100, 77)
+      expect(saveGameAtRevision(storage, stable, null)).toMatchObject({ revision: 1 })
+
+      const malformed = withGold(200, 999)
+      mutate(malformed)
+      const malformedRaw = JSON.stringify({
+        formatVersion: SAVE_FORMAT_VERSION,
+        revision: 2,
+        savedAt: malformed.lastSavedAt,
+        state: malformed,
+      })
+      storage.setItem(SAVE_SLOT_B_KEY, malformedRaw)
+
+      expect(bootstrapGame(storage, 200, 'reader')).toMatchObject({
+        revision: 1,
+        recoveredFromInvalidSave: true,
+        saveBlocked: false,
+        state: { player: { gold: 77 } },
+      })
+      expect(storage.getItem(SAVE_SLOT_B_KEY)).toBe(malformedRaw)
+    }
+  })
+
+  it('blocks future inventory definitions in A/B and raw saves without changing their bytes', () => {
+    const stableStorage = new MemoryStorage()
+    const stable = withGold(100, 77)
+    expect(saveGameAtRevision(stableStorage, stable, null)).toMatchObject({ revision: 1 })
+    const stableRaw = stableStorage.getItem(SAVE_SLOT_A_KEY)
+
+    const future = createInitialState(200, stable.rng.seed)
+    future.inventory.definitionVersion = 2 as never
+    expect(isFutureGameStateValue(future)).toBe(true)
+    const futureEnvelopeRaw = JSON.stringify({
+      formatVersion: SAVE_FORMAT_VERSION,
+      revision: 2,
+      savedAt: future.lastSavedAt,
+      state: future,
+    })
+    stableStorage.setItem(SAVE_SLOT_B_KEY, futureEnvelopeRaw)
+
+    expect(bootstrapGame(stableStorage, 500, 'writer')).toMatchObject({
+      revision: null,
+      saveBlocked: true,
+      state: { player: { gold: 0 } },
+    })
+    expect(saveGameAtRevision(stableStorage, createInitialState(500), null)).toEqual({
+      status: 'blocked',
+      currentRevision: null,
+    })
+    expect(stableStorage.getItem(SAVE_SLOT_A_KEY)).toBe(stableRaw)
+    expect(stableStorage.getItem(SAVE_SLOT_B_KEY)).toBe(futureEnvelopeRaw)
+
+    const rawStorage = new MemoryStorage()
+    const futureRaw = JSON.stringify(future)
+    rawStorage.setItem(LEGACY_SAVE_KEY, futureRaw)
+    expect(bootstrapGame(rawStorage, 500, 'writer').saveBlocked).toBe(true)
+    expect(saveGame(rawStorage, createInitialState(500))).toBe(false)
+    expect(rawStorage.getItem(LEGACY_SAVE_KEY)).toBe(futureRaw)
+    expect(rawStorage.getItem(SAVE_SLOT_A_KEY)).toBeNull()
   })
 
   it('continues clearing the remaining keys after one removal fails', () => {

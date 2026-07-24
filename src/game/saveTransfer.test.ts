@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest'
 import portableSaveV1 from './fixtures/portable-save-v1.json'
 import legacySaveV2 from './fixtures/legacy-save-v2.json'
 import legacySaveV4 from './fixtures/legacy-save-v4.json'
+import legacySaveV7 from './fixtures/legacy-save-v7.json'
 import { MAX_BOSS_MILESTONE_MASK } from './bossMilestones'
+import { createInitialCampBondState } from './camp'
 import { getEnemyDefinition } from './content'
 import { advanceGame, chooseExpeditionEvent, createInitialState } from './engine'
 import { createExpeditionPendingEvent } from './expedition'
 import { SAVE_SLOT_A_KEY, SAVE_SLOT_B_KEY, parseSaveEnvelope, saveGameAtRevision } from './persistence'
 import {
   MAX_PORTABLE_SAVE_BYTES,
+  PORTABLE_SAVE_KIND,
   PORTABLE_SAVE_VERSION,
   commitPortableSave,
   createPortableSave,
@@ -63,6 +66,28 @@ function asLegacySchema3(state = exportedState()) {
   return { ...legacy, schemaVersion: 3 as const }
 }
 
+function asLegacySchema6(state = exportedState()) {
+  const current = structuredClone(state)
+  const { healingPotion: _healingPotion, ...legacyConsumables } = current.camp.consumables
+  const {
+    quickConsumable: _quickConsumable,
+    bond: _bond,
+    ...legacyCamp
+  } = current.camp
+  void _healingPotion
+  void _quickConsumable
+  void _bond
+  return {
+    ...current,
+    schemaVersion: 6 as const,
+    camp: {
+      ...legacyCamp,
+      definitionVersion: 1 as const,
+      consumables: legacyConsumables,
+    },
+  }
+}
+
 function createStageTenBossReadyState(now: number) {
   const state = createInitialState(now, 0x207_002)
   state.player.upgrades.weapon = 100
@@ -75,6 +100,85 @@ function createStageTenBossReadyState(now: number) {
 }
 
 describe('portable save transfer', () => {
+  it('previews a schema6 portable save as schema8 without changing its existing camp ledger', () => {
+    const current = exportedState()
+    current.currentMode = 'CAMP'
+    current.camp.materials = { ashShard: 9, beastHide: 4, emberCore: 1 }
+    current.camp.consumables = { goldStew: 2, focusTonic: 1, healingPotion: 8 }
+    current.camp.quickConsumable = 'healingPotion'
+    current.camp.craftJob = { recipeId: 'focusTonic', remainingMs: 45_000 }
+    const legacy = asLegacySchema6(current)
+    const exportedAt = 2_000
+    const serializedState = JSON.stringify(legacy)
+    const raw = JSON.stringify({
+      kind: PORTABLE_SAVE_KIND,
+      exportVersion: PORTABLE_SAVE_VERSION,
+      exportedAt,
+      state: legacy,
+      checksum: checksumText(serializedState),
+    })
+
+    const result = parsePortableSave(raw)
+
+    expect(result).toMatchObject({
+      success: true,
+      preview: {
+        exportedAt,
+        state: {
+          schemaVersion: SAVE_VERSION,
+          currentMode: 'CAMP',
+          camp: {
+            definitionVersion: 3,
+            materials: { ashShard: 9, beastHide: 4, emberCore: 1 },
+            consumables: { goldStew: 2, focusTonic: 1, healingPotion: 0 },
+            quickConsumable: null,
+            craftJob: { recipeId: 'focusTonic', remainingMs: 45_000 },
+            bond: createInitialCampBondState(),
+          },
+        },
+      },
+    })
+  })
+
+  it('previews a schema7 portable save as schema8 with only bond defaults added', () => {
+    const exportedAt = 2_500
+    const serializedState = JSON.stringify(legacySaveV7)
+    const raw = JSON.stringify({
+      kind: PORTABLE_SAVE_KIND,
+      exportVersion: PORTABLE_SAVE_VERSION,
+      exportedAt,
+      state: legacySaveV7,
+      checksum: checksumText(serializedState),
+    })
+
+    const result = parsePortableSave(raw)
+
+    expect(result).toMatchObject({
+      success: true,
+      preview: {
+        exportedAt,
+        state: {
+          schemaVersion: SAVE_VERSION,
+          currentMode: legacySaveV7.currentMode,
+          camp: {
+            definitionVersion: 3,
+            structures: legacySaveV7.camp.structures,
+            training: legacySaveV7.camp.training,
+            materials: legacySaveV7.camp.materials,
+            consumables: legacySaveV7.camp.consumables,
+            quickConsumable: legacySaveV7.camp.quickConsumable,
+            craftJob: legacySaveV7.camp.craftJob,
+            buffs: legacySaveV7.camp.buffs,
+            merchant: legacySaveV7.camp.merchant,
+            residents: legacySaveV7.camp.residents,
+            bond: createInitialCampBondState(),
+          },
+          rng: legacySaveV7.rng,
+        },
+      },
+    })
+  })
+
   it('round-trips a valid state with an integrity checksum', () => {
     const state = exportedState()
     const raw = createPortableSave(state, 2_000)
@@ -88,6 +192,35 @@ describe('portable save transfer', () => {
         checksum: expect.stringMatching(/^[0-9a-f]{8}$/),
         state,
       },
+    })
+  })
+
+  it('round-trips and commits non-default Chapter I consent and reward ledgers', () => {
+    const state = exportedState()
+    state.currentMode = 'CAMP'
+    state.camp.residents.sera = { status: 'contracted', trust: 4 }
+    state.camp.bond = {
+      ...state.camp.bond,
+      adultAccessConfirmed: true,
+      seraConsent: 'granted',
+      claimedSynthesisRewardMask: 1,
+    }
+    const raw = createPortableSave(state, 2_000)
+    if (raw === null) throw new Error('portable save missing')
+
+    const parsed = parsePortableSave(raw)
+    expect(parsed).toMatchObject({
+      success: true,
+      preview: { state: { camp: { bond: state.camp.bond } } },
+    })
+    if (!parsed.success) return
+
+    const storage = new MemoryStorage()
+    const committed = commitPortableSave(storage, parsed.preview, null, 3_000)
+    expect(committed).toMatchObject({
+      status: 'saved',
+      revision: 1,
+      state: { camp: { bond: state.camp.bond } },
     })
   })
 
@@ -476,6 +609,28 @@ describe('portable save transfer', () => {
     futureGameState.schemaVersion = 999
     futureState.checksum = checksumText(JSON.stringify(futureState.state))
     expect(parsePortableSave(JSON.stringify(futureState))).toMatchObject({ success: false })
+
+    const futureBond = JSON.parse(raw) as Record<string, unknown>
+    const futureBondState = futureBond.state as {
+      camp: { bond: { definitionVersion: number } }
+    }
+    futureBondState.camp.bond.definitionVersion += 1
+    futureBond.checksum = checksumText(JSON.stringify(futureBond.state))
+    expect(parsePortableSave(JSON.stringify(futureBond))).toMatchObject({
+      success: false,
+      message: expect.stringContaining('더 새로운'),
+    })
+
+    const futureInventory = JSON.parse(raw) as Record<string, unknown>
+    const futureInventoryState = futureInventory.state as {
+      inventory: { definitionVersion: number }
+    }
+    futureInventoryState.inventory.definitionVersion += 1
+    futureInventory.checksum = checksumText(JSON.stringify(futureInventory.state))
+    expect(parsePortableSave(JSON.stringify(futureInventory))).toMatchObject({
+      success: false,
+      message: expect.stringContaining('더 새로운'),
+    })
 
     const missingExpedition = JSON.parse(raw) as Record<string, unknown>
     const missingExpeditionState = missingExpedition.state as Record<string, unknown>
