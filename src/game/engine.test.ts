@@ -11,6 +11,9 @@ import {
 import {
   advanceGame,
   advanceOfflineGame,
+  applyCaptureProgress,
+  CAPTURE_LOYALTY_BASE_GAIN,
+  CAPTURE_LOYALTY_HP_BONUS_MAX,
   createInitialState,
   equipItem,
   equipSkillSlot,
@@ -47,7 +50,7 @@ import {
 } from './lootRegistry'
 import { decodeGameState, isGameState } from './persistence'
 import { createRngState, nextRandom } from './rng'
-import { SAVE_VERSION, type GameState } from './types'
+import { SAVE_VERSION, type EnemyDefinition, type GameState } from './types'
 
 function createUpperBoundaryState(): GameState {
   const state = createInitialState(0, 0x1a2b3c4d)
@@ -1102,5 +1105,99 @@ describe('game engine', () => {
     const unequippedAdv = advanceGame(unequippedState, 1_000)
     // Cooldown is not set to 5_000 because powerStrike did NOT activate!
     expect(unequippedAdv.state.battle.powerStrikeCooldownMs).toBe(0)
+  })
+})
+
+describe('IRPG-801 deterministic capture progress', () => {
+  const capturableFixtureEnemy: EnemyDefinition = {
+    stage: 1,
+    assetId: 'enemy.ash-slime',
+    name: 'Fixture Captive',
+    isBoss: false,
+    species: 'beast',
+    capturable: true,
+    maxHp: 100,
+    attack: 1,
+    goldReward: 1,
+    xpReward: 1,
+  }
+  const nonCapturableFixtureEnemy: EnemyDefinition = {
+    ...capturableFixtureEnemy,
+    capturable: false,
+  }
+
+  it('creates a living card with only the base gain at a zero HP ratio', () => {
+    const state = createInitialState(0, 1)
+    applyCaptureProgress(state, capturableFixtureEnemy, 0)
+    expect(state.livingCards[capturableFixtureEnemy.assetId]).toEqual({
+      cardId: capturableFixtureEnemy.assetId,
+      hStage: 2,
+      captureLoyalty: CAPTURE_LOYALTY_BASE_GAIN,
+      corruptionLevel: 0,
+      isCaptured: false,
+    })
+  })
+
+  it('adds the full HP bonus at a full player HP ratio', () => {
+    const state = createInitialState(0, 1)
+    applyCaptureProgress(state, capturableFixtureEnemy, 1)
+    expect(state.livingCards[capturableFixtureEnemy.assetId]?.captureLoyalty).toBe(
+      CAPTURE_LOYALTY_BASE_GAIN + CAPTURE_LOYALTY_HP_BONUS_MAX,
+    )
+  })
+
+  it('is a pure deterministic function of its inputs', () => {
+    const stateA = createInitialState(0, 1)
+    const stateB = createInitialState(0, 2)
+    applyCaptureProgress(stateA, capturableFixtureEnemy, 0.5)
+    applyCaptureProgress(stateB, capturableFixtureEnemy, 0.5)
+    expect(stateA.livingCards).toEqual(stateB.livingCards)
+  })
+
+  it('accumulates across repeated defeats and clamps at exactly 100 with isCaptured flipping at the threshold', () => {
+    const state = createInitialState(0, 1)
+    for (let i = 0; i < 4; i += 1) {
+      applyCaptureProgress(state, capturableFixtureEnemy, 1)
+    }
+    expect(state.livingCards[capturableFixtureEnemy.assetId]).toMatchObject({
+      captureLoyalty: 80,
+      isCaptured: false,
+    })
+
+    applyCaptureProgress(state, capturableFixtureEnemy, 1)
+    expect(state.livingCards[capturableFixtureEnemy.assetId]).toMatchObject({
+      captureLoyalty: 100,
+      isCaptured: true,
+    })
+  })
+
+  it('stops changing once a card is captured, even on a later full-HP defeat', () => {
+    const state = createInitialState(0, 1)
+    for (let i = 0; i < 5; i += 1) {
+      applyCaptureProgress(state, capturableFixtureEnemy, 1)
+    }
+    const capturedCard = state.livingCards[capturableFixtureEnemy.assetId]
+    applyCaptureProgress(state, capturableFixtureEnemy, 1)
+    expect(state.livingCards[capturableFixtureEnemy.assetId]).toEqual(capturedCard)
+  })
+
+  it('does not create a living card for a non-capturable enemy', () => {
+    const state = createInitialState(0, 1)
+    applyCaptureProgress(state, nonCapturableFixtureEnemy, 1)
+    expect(state.livingCards).toEqual({})
+  })
+
+  it('never consumes an RNG draw', () => {
+    const state = createInitialState(0, 1)
+    const rngBefore = { ...state.rng }
+    applyCaptureProgress(state, capturableFixtureEnemy, 0.42)
+    expect(state.rng).toEqual(rngBefore)
+  })
+
+  it('leaves livingCards empty across a full advanceGame run against the real CHAPTER I roster', () => {
+    const state = createInitialState(0, 7)
+    const result = advanceGame(state, 5 * 60 * 1_000)
+    expect(result.report.kills).toBeGreaterThan(0)
+    expect(result.state.livingCards).toEqual({})
   })
 })

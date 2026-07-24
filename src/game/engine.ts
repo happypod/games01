@@ -71,6 +71,7 @@ import {
   CAMP_QUICK_CONSUMABLE_IDS,
   EQUIPMENT_SLOTS,
   SAVE_VERSION,
+  getActorDamageStage,
 } from './types'
 import type {
   AdvanceReport,
@@ -87,10 +88,12 @@ import type {
   CampTrainingId,
   CompanionId,
   CommandResult,
+  EnemyDefinition,
   EquipmentSlot,
   ExpeditionChoiceId,
   GameMode,
   GameState,
+  LivingCardState,
   SkillId,
   UpgradeId,
 } from './types'
@@ -348,6 +351,35 @@ function grantEnemyLootDrop(state: GameState, isBoss: boolean) {
   state.inventory.lootBag[itemId] = addSafeIntegers(current, 1)
 }
 
+export const CAPTURE_LOYALTY_BASE_GAIN = 12
+export const CAPTURE_LOYALTY_HP_BONUS_MAX = 8
+
+// IRPG-801: pure function of already-computed state — never draws from state.rng,
+// so it cannot shift the combat RNG substream or the IRPG-104 seed-replay invariant.
+export function applyCaptureProgress(
+  state: GameState,
+  enemy: EnemyDefinition,
+  playerHpRatio: number,
+): void {
+  if (!enemy.capturable) return
+  const existing = state.livingCards[enemy.assetId]
+  if (existing?.isCaptured) return
+  const safeRatio = Number.isFinite(playerHpRatio)
+    ? Math.max(0, Math.min(1, playerHpRatio))
+    : 0
+  const gain = CAPTURE_LOYALTY_BASE_GAIN +
+    Math.round(CAPTURE_LOYALTY_HP_BONUS_MAX * safeRatio)
+  const nextLoyalty = Math.min(100, (existing?.captureLoyalty ?? 0) + gain)
+  const card: LivingCardState = {
+    cardId: enemy.assetId,
+    hStage: getActorDamageStage(0, enemy.maxHp),
+    captureLoyalty: nextLoyalty,
+    corruptionLevel: existing?.corruptionLevel ?? 0,
+    isCaptured: nextLoyalty >= 100,
+  }
+  state.livingCards[enemy.assetId] = card
+}
+
 function resolveEnemyDefeat(
   state: GameState,
   report: AdvanceReport,
@@ -356,6 +388,7 @@ function resolveEnemyDefeat(
   const enemy = getEnemyDefinition(state.battle.stage)
   const defeatedStage = state.battle.stage
   let hero = getHeroStats(state)
+  applyCaptureProgress(state, enemy, state.player.currentHp / hero.maxHp)
   const gold = toSafeInteger(enemy.goldReward * hero.goldMultiplier, 1)
   state.player.gold = addSafeIntegers(state.player.gold, gold)
   state.stats.goldEarned = addSafeIntegers(state.stats.goldEarned, gold)

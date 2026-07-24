@@ -207,6 +207,9 @@ export type EnemyDamageAssetId =
 
 export type EnemyPresentationAssetId = EnemyAssetId | EnemyDamageAssetId
 
+export const ENEMY_SPECIES_IDS = ['humanoid', 'beast'] as const
+export type EnemySpecies = (typeof ENEMY_SPECIES_IDS)[number]
+
 export type UpgradeLevels = Record<UpgradeId, number>
 export type SkillRanks = Record<SkillId, number>
 
@@ -337,6 +340,8 @@ export interface EnemyDefinition {
   assetId: EnemyAssetId
   name: string
   isBoss: boolean
+  species: EnemySpecies
+  capturable: boolean
   maxHp: number
   attack: number
   goldReward: number
