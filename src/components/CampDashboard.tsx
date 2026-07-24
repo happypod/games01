@@ -7,6 +7,7 @@ import {
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useId, useRef, useState, type KeyboardEvent } from 'react'
 import {
+  CAMP_FACILITY_DEFINITIONS,
   CAMP_OFFLINE_CAP_HOURS,
   CAMP_MERCHANT_OFFER_SLOTS,
   CAMP_RECIPE_DEFINITIONS,
@@ -40,6 +41,7 @@ import {
   type GameState,
 } from '../game/types'
 import type { GameCommandFeedback } from '../hooks/useGame'
+import { CampCanvas } from './CampCanvas'
 import {
   CampSpecialFacilities,
   type CampSpecialFacilityId,
@@ -74,27 +76,6 @@ const CAMP_CENTER_TABS = [
 ] as const
 
 type CampCenterTabId = (typeof CAMP_CENTER_TABS)[number]['id']
-
-const FACILITIES = [
-  {
-    id: 'tent',
-    name: '원정 텐트',
-    assetId: 'event.ash-camp',
-    copy: '휴식과 오프라인 원정 시간을 관리합니다.',
-  },
-  {
-    id: 'workbench',
-    name: '불씨 작업대',
-    assetId: 'event.wandering-smith',
-    copy: '전리품을 확정 레시피로 가공하는 공간입니다.',
-  },
-  {
-    id: 'trainingGround',
-    name: '단련소',
-    assetId: 'event.ember-shrine',
-    copy: '영구 공격력과 체력 훈련을 준비합니다.',
-  },
-] as const
 
 const MATERIAL_LABELS = {
   ashShard: '재의 파편',
@@ -145,6 +126,7 @@ export function CampDashboard({
   onSynthesizeJointBond,
 }: CampDashboardProps) {
   const [activeCenterTab, setActiveCenterTab] = useState<CampCenterTabId>('overview')
+  const [campViewMode, setCampViewMode] = useState<'cards' | 'canvas'>('cards')
   const centerTabRefs = useRef(new Map<CampCenterTabId, HTMLButtonElement>())
   const centerTabIdPrefix = useId().replaceAll(':', '')
   const hero = getHeroStats(state)
@@ -275,8 +257,26 @@ export function CampDashboard({
         >
         {activeCenterTab === 'overview' ? (
           <>
+        <div className="camp-view-toggle">
+          <button
+            type="button"
+            className="camp-view-toggle__button"
+            aria-pressed={campViewMode === 'canvas'}
+            onClick={() => setCampViewMode((current) => current === 'canvas' ? 'cards' : 'canvas')}
+          >
+            {campViewMode === 'canvas' ? '카드 보기' : '조감도 보기'}
+          </button>
+        </div>
+        {campViewMode === 'canvas' ? (
+          <CampCanvas
+            state={state}
+            disabled={disabled}
+            onUpgradeStructure={onUpgradeStructure}
+            onOpenBondTraining={() => activateCenterTab('bondTraining')}
+          />
+        ) : (
         <div className="camp-facility-grid">
-          {FACILITIES.map((facility) => {
+          {CAMP_FACILITY_DEFINITIONS.map((facility) => {
             const level = state.camp.structures[facility.id]
             const cost = getCampStructureUpgradeCost(facility.id, level)
             const isMax = cost === null
@@ -318,6 +318,7 @@ export function CampDashboard({
             )
           })}
         </div>
+        )}
         <section className="camp-storage-summary" aria-labelledby="camp-storage-title" style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
@@ -373,6 +374,7 @@ export function CampDashboard({
             })}
           </div>
         </section>
+        {campViewMode === 'cards' && (
         <section className="camp-resident" aria-labelledby="camp-resident-title">
           <GameAsset
             assetId="event.ash-camp"
@@ -418,6 +420,7 @@ export function CampDashboard({
             })()}
           </div>
         </section>
+        )}
           </>
         ) : (
           <CampSpecialFacilities

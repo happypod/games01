@@ -45,6 +45,36 @@ export const CAMP_TRAINING_EFFECTS: Readonly<Record<CampTrainingId, number>> = O
   vitality: 20,
 })
 
+export interface CampFacilityDefinition {
+  readonly id: CampStructureId
+  readonly name: string
+  readonly assetId: string
+  readonly copy: string
+}
+
+// IRPG-803: shared by the card-grid (CampDashboard) and 2.5D canvas (CampCanvas)
+// presentations so both stay in sync from a single definition.
+export const CAMP_FACILITY_DEFINITIONS: readonly CampFacilityDefinition[] = Object.freeze([
+  Object.freeze({
+    id: 'tent',
+    name: '원정 텐트',
+    assetId: 'event.ash-camp',
+    copy: '휴식과 오프라인 원정 시간을 관리합니다.',
+  }),
+  Object.freeze({
+    id: 'workbench',
+    name: '불씨 작업대',
+    assetId: 'event.wandering-smith',
+    copy: '전리품을 확정 레시피로 가공하는 공간입니다.',
+  }),
+  Object.freeze({
+    id: 'trainingGround',
+    name: '단련소',
+    assetId: 'event.ember-shrine',
+    copy: '영구 공격력과 체력 훈련을 준비합니다.',
+  }),
+] as const)
+
 export const CAMP_GOLD_STEW_ROUNDS = 1_800
 export const CAMP_FOCUS_CRITICAL_BONUS = 0.2
 export const CAMP_MERCHANT_OFFER_SLOTS = [0, 1, 2] as const
