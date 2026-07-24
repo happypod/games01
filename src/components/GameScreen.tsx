@@ -214,6 +214,7 @@ export function GameScreen({
             <aside className="tactical-command-dock" aria-label="전술 정보와 원정 관리">
               <LivingCardConsole
                 state={game.state}
+                batch={game.combatEventBatch}
                 onChooseExpeditionEvent={game.chooseExpeditionEvent}
               />
               <TacticalIntelPanel

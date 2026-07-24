@@ -1,50 +1,31 @@
 import { useState } from 'react'
-import type { ExpeditionChoiceId, GameState } from '../game/types'
+import type { CombatEventBatch, ExpeditionChoiceId, GameState } from '../game/types'
 import { getEnemyDefinition } from '../game/content'
+import { COMBAT_LOG_FILTER_IDS, createCombatLogView, getEventCopy } from './combatLogView'
 import { GameAsset } from './GameAsset'
 
 interface LivingCardConsoleProps {
   state: GameState
+  batch: CombatEventBatch
   onChooseExpeditionEvent?: ((eventId: string, choiceId: ExpeditionChoiceId) => void) | undefined
 }
 
-export function LivingCardConsole({ state, onChooseExpeditionEvent }: LivingCardConsoleProps) {
+const ALL_LOG_FILTERS = new Set(COMBAT_LOG_FILTER_IDS)
+
+const H_STAGE_LABELS = [
+  'H-Stage 0: Normal (완전 무결)',
+  'H-Stage 1: Damaged (의상 1차 파손)',
+  'H-Stage 2: Severe (파손 및 무력화)',
+] as const
+const H_STAGE_COLORS = ['#10B981', '#F59E0B', '#EF4444'] as const
+
+export function LivingCardConsole({ state, batch, onChooseExpeditionEvent }: LivingCardConsoleProps) {
   const enemy = getEnemyDefinition(state.battle.stage)
-  const enemyMaxHp = enemy ? enemy.maxHp : 100
-  const enemyCurrentHp = state.battle.enemyHp
-  const enemyHpRatio = Math.max(0, Math.min(1, enemyCurrentHp / enemyMaxHp))
+  const livingCard = state.livingCards[enemy.assetId] ?? null
 
-  // HP 연동 H-Stage 계산 (0: HP >= 70%, 1: 30% <= HP < 70%, 2: HP < 30%)
-  const damageStage: 0 | 1 | 2 =
-    enemyHpRatio >= 0.7 ? 0 : enemyHpRatio >= 0.3 ? 1 : 2
-
-  const stageLabels = [
-    'H-Stage 0: Normal (완전 무결)',
-    'H-Stage 1: Damaged (의상 1차 파손)',
-    'H-Stage 2: Severe (파손 및 무력화)',
-  ]
-  const stageColors = ['#10B981', '#F59E0B', '#EF4444']
-
-  const enemyAssetId = enemy
-    ? damageStage === 1
-      ? `${enemy.assetId}.damaged`
-      : damageStage === 2
-        ? `${enemy.assetId}.severe`
-        : enemy.assetId
-    : 'enemy.ash-slime'
-
-  // 충성도 및 타락 게이지 계산
-  const currentCardState = state.livingCards[enemy?.assetId ?? ''] ?? {
-    cardId: enemy?.assetId ?? 'default',
-    hStage: damageStage,
-    captureLoyalty: Math.min(100, Math.round((1 - enemyHpRatio) * 100)),
-    corruptionLevel: Math.min(100, state.battle.stage * 3),
-    isCaptured: damageStage === 2,
-  }
-
-  // 덱 플립 카드 선택 상태
   const [isFlipped, setIsFlipped] = useState(false)
   const pendingEvent = state.expeditionEvents.pending[0]
+  const recentLogItems = createCombatLogView(batch, ALL_LOG_FILTERS).items.slice(-5)
 
   return (
     <div
@@ -59,10 +40,9 @@ export function LivingCardConsole({ state, onChooseExpeditionEvent }: LivingCard
         padding: '16px',
         border: '1px solid rgba(255, 239, 214, 0.12)',
         backdropFilter: 'blur(16px)',
-        pointerEvents: 'none',
       }}
     >
-      {/* 상단: 19금 H-Stage 카드 비주얼 및 포획/충성도 바 */}
+      {/* 상단: 생체카드 - IRPG-801이 채운 실제 state.livingCards만 표시, 클라이언트에서 값을 지어내지 않음 */}
       <section
         style={{
           background: 'linear-gradient(145deg, #1c1714, #120e0c)',
@@ -76,70 +56,80 @@ export function LivingCardConsole({ state, onChooseExpeditionEvent }: LivingCard
             LIVING CARD & H-COSTUME STAGE
           </p>
           <h3 style={{ margin: '4px 0 0', fontSize: '18px', color: '#f6efe4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>{enemy?.name ?? '타겟 정보'}</span>
-            <span style={{ fontSize: '12px', color: stageColors[damageStage], background: 'rgba(0,0,0,0.4)', padding: '2px 8px', borderRadius: '4px' }}>
-              Stage {damageStage}
-            </span>
+            <span>{enemy.name}</span>
+            {livingCard && (
+              <span style={{ fontSize: '12px', color: H_STAGE_COLORS[livingCard.hStage], background: 'rgba(0,0,0,0.4)', padding: '2px 8px', borderRadius: '4px' }}>
+                Stage {livingCard.hStage}
+              </span>
+            )}
           </h3>
         </header>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <div
-            style={{
-              width: '84px',
-              height: '104px',
-              borderRadius: '8px',
-              background: '#0a0807',
-              border: `1px solid ${stageColors[damageStage]}`,
-              overflow: 'hidden',
-              display: 'grid',
-              placeItems: 'center',
-              position: 'relative',
-            }}
+        {livingCard === null ? (
+          <p
+            data-testid="living-card-empty-state"
+            style={{ margin: 0, fontSize: '12px', color: '#a89f94' }}
           >
-            <GameAsset
-              assetId={enemyAssetId}
-              purpose="card"
-              fallbackLabel="C"
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
-            {currentCardState.isCaptured && (
-              <span style={{ position: 'absolute', bottom: '4px', right: '4px', fontSize: '10px', background: '#EF4444', color: '#fff', padding: '1px 4px', borderRadius: '3px', fontWeight: 'bold' }}>
-                포획됨
-              </span>
-            )}
+            포획 진행 중인 대상이 없습니다.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <div
+              style={{
+                width: '84px',
+                height: '104px',
+                borderRadius: '8px',
+                background: '#0a0807',
+                border: `1px solid ${H_STAGE_COLORS[livingCard.hStage]}`,
+                overflow: 'hidden',
+                display: 'grid',
+                placeItems: 'center',
+                position: 'relative',
+              }}
+            >
+              <GameAsset
+                assetId={enemy.assetId}
+                purpose="card"
+                fallbackLabel="C"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+              {livingCard.isCaptured && (
+                <span style={{ position: 'absolute', bottom: '4px', right: '4px', fontSize: '10px', background: '#EF4444', color: '#fff', padding: '1px 4px', borderRadius: '3px', fontWeight: 'bold' }}>
+                  포획됨
+                </span>
+              )}
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', color: H_STAGE_COLORS[livingCard.hStage], marginBottom: '6px' }}>
+                {H_STAGE_LABELS[livingCard.hStage]}
+              </div>
+
+              <div style={{ marginBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#a89f94', marginBottom: '2px' }}>
+                  <span>충성도</span>
+                  <strong style={{ color: '#ffb46e' }}>{livingCard.captureLoyalty}%</strong>
+                </div>
+                <div style={{ height: '6px', width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${livingCard.captureLoyalty}%`, background: 'linear-gradient(90deg, #ee7d3d, #ffb46e)' }} />
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#a89f94', marginBottom: '2px' }}>
+                  <span>타락 농도</span>
+                  <strong style={{ color: '#d95d54' }}>{livingCard.corruptionLevel}%</strong>
+                </div>
+                <div style={{ height: '6px', width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${livingCard.corruptionLevel}%`, background: 'linear-gradient(90deg, #b8f0e0, #d95d54)' }} />
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: stageColors[damageStage], marginBottom: '6px' }}>
-              {stageLabels[damageStage]}
-            </div>
-
-            {/* 타락 포획 & 충성도 게이지 바 */}
-            <div style={{ marginBottom: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#a89f94', marginBottom: '2px' }}>
-                <span>포획 복종도</span>
-                <strong style={{ color: '#ffb46e' }}>{currentCardState.captureLoyalty}%</strong>
-              </div>
-              <div style={{ height: '6px', width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${currentCardState.captureLoyalty}%`, background: 'linear-gradient(90deg, #ee7d3d, #ffb46e)' }} />
-              </div>
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#a89f94', marginBottom: '2px' }}>
-                <span>타락 농도 (Corruption)</span>
-                <strong style={{ color: '#d95d54' }}>{currentCardState.corruptionLevel}%</strong>
-              </div>
-              <div style={{ height: '6px', width: '100%', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${currentCardState.corruptionLevel}%`, background: 'linear-gradient(90deg, #b8f0e0, #d95d54)' }} />
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </section>
 
-      {/* 중앙: 원정 카드 덱 Flip & 선택지 모달 호출 컨트롤 */}
+      {/* 중앙: 원정 카드 덱 - 이미 실제 state.expeditionEvents 기반, 변경 없음 */}
       <section
         style={{
           background: 'linear-gradient(145deg, #1c1714, #120e0c)',
@@ -166,7 +156,6 @@ export function LivingCardConsole({ state, onChooseExpeditionEvent }: LivingCard
               border: '1px solid #68c9b4',
               color: '#68c9b4',
               cursor: 'pointer',
-              pointerEvents: 'auto',
             }}
           >
             {isFlipped ? '덱 덮기' : '카드 뒤집기'}
@@ -186,14 +175,14 @@ export function LivingCardConsole({ state, onChooseExpeditionEvent }: LivingCard
                 <button
                   type="button"
                   onClick={() => onChooseExpeditionEvent(pendingEvent.eventId, 'gold')}
-                  style={{ flex: 1, padding: '6px', fontSize: '11px', background: '#ee7d3d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', pointerEvents: 'auto' }}
+                  style={{ flex: 1, padding: '6px', fontSize: '11px', background: '#ee7d3d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                 >
                   골드 탐색
                 </button>
                 <button
                   type="button"
                   onClick={() => onChooseExpeditionEvent(pendingEvent.eventId, 'recovery')}
-                  style={{ flex: 1, padding: '6px', fontSize: '11px', background: '#68c9b4', color: '#100d0c', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', pointerEvents: 'auto' }}
+                  style={{ flex: 1, padding: '6px', fontSize: '11px', background: '#68c9b4', color: '#100d0c', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                 >
                   휴식 및 회복
                 </button>
@@ -207,7 +196,7 @@ export function LivingCardConsole({ state, onChooseExpeditionEvent }: LivingCard
         )}
       </section>
 
-      {/* 하단: 실시간 전투 이벤트 로그 콘솔 (최근 5줄 고정) */}
+      {/* 하단: 실시간 전투 이벤트 로그 - CombatLogPanel과 동일한 실제 이벤트 포맷터 재사용 */}
       <section
         style={{
           flex: 1,
@@ -226,29 +215,32 @@ export function LivingCardConsole({ state, onChooseExpeditionEvent }: LivingCard
           <h4 style={{ margin: '2px 0 0', fontSize: '14px', color: '#f6efe4' }}>전술 전투 기록</h4>
         </header>
 
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {[
-            { id: '1', text: `영웅 아렌이 ${enemy?.name ?? '적'}에게 ${state.player.level * 15} 피해를 입혔습니다.` },
-            { id: '2', text: `적 ${enemy?.name ?? '적'}이 아렌에게 ${enemy?.attack ?? 5} 피해를 입혔습니다.` },
-            { id: '3', text: `동료 루미가 협공 사격을 지원했습니다.` },
-            { id: '4', text: `H-Stage ${damageStage} 단계 연출이 전환되었습니다.` },
-            { id: '5', text: `Schema 5 전투 세션 진행 중...` },
-          ].map((log) => (
-            <li
-              key={log.id}
-              style={{
-                fontSize: '11px',
-                color: '#d4ceb8',
-                background: 'rgba(255,255,255,0.025)',
-                padding: '6px 8px',
-                borderRadius: '4px',
-                borderLeft: '3px solid #ee7d3d',
-              }}
-            >
-              {log.text}
-            </li>
-          ))}
-        </ul>
+        {recentLogItems.length === 0 ? (
+          <p
+            data-testid="living-console-log-empty-state"
+            style={{ margin: 0, fontSize: '12px', color: '#a89f94' }}
+          >
+            아직 기록된 전투 이벤트가 없습니다.
+          </p>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {recentLogItems.map((item) => (
+              <li
+                key={item.event.id}
+                style={{
+                  fontSize: '11px',
+                  color: '#d4ceb8',
+                  background: 'rgba(255,255,255,0.025)',
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  borderLeft: '3px solid #ee7d3d',
+                }}
+              >
+                {getEventCopy(item).text}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   )
