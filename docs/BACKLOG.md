@@ -83,7 +83,7 @@
 | IRPG-800 | 포획·생체카드·2.5D 캠프 확장 제품 범위 | P1 | Draft | 425,426,427,428,700,701,702,703,704 | PROD-LOOP, NARRATIVE, ENG-STATE | 사람형 캡티브는 동의 기반, 야수형은 포획 기반이라는 구분과 IRPG-801~804 분해가 승인된다. |
 | IRPG-801 | 결정론적 포획 엔진·`livingCards` 실제 상태화 | P1 | Test | 800,101,104,106 | ENG-STATE, ENG-SIM, GD-BAL | capturable 몬스터 처치 시 captureLoyalty가 결정론적으로 누적되고 비-capturable 몬스터는 영향받지 않는다. |
 | IRPG-802 | LivingCardConsole 실데이터 연동 | P1 | Test | 801 | FE-GAME, UX-FEEDBACK, QA-DOMAIN | 포획 콘솔이 클라이언트 가짜 수치 대신 실제 livingCards와 전투 이벤트만 표시한다. |
-| IRPG-803 | 2.5D 캠프 오브젝트 캔버스 | P1 | Test | 419,424,425,403,506 | FE-GAME, UX-FEEDBACK, A11Y, ART-2D, QA-E2E | 좌표 기반 시설·세라 액터가 기존 카드 UI와 병행 제공되고 키보드·모바일 접근성을 만족한다. |
+| IRPG-803 | 2.5D 캠프 오브젝트 캔버스(R1: 팝업 기반 기본 화면) | P1 | Test | 419,424,425,403,506 | FE-GAME, UX-FEEDBACK, A11Y, ART-2D, QA-E2E | 조감도가 기본 화면이고 건물 클릭 시 팝업으로 조작하며 기존 회귀가 없다. |
 | IRPG-804 | 동료화·캠프 크래프팅·합동 연성(교배) 확장 | P2 | Draft | 801,802,803,427 | PROD-LOOP, GD-BAL, ENG-STATE, NARRATIVE | 미해결 질문 답변 후 Ready 전환, 포획 개체의 동료화·크래프팅·교배 경로가 결정론적으로 정의된다. |
 | IRPG-805 | 전장 Floating HUD 폴리시(머리 위 체력바·원형 스킬 닷) | P2 | Draft | 416,422,424,506 | FE-GAME, UX-FEEDBACK, ART-2D, QA-E2E | 머리 위 실체력 태그와 실쿨다운 원형 스킬 버튼이 기존 판정 변경 없이 표시되고 DirectHotbar 고아 코드가 제거된다. |
 | IRPG-806 | 캐릭터 탭 동시 표시 레이아웃(IRPG-703 재구성) | P2 | Draft | 703,701,702,704,403 | FE-GAME, UX-FEEDBACK, A11Y | 캐릭터 탭이 2단 동시 표시로 재배치되고 기존 장착·해제 로직과 테스트가 그대로 통과한다. |

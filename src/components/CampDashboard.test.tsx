@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { createInitialState } from '../game/engine'
 import type { GameState } from '../game/types'
@@ -129,14 +129,16 @@ describe('IRPG-423 CampDashboard recovery controls', () => {
       .toBeDisabled()
   })
 
-  it('lists the recovery recipe and toggles its persisted quick-slot equipment', () => {
+  it('lists the recovery recipe inside the workbench popup and toggles persisted quick-slot equipment', () => {
     const state = createCampState()
     state.camp.materials.ashShard = 4
     state.camp.materials.beastHide = 2
     state.camp.consumables.healingPotion = 1
     const actions = renderCampDashboard(state)
 
-    const recipe = screen.getByRole('button', { name: '회복 물약 제작' })
+    fireEvent.click(screen.getByRole('button', { name: /불씨 작업대 열기/ }))
+    const dialog = screen.getByRole('dialog', { name: '불씨 작업대' })
+    const recipe = within(dialog).getByRole('button', { name: '회복 물약 제작' })
     expect(recipe).toBeEnabled()
     expect(recipe.closest('.camp-recipe-card')).toHaveTextContent(
       '재의 파편 4 · 야수 가죽 2',
@@ -167,29 +169,29 @@ describe('IRPG-423 CampDashboard recovery controls', () => {
   })
 })
 
-describe('IRPG-425 CampDashboard center facility tabs', () => {
-  it('uses roving focus for the four central camp views', () => {
+describe('IRPG-803 R1 CampDashboard camp canvas as the default screen', () => {
+  it('shows the 2.5D canvas directly with no card/canvas toggle', () => {
     renderCampDashboard()
-    const overview = screen.getByRole('tab', { name: '캠프 관리' })
-    const bond = screen.getByRole('tab', { name: '유대 훈련실' })
-    const synthesis = screen.getByRole('tab', { name: '합동 연성실' })
+    expect(screen.getByTestId('camp-canvas')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /조감도 보기/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+  })
 
-    expect(overview).toHaveAttribute('aria-selected', 'true')
-    const panel = screen.getByRole('tabpanel', { name: '캠프 관리' })
-    const panelId = panel.getAttribute('id')
-    expect(panelId).toBeTruthy()
-    for (const tab of screen.getAllByRole('tab')) {
-      expect(tab).toHaveAttribute('aria-controls', panelId)
-    }
-    overview.focus()
-    fireEvent.keyDown(overview, { key: 'ArrowRight' })
-    expect(bond).toHaveFocus()
+  it('opens the Sera popup with roving-focus internal tabs once she is rescued', () => {
+    const state = createCampState()
+    state.camp.residents.sera.status = 'rescued'
+    renderCampDashboard(state)
+
+    fireEvent.click(screen.getByRole('button', { name: '세라 열기' }))
+    const dialog = screen.getByRole('dialog', { name: '성인 정찰병 세라' })
+    const bond = within(dialog).getByRole('tab', { name: '유대 훈련실' })
+    const synthesis = within(dialog).getByRole('tab', { name: '합동 연성실' })
+
     expect(bond).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tabpanel', { name: '유대 훈련실' })).toBeVisible()
-
+    bond.focus()
     fireEvent.keyDown(bond, { key: 'End' })
     expect(synthesis).toHaveFocus()
     expect(synthesis).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByText('연성 자산 보호 잠금')).toBeVisible()
+    expect(within(dialog).getByText('연성 자산 보호 잠금')).toBeVisible()
   })
 })

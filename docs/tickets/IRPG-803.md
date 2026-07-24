@@ -1,8 +1,19 @@
 # IRPG-803 — 2.5D 캠프 오브젝트 캔버스
 
+## Revision note (R1)
+
+최초 구현(Test 상태로 커밋된 버전)은 조감도를 "조감도 보기" 토글 뒤에 숨기고, 건물 클릭이 기존 카드의 확장 동작을 그대로 트리거하는 얕은 버전이었다. 실제 화면을 확인한 Owner가 Wartales/Raid 실제 스크린샷을 근거로 다음을 명확히 요구해 범위를 다시 잡는다.
+
+1. 조감도가 **캠프 진입 시 기본 화면**이어야 한다(토글 뒤에 숨기지 않는다).
+2. 건물을 클릭하면 **그 자리에서 바로 동작이 실행되는 게 아니라 팝업/모달이 열려** 정보와 조작을 보여줘야 한다.
+3. 사이드바에 항상 떠 있던 제작(작업대)·훈련(단련소) 섹션은 **팝업으로 이관 후 사이드바에서 제거**한다(Owner 확정 답변).
+4. 유대 훈련실·의상실·합동 연성실(기존 상단 탭 3개)도 **세라 액터를 건물화**해 그 팝업 안으로 흡수한다(Owner 확정 답변).
+
+아래 Scope/Non-scope/Acceptance criteria/Design은 이 R1 방향으로 다시 작성한 것이다.
+
 ## Outcome
 
-캠프 "캠프 관리" 탭에 좌표 기반 절대 위치로 시설(텐트/작업대/단련소)과 세라를 배치하는 조감도 뷰를 추가해, 기존 카드 나열형 UI와 병행 제공한다.
+캠프 모드 진입 시 기본 화면이 2.5D 건물 배치 캔버스이고, 텐트·작업대·단련소·세라·상인 건물/액터를 클릭하면 해당 건물의 실제 조작 UI가 팝업으로 열린다. 사이드바에는 즉시성이 중요한 치유·소모품 장착만 남고, 제작·훈련·유대·상점 UI는 전부 건물 팝업으로 이동한다.
 
 ## Priority / Status / Skill tags
 
@@ -13,63 +24,66 @@
 
 ## Scope
 
-- `src/components/CampCanvas.tsx` (신규): `CampDashboard.tsx`의 `overview` 탭 안에 "조감도 보기" 토글로 추가한다.
-  - 배경 위에 tent/workbench/trainingGround를 퍼센트 좌표(`{ x, y }`)로 절대 배치한다. 좌표는 이 컴포넌트 안의 상수 테이블로 관리한다(엔진 상태에 좌표를 저장하지 않는다 — 순수 프레젠테이션).
-  - 세라가 `status !== 'unmet'`이면 캠프 내 지정 위치에 액터로 표시한다.
-  - 각 오브젝트/액터는 **실제 `<button>` 엘리먼트**로 렌더링한다(`<div onClick>` 금지) — 별도의 roving-tabindex 구현 없이 네이티브 키보드 포커스·Enter/Space 활성화를 확보하기 위함.
-  - 오브젝트 활성화 시 **새 명령을 만들지 않고** 기존 `CampDashboard`의 `activateCenterTab`/`onUpgradeStructure` 등 기존 핸들러와 상태(레벨, 비용, disabled 사유)를 그대로 재사용해 해당 카드로 포커스를 이동하거나 관련 탭을 연다.
-  - 시설 아트는 기존 `GameAsset` 컴포넌트(purpose="card", fallbackLabel 포함)를 재사용해 자산 누락 시 기존 fallback 규약을 그대로 따른다.
-- `src/styles.css`: Tailwind 없이 순수 CSS로 `camp-canvas`, `camp-canvas__object`, `camp-canvas__actor` 등 BEM 스타일 클래스를 추가한다. `prefers-reduced-motion`에서 hover/등장 애니메이션을 비활성화한다(기존 IRPG-403 패턴).
-- `src/components/CampCanvas.test.tsx` / e2e: 렌더링·키보드 활성화·360px 레이아웃 테스트를 추가한다.
-- `tools/run-visual-regression.mjs` 대상에 조감도 뷰의 새 시각 상태 baseline을 추가한다(IRPG-506 harness 확장).
+- `src/components/CampCanvas.tsx`: `CampDashboard`의 기본(유일한) 캠프 화면이 된다. 토글 제거.
+  - 건물/액터 5종을 절대 좌표(%)에 실제 `<button>`으로 배치: 텐트, 작업대, 단련소, 세라(상태 `!== 'unmet'`일 때만), 떠돌이 상인(신규 오브젝트).
+  - 각 건물 클릭 시 **직접 명령을 호출하지 않고** 해당 팝업을 연다(`openPopup('tent' | 'workbench' | 'trainingGround' | 'sera' | 'merchant')`).
+- 신규 팝업 컴포넌트(전부 `role="dialog"`, 포커스 트랩, Escape로 닫기 — 기존 `TacticalIntelPanel`의 장비 선택 dialog·`ExpeditionEventPanel` 오버레이 패턴 재사용):
+  - `TentPopup.tsx`: 레벨, 효과, 확장 버튼(기존 카드 내용 이관).
+  - `WorkbenchPopup.tsx`: 레벨/확장 버튼 + 기존 `camp-storage-summary`(가방·보관함 요약) + 기존 `camp-crafting`(재료 보유량, 레시피 3종, 제작 진행) 섹션 전체 이관.
+  - `TrainingGroundPopup.tsx`: 레벨/확장 버튼 + 기존 `camp-training`(공격·체력 훈련) 섹션 이관.
+  - `SeraPopup.tsx`: 기존 `camp-resident`(구조/계약 안내, 신뢰 활동) 섹션 + 내부 소형 탭 전환으로 기존 `CampSpecialFacilities`(유대 훈련실/의상실/합동 연성실)를 그대로 재사용해 호스팅. 바깥 `CAMP_CENTER_TABS`는 제거하고 이 내부 탭이 대신한다.
+  - `MerchantPopup.tsx`: 기존 `camp-merchant`(상인 제안 목록, 갱신 타이머) 섹션 이관.
+- `src/components/CampDashboard.tsx`: `camp-rest`(휴식 패널) + `CampCanvas` + 슬림해진 `camp-command` aside(요약 dl, 치유 화로, 배틀 서플라이, 안전 정지 안내)만 남긴다. `CAMP_CENTER_TABS`, `campViewMode` 토글, 시설 카드 그리드, storage/merchant/resident 섹션, training/crafting aside 섹션을 제거한다.
+- `src/game/camp.ts`: 기존 헬퍼(`getCampStructureUpgradeCost`, `getCampMerchantOffers`, `getSeraTrustCost` 등) 재사용, 새 engine 명령 없음.
 
 ## Non-scope
 
-- Drag & Drop 배치, 액터를 오브젝트로 끌어다 놓는 인터랙션 (Wartales 스타일 전체 구현 아님, 1단계는 클릭/키보드 활성화만)
-- 신규 배경·오브젝트 스프라이트 아트 제작 (기존 GameAsset fallback 사용)
-- 포획한 몬스터/생체카드 액터의 캠프 내 배치 (IRPG-801/802 이후, IRPG-804에서 재검토)
-- 기존 `camp-facility-grid` 카드형 UI 제거 — 이번 티켓은 토글 병행 추가만 다루고, 전면 교체는 별도 후속 티켓에서 사용성 데이터를 본 뒤 결정한다.
+- Drag & Drop 배치 (클릭/키보드 활성화만)
+- 신규 배경·오브젝트 스프라이트 아트 제작 (기존 `GameAsset` fallback 사용)
+- 포획한 몬스터/생체카드 액터의 캠프 내 배치 (IRPG-804)
+- 치유 화로·배틀 서플라이(빠른 소모품 장착) 섹션 이동 — Owner가 "제작/훈련"만 명시했으므로 aside에 그대로 둔다.
+- 신규 팝업 애니메이션/트랜지션 연출 (Non-scope, 접근성 있는 정적 모달로 충분)
 
 ## Dependencies
 
-- IRPG-419 (캠프 시설·영구 훈련·오프라인 상한), IRPG-424 (전술 정보 레일·8슬롯 명령 재배치), IRPG-425 (CHAPTER I 유대 시설), IRPG-403 (접근성·모바일 감사), IRPG-506 (시각 브라우저 회귀 게이트)
+- IRPG-419, IRPG-424, IRPG-425, IRPG-403, IRPG-506
+- 기존 `CampSpecialFacilities.tsx`/`SynthesisRewardDialog.tsx` (변경 없이 재사용)
 
 ## Impacts
 
-- Save schema: none (좌표는 컴포넌트 상수, 저장 상태 아님)
-- Content config: none (기존 `CampState`/`CampResidentState` 그대로 사용)
-- Accessibility: review 필요 — 신규 인터랙티브 오브젝트의 키보드 포커스 순서·aria-label·모션 감소 대응
+- Save schema: none
+- Content config: none
+- Accessibility: review 필요 — 5개 신규 모달의 포커스 트랩·복귀 포커스·Escape 처리·`aria-labelledby`가 기존 `TacticalIntelPanel` 장비 모달과 동일 수준을 만족해야 한다.
+- **회귀 위험**: IRPG-414가 "패널을 열지 않고 바로 조작"을 데스크톱 목표로 삼았던 것과 반대 방향이다(제작/훈련이 이제 팝업을 열어야 조작 가능). Owner가 이 트레이드오프를 명시적으로 승인함.
 
 ## Acceptance criteria
 
-- Given 캠프 모드에서 "조감도 보기"로 전환, when 화면을 열면, then tent/workbench/trainingGround가 배경 위 절대 좌표(%)에 렌더링된다.
-- Given tent 오브젝트를 클릭 또는 Enter로 활성화, when 실행되면, then 기존 `onUpgradeStructure` 핸들러가 그대로 호출되고 레벨/비용/비활성 상태가 카드형 UI와 완전히 동일하게 반영된다(새 로직 없음).
-- Given 세라 상태가 `rescued` 이상, when 조감도를 보면, then 세라 액터가 표시되고 활성화 시 기존 "유대 훈련실" 탭이 열린다. Given `unmet` 상태면, then 액터가 표시되지 않는다.
-- Given 키보드 사용자, when Tab으로 순회하면, then 모든 오브젝트가 포커스 가능한 `<button>`이고 Tab 순서가 논리적이며 가로 스크롤 없이 전체가 보인다(360px 포함).
-- Given `prefers-reduced-motion: reduce`, when 오브젝트에 hover/등장 효과가 있으면, then 해당 애니메이션이 비활성화된다.
-- Given 기존 `camp-facility-grid`, when 이 티켓이 완료되어도, then 카드형 UI는 삭제되지 않고 토글로 공존한다.
+- Given 캠프 모드 진입, when 화면을 보면, then 토글 없이 바로 2.5D 건물 캔버스가 기본 화면으로 보인다.
+- Given 텐트/작업대/단련소/상인 건물 클릭 또는 Enter, when 활성화되면, then 즉시 업그레이드/구매가 실행되지 않고 해당 팝업이 열린다.
+- Given 작업대 팝업이 열림, when 레시피 제작 버튼을 누르면, then 기존 `onStartCraft` 핸들러가 그대로 호출되고 기존 카드형 UI와 동일한 비활성 조건(재료 부족 등)을 보인다.
+- Given 세라 상태가 `unmet`, when 조감도를 보면, then 세라 건물이 보이지 않는다. Given `rescued` 이상, when 세라 건물을 클릭하면, then `SeraPopup`이 열리고 내부 탭으로 유대 훈련실/의상실/합동 연성실을 오갈 수 있다.
+- Given 임의의 팝업이 열려 있음, when Escape를 누르거나 닫기 버튼을 누르면, then 팝업이 닫히고 포커스가 해당 건물 버튼으로 복귀한다.
+- Given 키보드 사용자, when Tab으로 순회하면, then 모든 건물이 포커스 가능한 `<button>`이고, 팝업 내부는 포커스 트랩이 걸린다.
+- Given 기존 `CampDashboard.test.tsx`의 치유 화로·배틀 서플라이 테스트, when 이 티켓 이후 실행하면, then 변경 없이 통과한다(aside에 남은 부분은 회귀 없음).
 
 ## Design
 
-- 좌표·인터랙션은 순수 프레젠테이션 레이어로 한정하고, 모든 게임 로직(비용 계산, disabled 조건, 접근성 문구)은 `CampDashboard.tsx`가 이미 계산해 둔 값과 핸들러를 그대로 전달받아 재사용한다 — 이 티켓에서 새 engine 명령이나 새 상태 필드를 만들지 않는다.
-- **Raid: Shadow Legends 마을 화면 참조(사용자 제공 스크린샷)** — 구체적으로 재현할 패턴:
-  - 건물마다 (a) 건물 위에 떠 있는 작은 원형 상태 배지(레벨/상호작용 가능 표시), (b) 배지 아래 어두운 반투명 알약형 라벨에 "이름 · Lv.N" 텍스트. `CampCanvas.tsx` 오브젝트 마크업이 이 두 레이어(배지+라벨)를 그대로 따른다.
-  - 상단 자원 바(에너지/골드/보석에 해당)는 Emberwatch에 이미 `topbar`의 `resource-rack`(골드/불씨 정수 칩)로 동일 패턴이 있음 — 캠프 캔버스 전용으로 새로 만들지 않고 기존 topbar를 그대로 유지한다.
-  - 화면 우하단에 무게감 있는 단일 원색 CTA 버튼(스크린샷의 붉은 "전투" 버튼)이 있는데, Emberwatch는 이미 `GameModeSelector`가 이 역할을 하므로 새 버튼을 만들지 않고 시각적 강조만 참고한다.
-  - 하단 원형 아이콘 네비게이션 열은 이번 티켓 범위 밖(`TacticalUtilityDock`이 전투 화면에서 이미 유사한 원형 아이콘 도크 패턴을 사용 중 — 필요하면 후속 티켓에서 캠프 쪽에도 통일 검토).
-- 참고만 하고 이번 티켓에서 만들지 않는 것: 레벨업 대사창(VN 스타일 승리 연출)과 챔피언 장비창 3단 컬럼 레이아웃 — 각각 별도 스크린샷 참조 대상이며, 전자는 800~804에 없는 새 범위, 후자는 이미 Done인 IRPG-703을 재작업하는 것이라 별도 티켓 논의가 필요하다(Owner 확인 대기).
+- 각 팝업은 `state`와 필요한 핸들러만 받고, 표시에 필요한 파생값은 팝업 내부에서 기존 `game/camp.ts`/`game/formulas.ts` 헬퍼로 직접 계산한다(Props 폭발 방지, `CampSpecialFacilities`가 이미 쓰는 패턴과 동일).
+- `SeraPopup`의 내부 탭 전환은 기존 `CAMP_CENTER_TABS`의 roving-tabindex 코드를 그대로 옮겨 재사용한다(새로 설계하지 않음).
+- Raid: Shadow Legends 마을 화면 참조(이전 라운드에서 이미 반영): 건물마다 원형 상태 배지 + 알약형 이름/레벨 라벨. 상단 자원 바·모드 전환 버튼은 기존 것을 그대로 사용.
 
 ## Verification
 
-- 구현 완료: `src/components/CampCanvas.tsx` 신규 — tent/workbench/trainingGround을 실제 `<button>`으로 절대 좌표(%) 배치하고 `onUpgradeStructure(facility.id)`를 그대로 호출, 레벨/비용/비활성(`isMax`/`cannotAfford`) 계산은 `CampDashboard.tsx`의 카드형 UI와 동일한 `getCampStructureUpgradeCost` 호출로 100% 동일하게 파생(중복 계산 없음).
-- 시설 정의(`FACILITIES`)는 react-refresh 규칙 위반을 피하기 위해 `CampDashboard.tsx`에서 `src/game/camp.ts`의 `CAMP_FACILITY_DEFINITIONS`로 옮겨 카드형 UI와 캔버스가 단일 정의를 공유하도록 리팩터링.
-- `CampDashboard.tsx`에 `campViewMode`('cards'|'canvas') 토글 추가 — 기본값은 `'cards'`라 기존 회귀 없음. 캔버스 모드에서만 세라 액터가 대체되므로 기존 `camp-resident` 카드 섹션은 `campViewMode === 'cards'`일 때만 렌더링.
-- 세라 액터는 `sera.status !== 'unmet'`일 때만 표시되고, 아직 동의/의상 등 유대 시스템 관련 자산은 사용하지 않음(`character.sera.camp-default`라는 미등록 placeholder assetId → GameAsset 폴백 텍스트 "세라"만 표시 — 합의되지 않은 유대 자산을 캠프 조감도에 노출하지 않기 위한 의도적 선택).
-- **실브라우저 수동 확인**: `npm run dev`로 실행해 캠프 모드 진입 → "조감도 보기" 클릭 → 텐트/작업대/단련소 3개 버튼이 올바른 레벨·비용·골드부족 상태로 렌더링되고 카드형 UI와 동일한 aria-label을 보임을 확인. 토글이 "카드 보기"로 바뀌고 재클릭 시 원래 카드 그리드로 복귀함을 확인. 신규 세이브는 세라가 `unmet` 상태라 캔버스에 세라 액터가 나타나지 않음을 확인(자동 테스트로 rescued 상태 케이스는 별도 커버).
+- 구현 완료: `CampBuildingModal.tsx`(공유 모달 셸, 기존 `useModalFocus`/`SynthesisRewardDialog` 패턴 재사용) + `TentPopup`/`WorkbenchPopup`/`TrainingGroundPopup`/`SeraPopup`/`MerchantPopup` 5개 신규 팝업.
+- `CampCanvas.tsx`는 이제 어떤 engine 명령도 직접 호출하지 않고 `openPopup` 로컬 상태만 바꾼다. 실제 명령 호출은 전부 팝업 내부 버튼에서 일어난다.
+- 시설 헬퍼(`getCampFacilityNextEffect`/`getCampFacilityCurrentEffect`), 공용 라벨(`CAMP_MATERIAL_LABELS`), 캠프 전용 카운트다운(`formatCampCountdown`, 기존 `game/format.ts`의 `formatDuration`과 의도적으로 분리 — 후자는 `OfflineReport.tsx`가 쓰는 다른 포맷이라 충돌 방지)을 `game/camp.ts`로 이관해 카드형 코드가 완전히 사라지고 팝업들이 공유한다.
+- `CampDashboard.tsx`는 `camp-rest` + `CampCanvas` + 슬림 `camp-command`(요약/치유 화로/배틀 서플라이만)로 축소. `CAMP_CENTER_TABS`, 카드/캔버스 토글, 시설 그리드, storage/merchant/resident 섹션, 사이드바 훈련/제작 섹션 전부 제거.
+- `SeraPopup`은 기존 `CampSpecialFacilities`를 그대로(로직 변경 없이) 재사용하고, 제거된 바깥 탭의 roving-tabindex 코드를 내부 3-tab(유대 훈련실/의상실/합동 연성실)으로 그대로 옮김.
+- **실브라우저 수동 확인**(`npm run dev`, 진행 중이던 실제 세이브로 확인): 캠프 진입 시 토글 없이 바로 캔버스가 보임 → "불씨 작업대" 클릭 → 팝업이 즉시 열리고 레벨(1/5)·현재 효과·확장 버튼(골드 부족으로 정확히 비활성)·보관함 요약·재료 3종·레시피 3종(회복 물약만 재료 충분해 "제작" 활성, 나머지 "재료 부족")이 전부 실제 상태값으로 표시됨을 확인 → Escape로 팝업이 닫히고 트리거 버튼으로 포커스가 복귀함을 접근성 트리로 확인.
 
 ## Test evidence
 
-- `src/components/CampCanvas.test.tsx` 6개 케이스(오브젝트 렌더링, 실제 핸들러 호출, 카드 UI와 동일한 비활성화 조건, 공용 disabled 전파, 세라 unmet 시 숨김, 세라 rescued 시 표시+콜백 호출).
-- `npm run verify:code` 로컬 실행 결과: lint/typecheck 통과, **Test Files 53 passed / Tests 504 passed**(IRPG-802 이후 498 + 신규 6), asset manifest 40 케이스, production build 성공. 회귀 없음.
-- 실브라우저 수동 검증(위 Verification 참고) — `npm run test:e2e:visual`(Ubuntu 기준 회귀)과 Playwright e2e는 이 프로젝트 컨벤션상 로컬 Windows에서 신뢰할 수 없어 실행하지 않음(CI에서 확인 필요).
+- `src/components/CampCanvas.test.tsx` 전면 재작성(7개 케이스: 기본 렌더링·팝업 미개방, 텐트 확장이 팝업 내부에서만 호출, 작업대 팝업 보관함/레시피 내용, 단련소 팝업 onTrain 호출, 상인 팝업 onPurchaseMerchantOffer 호출, Escape 닫기+포커스 복귀, 세라 unmet 숨김/disabled 전파/rescued 표시).
+- `src/components/CampDashboard.test.tsx` 갱신: 기존 치유 화로·배틀 서플라이 테스트 3개는 무변경으로 유지(회귀 없음 증명), 제작 레시피 테스트는 작업대 팝업을 여는 흐름으로 수정, 바깥 탭 roving-focus 테스트는 삭제하고 세라 팝업 내부 roving-focus 테스트로 대체, 캔버스가 토글 없는 기본 화면임을 확인하는 테스트 추가.
+- `npm run verify:code` 로컬 실행 결과: lint/typecheck 통과, **Test Files 53 passed / Tests 507 passed**, asset manifest 40 케이스, production build 성공. 전부 첫 실행에 통과(회귀 없음).
 - 아직 사람 Reviewer 검토 전이라 Status는 `Test`로 두고 `Done` 전환은 Owner/Reviewer 확인 후 진행한다.

@@ -45,6 +45,12 @@ export const CAMP_TRAINING_EFFECTS: Readonly<Record<CampTrainingId, number>> = O
   vitality: 20,
 })
 
+export const CAMP_MATERIAL_LABELS: Readonly<Record<keyof CampMaterialInventory, string>> = Object.freeze({
+  ashShard: '재의 파편',
+  beastHide: '야수 가죽',
+  emberCore: '불씨 핵',
+})
+
 export interface CampFacilityDefinition {
   readonly id: CampStructureId
   readonly name: string
@@ -330,6 +336,32 @@ export function getCampTrainingRankCap(camp: Pick<CampState, 'structures'>): num
 export function getCampTrainingCost(id: CampTrainingId, currentRank: number): number {
   const definition = CAMP_TRAINING_COSTS[id]
   return toSafeInteger(definition.base * definition.growth ** Math.max(0, currentRank), 1)
+}
+
+// Distinct from game/format.ts's formatDuration: camp countdowns (craft jobs,
+// merchant refresh) always show minutes even at 0, matching existing display copy.
+export function formatCampCountdown(milliseconds: number): string {
+  const totalSeconds = Math.ceil(milliseconds / 1_000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}분 ${seconds}초`
+}
+
+export function getCampFacilityNextEffect(id: CampStructureId, level: number): string {
+  const nextLevel = Math.min(CAMP_STRUCTURE_MAX_LEVEL, level + 1)
+  if (id === 'tent') {
+    return `오프라인 ${CAMP_OFFLINE_CAP_HOURS[level - 1]}시간 → ${CAMP_OFFLINE_CAP_HOURS[nextLevel - 1]}시간`
+  }
+  if (id === 'workbench') {
+    return `제작 시간 ${CAMP_WORKBENCH_DURATION_PERCENT[level - 1]}% → ${CAMP_WORKBENCH_DURATION_PERCENT[nextLevel - 1]}%`
+  }
+  return `훈련 상한 ${level * 5} → ${nextLevel * 5} rank`
+}
+
+export function getCampFacilityCurrentEffect(id: CampStructureId, level: number): string {
+  if (id === 'tent') return `오프라인 상한 ${CAMP_OFFLINE_CAP_HOURS[level - 1]}시간`
+  if (id === 'workbench') return `제작 시간 ${CAMP_WORKBENCH_DURATION_PERCENT[level - 1]}%`
+  return `훈련 상한 ${level * 5} rank`
 }
 
 export function createInitialCampState(): CampState {
