@@ -24,6 +24,12 @@ import {
   upgradeCampStructure,
   consumeCampConsumable,
   useEquippedConsumable,
+  equipItem,
+  unequipItem,
+  moveItem,
+  settleLootAtCamp,
+  equipSkillSlot,
+  unequipSkillSlot,
   upgradeSkill,
 } from '../game/engine'
 import { bootstrapGame } from '../game/persistence'
@@ -244,6 +250,28 @@ export function DebugSessionApp({ onExit }: DebugSessionAppProps) {
     },
     buySkill: (id) => {
       void runCommand((current) => upgradeSkill(current, id))
+    },
+    equipItem: (slot, itemId) => {
+      void runCommand((current) => equipItem(current, slot, itemId))
+    },
+    unequipItem: (slot) => {
+      void runCommand((current) => unequipItem(current, slot))
+    },
+    moveItem: (source, target, itemId, amount = 1) => {
+      void runCommand((current) => moveItem(current, source, target, itemId, amount))
+    },
+    settleLootAtCamp: () => {
+      void runCommand((current) => ({
+        state: settleLootAtCamp(current),
+        success: true,
+        message: '전리품 이관 완료',
+      }))
+    },
+    equipSkillSlot: (slotIndex, skillId) => {
+      void runCommand((current) => equipSkillSlot(current, slotIndex, skillId))
+    },
+    unequipSkillSlot: (slotIndex) => {
+      void runCommand((current) => unequipSkillSlot(current, slotIndex))
     },
     recruitCompanion: (id) => {
       void runCommand((current) => recruitCompanion(current, id))

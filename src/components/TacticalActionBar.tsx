@@ -14,6 +14,7 @@ import {
   SKILL_DEFINITIONS,
   UPGRADE_DEFINITIONS,
 } from '../game/content'
+import { getItemDefinition } from '../game/itemRegistry'
 import {
   getCompanionDamage,
   getCompanionTrainingCost,
@@ -33,6 +34,7 @@ import {
   SKILL_IDS,
   UPGRADE_IDS,
   type CompanionId,
+  type EquipmentSlot,
   type GameState,
   type SkillId,
   type UpgradeId,
@@ -133,12 +135,21 @@ function getUpgradeDetail(
         ? 'insufficient'
         : 'available'
 
+  const slotByUpgradeId: Record<UpgradeId, EquipmentSlot> = {
+    weapon: 'weapon',
+    armor: 'armor',
+    charm: 'accessory',
+  }
+  const slot = slotByUpgradeId[id]
+  const equippedId = state.player.equipped[slot]
+  const equippedItem = equippedId ? getItemDefinition(equippedId) : null
+
   return {
     kind: 'equipment',
     name: definition.name,
-    description: definition.description,
-    rankLabel: `Lv.${level}`,
-    modeLabel: null,
+    description: equippedItem ? `[${equippedItem.name} 착용 중] ${equippedItem.description}` : `${definition.description} (현재 슬롯 미장착)`,
+    rankLabel: equippedItem ? `${equippedItem.name} Lv.${level}` : `Lv.${level}`,
+    modeLabel: equippedItem ? '착용 중' : '미장착',
     comparison,
     costLabel: comparison.isMax ? null : `${formatNumber(cost)} G`,
     status,

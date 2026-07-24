@@ -366,6 +366,7 @@ describe('A/B game persistence', () => {
       currentMode: 'BATTLE',
       camp: createInitialCampState(),
       inventory: createInitialInventoryState(),
+      livingCards: {},
       claimedBossMilestoneMask: 0,
       expeditionEvents: migratedExpeditionEvents(legacySaveV1.battle.highestStage, 0),
       player: {
@@ -457,6 +458,7 @@ describe('A/B game persistence', () => {
       currentMode: 'BATTLE',
       camp: createInitialCampState(),
       inventory: createInitialInventoryState(),
+      livingCards: {},
       claimedBossMilestoneMask: 0,
       expeditionEvents: migratedExpeditionEvents(
         legacySaveV2.battle.highestStage,
@@ -1503,7 +1505,7 @@ describe('A/B game persistence', () => {
 
     const decoded = parseSave(JSON.stringify(schema8State))
     expect(decoded).not.toBeNull()
-    expect(decoded?.schemaVersion).toBe(9)
+    expect(decoded?.schemaVersion).toBe(SAVE_VERSION)
     expect(decoded?.inventory).toEqual({
       definitionVersion: 1,
       lootBag: {},

@@ -10,6 +10,7 @@ import {
 } from './TacticalIntelPanel'
 import { TacticalStage } from './TacticalStage'
 import { TacticalUtilityDock } from './TacticalUtilityDock'
+import { LivingCardConsole } from './LivingCardConsole'
 import { formatNumber } from '../game/format'
 import type { GameController } from '../hooks/useGame'
 import { useCombatResults } from '../hooks/useCombatResults'
@@ -184,6 +185,7 @@ export function GameScreen({
         ) : (
           <div className="tactical-layout" data-testid="tactical-layout">
             <div className="tactical-battlefield">
+
               <TacticalStage
                 state={game.state}
                 batch={game.combatEventBatch}
@@ -205,15 +207,27 @@ export function GameScreen({
                 disabled={controlsDisabled}
                 {...(disabledReason ? { disabledReason } : {})}
               />
+
+
             </div>
 
             <aside className="tactical-command-dock" aria-label="전술 정보와 원정 관리">
+              <LivingCardConsole
+                state={game.state}
+                onChooseExpeditionEvent={game.chooseExpeditionEvent}
+              />
               <TacticalIntelPanel
                 state={game.state}
                 activeTab={activeIntelTab}
                 onActiveTabChange={setActiveIntelTab}
                 onChooseStage={game.chooseStage}
                 onEquipQuickConsumable={game.equipQuickConsumable}
+                onEquipItem={game.equipItem}
+                onUnequipItem={game.unequipItem}
+                onMoveItem={game.moveItem}
+                onSettleLoot={game.settleLootAtCamp}
+                onEquipSkillSlot={game.equipSkillSlot}
+                onUnequipSkillSlot={game.unequipSkillSlot}
                 disabled={controlsDisabled}
                 {...(disabledReason ? { disabledReason } : {})}
               />

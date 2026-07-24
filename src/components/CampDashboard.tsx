@@ -318,6 +318,18 @@ export function CampDashboard({
             )
           })}
         </div>
+        <section className="camp-storage-summary" aria-labelledby="camp-storage-title" style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p className="eyebrow" style={{ margin: 0 }}>STORAGE & LOOT</p>
+              <h3 id="camp-storage-title" style={{ margin: '0.25rem 0 0 0' }}>캠프 대형 보관함 & 임시 전리품</h3>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem' }}>
+                임시 전리품 종류: {Object.keys(state.inventory.lootBag).length}종 | 보관함 아이템: {Object.keys(state.inventory.campStorage).length}종 | 영웅 가방: {Object.keys(state.inventory.heroInventory).length}종
+              </p>
+            </div>
+          </div>
+        </section>
+
         <section className="camp-merchant" aria-labelledby="camp-merchant-title">
           <div className="camp-training__heading">
             <div>

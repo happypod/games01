@@ -4,7 +4,6 @@ import {
   EXPEDITION_DEFINITION_VERSION,
   EXPEDITION_MILESTONE_COUNT,
   MAX_STAGE,
-  SKILL_DEFINITIONS,
   UPGRADE_DEFINITIONS,
   getEnemyDefinition,
 } from './content'
@@ -844,11 +843,20 @@ function normalizeGameState(value: GameState): GameState {
       state.player.upgrades[id],
     )
   }
-  for (const id of SKILL_IDS) {
-    state.player.skills[id] = Math.min(SKILL_DEFINITIONS[id].maxRank, state.player.skills[id])
+  if (!state.livingCards) {
+    state.livingCards = {}
   }
   state.player.currentHp = Math.min(getHeroStats(state).maxHp, Math.max(1, state.player.currentHp))
   return state
+}
+
+export function migrateToSchema5(state: GameState): GameState {
+  const cloned = structuredClone(state)
+  cloned.schemaVersion = SAVE_VERSION
+  if (!cloned.livingCards) {
+    cloned.livingCards = {}
+  }
+  return normalizeGameState(cloned)
 }
 
 function finalizeMigratedGameState(value: GameState): GameState | null {
@@ -1122,6 +1130,7 @@ function migrateLegacyGameState(
     player: migrateLegacyPlayerState(state.player, { id: null, rank: 0 }),
     battle: copyLegacyBattleState(state.battle, 0),
     stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
   return finalizeMigratedGameState(migrated)
 }
@@ -1145,6 +1154,7 @@ function migrateLegacyGameStateV3(state: LegacyGameStateV3): GameState | null {
     player: migrateLegacyPlayerState(state.player, state.player.companion),
     battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
     stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
   return finalizeMigratedGameState(migrated)
 }
@@ -1165,6 +1175,7 @@ function migrateLegacyGameStateV4(state: LegacyGameStateV4): GameState | null {
     player: migrateLegacyPlayerState(state.player, state.player.companion),
     battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
     stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
   return finalizeMigratedGameState(migrated)
 }
@@ -1182,6 +1193,7 @@ function migrateLegacyGameStateV5(state: LegacyGameStateV5): GameState | null {
     player: migrateLegacyPlayerState(state.player, state.player.companion),
     battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
     stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
   return finalizeMigratedGameState(migrated)
 }
@@ -1199,6 +1211,7 @@ function migrateLegacyGameStateV6(state: LegacyGameStateV6): GameState | null {
     player: migrateLegacyPlayerState(state.player, state.player.companion),
     battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
     stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
   return finalizeMigratedGameState(migrated)
 }
@@ -1216,6 +1229,7 @@ function migrateLegacyGameStateV7(state: LegacyGameStateV7): GameState | null {
     player: migrateLegacyPlayerState(state.player, state.player.companion),
     battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
     stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
   return finalizeMigratedGameState(migrated)
 }
@@ -1233,6 +1247,7 @@ function migrateLegacyGameStateV8(state: LegacyGameStateV8): GameState | null {
     player: migrateLegacyPlayerState(state.player, state.player.companion),
     battle: copyLegacyBattleState(state.battle, state.battle.companionCooldownMs),
     stats: copyLegacyLifetimeStats(state.stats),
+    livingCards: {},
   }
   return finalizeMigratedGameState(migrated)
 }

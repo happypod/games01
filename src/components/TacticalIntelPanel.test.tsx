@@ -165,13 +165,13 @@ describe('IRPG-424 TacticalIntelPanel', () => {
       name: '불씨 여우 루미 · Rank 2',
     })).toBeVisible()
     expect(within(panel).getByText('2초')).toBeVisible()
-    expect(within(panel).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: '해제' })).not.toBeInTheDocument()
 
     selectTab('스킬')
     panel = screen.getByRole('tabpanel', { name: '스킬' })
     expect(panel.querySelectorAll('[data-skill-id]')).toHaveLength(3)
     expect(within(panel).getByText('자동 시전 3초')).toBeVisible()
-    expect(within(panel).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(panel).queryByRole('button', { name: '해제' })).not.toBeInTheDocument()
   })
 
   it('shows equipment, materials, three consumables and equips or unequips the potion', () => {
@@ -181,7 +181,6 @@ describe('IRPG-424 TacticalIntelPanel', () => {
     let panel = screen.getByRole('tabpanel', { name: '가방' })
 
     expect(panel.querySelectorAll('[data-consumable-id]')).toHaveLength(3)
-    expect(within(panel).getByText('불씨 검')).toBeVisible()
     expect(within(panel).getByText('재의 파편').nextSibling).toHaveTextContent('12')
     expect(within(panel).getByRole('heading', { name: '회복 물약 ×3' })).toBeVisible()
 

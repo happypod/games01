@@ -24,6 +24,12 @@ import {
   upgradeCampStructure as upgradeCampStructureCommand,
   consumeCampConsumable as consumeCampConsumableCommand,
   useEquippedConsumable as consumeEquippedConsumableCommand,
+  equipItem as equipItemCommand,
+  unequipItem as unequipItemCommand,
+  moveItem as moveItemCommand,
+  settleLootAtCamp as settleLootAtCampCommand,
+  equipSkillSlot as equipSkillSlotCommand,
+  unequipSkillSlot as unequipSkillSlotCommand,
   upgradeSkill,
 } from '../game/engine'
 import {
@@ -51,6 +57,7 @@ import type {
   CampQuickConsumableId,
   CampRecipeId,
   CommandResult,
+  EquipmentSlot,
   ExpeditionChoiceId,
   GameState,
   GameMode,
@@ -112,6 +119,17 @@ export interface GameController {
   synthesizeJointBond: (id: Chapter1SynthesisId) => GameCommandFeedback
   buyUpgrade: (id: UpgradeId) => void
   buySkill: (id: SkillId) => void
+  equipItem: (slot: EquipmentSlot, itemId: string) => void
+  unequipItem: (slot: EquipmentSlot) => void
+  moveItem: (
+    source: 'heroInventory' | 'campStorage',
+    target: 'heroInventory' | 'campStorage',
+    itemId: string,
+    amount?: number,
+  ) => void
+  settleLootAtCamp: () => void
+  equipSkillSlot: (slotIndex: number, skillId: SkillId) => void
+  unequipSkillSlot: (slotIndex: number) => void
   recruitCompanion: (id: CompanionId) => void
   trainCompanion: () => void
   chooseStage: (stage: number) => void
@@ -532,6 +550,47 @@ export function useGame(): GameController {
     (id: SkillId) => runCommand((current) => upgradeSkill(current, id)),
     [runCommand],
   )
+  const equipItem = useCallback(
+    (slot: EquipmentSlot, itemId: string) =>
+      runCommand((current) => equipItemCommand(current, slot, itemId)),
+    [runCommand],
+  )
+  const unequipItem = useCallback(
+    (slot: EquipmentSlot) =>
+      runCommand((current) => unequipItemCommand(current, slot)),
+    [runCommand],
+  )
+  const moveItem = useCallback(
+    (
+      source: 'heroInventory' | 'campStorage',
+      target: 'heroInventory' | 'campStorage',
+      itemId: string,
+      amount = 1,
+    ) =>
+      runCommand((current) =>
+        moveItemCommand(current, source, target, itemId, amount),
+      ),
+    [runCommand],
+  )
+  const settleLootAtCamp = useCallback(
+    () =>
+      runCommand((current) => ({
+        state: settleLootAtCampCommand(current),
+        success: true,
+        message: '임시 전리품 가방의 모든 전리품을 캠프 보관함으로 옮겼습니다.',
+      })),
+    [runCommand],
+  )
+  const equipSkillSlot = useCallback(
+    (slotIndex: number, skillId: SkillId) =>
+      runCommand((current) => equipSkillSlotCommand(current, slotIndex, skillId)),
+    [runCommand],
+  )
+  const unequipSkillSlot = useCallback(
+    (slotIndex: number) =>
+      runCommand((current) => unequipSkillSlotCommand(current, slotIndex)),
+    [runCommand],
+  )
   const recruitCompanion = useCallback(
     (id: CompanionId) => runCommand((current) => recruitCompanionCommand(current, id)),
     [runCommand],
@@ -655,6 +714,12 @@ export function useGame(): GameController {
     synthesizeJointBond,
     buyUpgrade,
     buySkill,
+    equipItem,
+    unequipItem,
+    moveItem,
+    settleLootAtCamp,
+    equipSkillSlot,
+    unequipSkillSlot,
     recruitCompanion,
     trainCompanion,
     chooseStage,

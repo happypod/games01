@@ -1,4 +1,4 @@
-export const SAVE_VERSION = 9 as const
+export const SAVE_VERSION = 10 as const
 export const INVENTORY_DEFINITION_VERSION = 1 as const
 export const RNG_ALGORITHM = 'xorshift32-v1' as const
 
@@ -16,6 +16,7 @@ export interface ItemStats {
   readonly hp?: number
   readonly def?: number
   readonly critChanceBasisPoints?: number
+  readonly goldBonusPercent?: number
 }
 
 export interface ItemDefinition {
@@ -252,6 +253,14 @@ export interface LifetimeStats {
   prestiges: number
 }
 
+export interface LivingCardState {
+  cardId: string
+  hStage: 0 | 1 | 2
+  captureLoyalty: number
+  corruptionLevel: number
+  isCaptured: boolean
+}
+
 export interface GameState {
   schemaVersion: typeof SAVE_VERSION
   lastSavedAt: number
@@ -264,6 +273,7 @@ export interface GameState {
   player: PlayerState
   battle: BattleState
   stats: LifetimeStats
+  livingCards: Record<string, LivingCardState>
 }
 
 export interface HeroStats {
@@ -273,6 +283,53 @@ export interface HeroStats {
   goldMultiplier: number
   powerStrikeMultiplier: number
   critChance: number
+}
+
+export interface BattleActor {
+  id: string
+  name: string
+  hp: number
+  maxHp: number
+  atk: number
+  def: number
+  baseAssetId: string
+  damagedAssetId: string
+  severeAssetId: string
+}
+
+export interface HotbarSlot {
+  id: string
+  type: 'SKILL' | 'ITEM'
+  name: string
+  iconAssetId: string
+  skillId?: string | undefined
+  itemId?: string | undefined
+  cooldownMs: number
+  maxCooldownMs: number
+}
+
+export interface BattleEvent {
+  id: string
+  type: 'SKILL' | 'CRITICAL' | 'NORMAL' | 'COMPANION'
+  targetId: string
+  damage: number
+  skillName?: string
+  timestamp: number
+}
+
+export function getActorDamageStage(hp: number, maxHp: number): 0 | 1 | 2 {
+  if (maxHp <= 0) return 0
+  const ratio = hp / maxHp
+  if (ratio >= 0.7) return 0
+  if (ratio >= 0.3) return 1
+  return 2
+}
+
+export function getActorAssetId(actor: BattleActor): string {
+  const stage = getActorDamageStage(actor.hp, actor.maxHp)
+  if (stage === 1) return actor.damagedAssetId
+  if (stage === 2) return actor.severeAssetId
+  return actor.baseAssetId
 }
 
 export interface EnemyDefinition {

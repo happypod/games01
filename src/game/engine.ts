@@ -272,6 +272,7 @@ const cloneState = (state: GameState): GameState => ({
   },
   battle: { ...state.battle },
   stats: { ...state.stats },
+  livingCards: state.livingCards ? { ...state.livingCards } : {},
 })
 
 export function createInitialState(
@@ -316,6 +317,7 @@ export function createInitialState(
       enemiesDefeated: 0,
       prestiges: 0,
     },
+    livingCards: {},
   }
 }
 
@@ -454,16 +456,23 @@ function resolveCombatRound(
   }
   const hero = getHeroStats(state)
   state.player.currentHp = Math.min(state.player.currentHp, hero.maxHp)
-  state.battle.powerStrikeCooldownMs = Math.max(
-    0,
-    state.battle.powerStrikeCooldownMs - COMBAT_ROUND_MS,
-  )
+  const isPowerStrikeEquipped = state.player.skillSlots.includes('powerStrike')
+  if (isPowerStrikeEquipped) {
+    state.battle.powerStrikeCooldownMs = Math.max(
+      0,
+      state.battle.powerStrikeCooldownMs - COMBAT_ROUND_MS,
+    )
+  } else {
+    state.battle.powerStrikeCooldownMs = 0
+  }
   state.battle.companionCooldownMs = state.player.companion.id === null
     ? 0
     : Math.max(0, state.battle.companionCooldownMs - COMBAT_ROUND_MS)
 
   const usesPowerStrike =
-    state.player.skills.powerStrike > 0 && state.battle.powerStrikeCooldownMs === 0
+    isPowerStrikeEquipped &&
+    state.player.skills.powerStrike > 0 &&
+    state.battle.powerStrikeCooldownMs === 0
   const draw = nextRandom(state.rng)
   state.rng = draw.rng
   const criticalChance = state.camp.buffs.bossFocusStage === enemy.stage
@@ -1256,6 +1265,59 @@ export function upgradeSkill(input: GameState, id: SkillId): CommandResult {
   return { state, success: true, message: `${definition.name} 랭크 상승` }
 }
 
+export function equipSkillSlot(
+  input: GameState,
+  slotIndex: number,
+  id: SkillId,
+): CommandResult {
+  if (slotIndex < 0 || slotIndex >= 3 || !Number.isInteger(slotIndex)) {
+    return { state: input, success: false, message: '유효하지 않은 스킬 슬롯입니다.' }
+  }
+  const definition = SKILL_DEFINITIONS[id]
+  if (!definition) {
+    return { state: input, success: false, message: '등록되지 않은 스킬입니다.' }
+  }
+  const rank = input.player.skills[id]
+  if (rank <= 0 || !isSkillUnlocked(input, id)) {
+    return { state: input, success: false, message: '해금되지 않은 스킬입니다.' }
+  }
+
+  const state = cloneState(input)
+  const currentSlots: [SkillId | null, SkillId | null, SkillId | null] = [
+    ...state.player.skillSlots,
+  ]
+
+  for (let i = 0; i < currentSlots.length; i++) {
+    if (currentSlots[i] === id) {
+      currentSlots[i] = null
+    }
+  }
+
+  currentSlots[slotIndex] = id
+  state.player.skillSlots = currentSlots
+  return { state, success: true, message: `${definition.name} 스킬 장착 완료` }
+}
+
+export function unequipSkillSlot(
+  input: GameState,
+  slotIndex: number,
+): CommandResult {
+  if (slotIndex < 0 || slotIndex >= 3 || !Number.isInteger(slotIndex)) {
+    return { state: input, success: false, message: '유효하지 않은 스킬 슬롯입니다.' }
+  }
+  if (input.player.skillSlots[slotIndex] === null) {
+    return { state: input, success: true, message: '이미 비어있는 슬롯입니다.' }
+  }
+
+  const state = cloneState(input)
+  const currentSlots: [SkillId | null, SkillId | null, SkillId | null] = [
+    ...state.player.skillSlots,
+  ]
+  currentSlots[slotIndex] = null
+  state.player.skillSlots = currentSlots
+  return { state, success: true, message: '스킬 해제 완료' }
+}
+
 export function recruitCompanion(input: GameState, id: CompanionId): CommandResult {
   const definition = COMPANION_DEFINITIONS[id]
   if (input.player.companion.id !== null) {
@@ -1425,9 +1487,10 @@ export function equipItem(
   if (!itemDef || itemDef.slot !== slot) {
     return { state: input, success: false, message: '장착할 수 없는 아이템입니다.' }
   }
-  const currentCount = input.inventory.heroInventory[itemId] ?? 0
-  if (currentCount < 1) {
-    return { state: input, success: false, message: '가방에 해당 장비가 없습니다.' }
+  const heroCount = input.inventory.heroInventory[itemId] ?? 0
+  const storageCount = input.inventory.campStorage[itemId] ?? 0
+  if (heroCount < 1 && storageCount < 1) {
+    return { state: input, success: false, message: '가방이나 보관함에 해당 장비가 없습니다.' }
   }
 
   const currentlyEquippedId = input.player.equipped[slot]
@@ -1440,10 +1503,18 @@ export function equipItem(
 
   const state = cloneState(input)
 
-  if (currentCount === 1) {
-    delete state.inventory.heroInventory[itemId]
-  } else {
-    state.inventory.heroInventory[itemId] = currentCount - 1
+  if (heroCount >= 1) {
+    if (heroCount === 1) {
+      delete state.inventory.heroInventory[itemId]
+    } else {
+      state.inventory.heroInventory[itemId] = heroCount - 1
+    }
+  } else if (storageCount >= 1) {
+    if (storageCount === 1) {
+      delete state.inventory.campStorage[itemId]
+    } else {
+      state.inventory.campStorage[itemId] = storageCount - 1
+    }
   }
 
   if (currentlyEquippedId !== null) {
@@ -1554,3 +1625,4 @@ export function moveItem(
     message: `${itemDef.name} ${moveAmount}개를 ${targetName}으로 이동했습니다.`,
   }
 }
+

@@ -28,9 +28,9 @@ import {
 import {
   COMPANION_DEFINITIONS,
   SKILL_DEFINITIONS,
-  UPGRADE_DEFINITIONS,
   getEnemyDefinition,
 } from '../game/content'
+import { getItemDefinition } from '../game/itemRegistry'
 import {
   getCompanionDamage,
   getHeroStats,
@@ -41,11 +41,13 @@ import { formatNumber } from '../game/format'
 import {
   CAMP_CONSUMABLE_IDS,
   CAMP_MATERIAL_IDS,
+  EQUIPMENT_SLOTS,
   SKILL_IDS,
-  UPGRADE_IDS,
   type CampConsumableId,
   type CampQuickConsumableId,
+  type EquipmentSlot,
   type GameState,
+  type SkillId,
 } from '../game/types'
 import { GameAsset } from './GameAsset'
 import { StageMapPanel } from './StageMapPanel'
@@ -95,10 +97,21 @@ export interface TacticalIntelPanelProps {
   state: GameState
   onChooseStage: (stage: number) => void
   onEquipQuickConsumable: (id: CampQuickConsumableId | null) => void
-  activeTab?: TacticalIntelTabId
-  onActiveTabChange?: (id: TacticalIntelTabId) => void
-  disabled?: boolean
-  disabledReason?: string
+  onEquipItem?: ((slot: EquipmentSlot, itemId: string) => void) | undefined
+  onUnequipItem?: ((slot: EquipmentSlot) => void) | undefined
+  onMoveItem?: ((
+    source: 'heroInventory' | 'campStorage',
+    target: 'heroInventory' | 'campStorage',
+    itemId: string,
+    amount?: number,
+  ) => void) | undefined
+  onSettleLoot?: (() => void) | undefined
+  onEquipSkillSlot?: ((slotIndex: number, skillId: SkillId) => void) | undefined
+  onUnequipSkillSlot?: ((slotIndex: number) => void) | undefined
+  activeTab?: TacticalIntelTabId | undefined
+  onActiveTabChange?: ((id: TacticalIntelTabId) => void) | undefined
+  disabled?: boolean | undefined
+  disabledReason?: string | undefined
 }
 
 function getConsumableStatus(state: GameState, id: CampConsumableId): string {
@@ -195,11 +208,52 @@ function EnemySummary({ state }: { state: GameState }) {
   )
 }
 
-function CharacterIntel({ state }: { state: GameState }) {
+import type { ItemDefinition } from '../game/types'
+
+function getItemStatSummary(def: ItemDefinition): string {
+  if (!def.stats) return '스탯 효과 없음'
+  const parts: string[] = []
+  if (def.stats.atk) parts.push(`공격력 +${def.stats.atk}`)
+  if (def.stats.hp) parts.push(`체력 +${def.stats.hp}`)
+  if (def.stats.def) parts.push(`방어력 +${def.stats.def}`)
+  if (def.stats.critChanceBasisPoints) parts.push(`치명타율 +${(def.stats.critChanceBasisPoints / 100).toFixed(1)}%`)
+  if (def.stats.goldBonusPercent) parts.push(`골드 보너스 +${def.stats.goldBonusPercent}%`)
+  return parts.length > 0 ? parts.join(' · ') : '기본 장비'
+}
+
+function CharacterIntel({
+  state,
+  onEquipItem,
+  onUnequipItem,
+}: {
+  state: GameState
+  onEquipItem?: ((slot: EquipmentSlot, itemId: string) => void) | undefined
+  onUnequipItem?: ((slot: EquipmentSlot) => void) | undefined
+}) {
+  const [selectedSlotModal, setSelectedSlotModal] = useState<EquipmentSlot | null>(null)
   const hero = getHeroStats(state)
   const companionId = state.player.companion.id
   const companion = companionId === null ? null : COMPANION_DEFINITIONS[companionId]
   const companionCooldownSeconds = Math.ceil(state.battle.companionCooldownMs / 1_000)
+
+  const SLOT_NAMES: Record<EquipmentSlot, string> = {
+    weapon: '무기',
+    helmet: '투구',
+    armor: '갑옷',
+    accessory: '장신구',
+  }
+
+  const allInventoryEntries = [
+    ...Object.entries(state.inventory.heroInventory).map(([itemId, count]) => ({ itemId, count, location: '가방' })),
+    ...Object.entries(state.inventory.campStorage).map(([itemId, count]) => ({ itemId, count, location: '보관함' })),
+  ]
+  const candidateItems = selectedSlotModal === null
+    ? []
+    : allInventoryEntries
+        .map((entry) => ({ ...entry, def: getItemDefinition(entry.itemId) }))
+        .filter((item): item is { itemId: string; count: number; location: string; def: NonNullable<ReturnType<typeof getItemDefinition>> } =>
+          item.def !== null && item.def.slot === selectedSlotModal,
+        )
 
   return (
     <div className="tactical-intel-panel__section-stack">
@@ -233,9 +287,93 @@ function CharacterIntel({ state }: { state: GameState }) {
       <dl className="tactical-intel-panel__stat-grid tactical-intel-panel__stat-grid--hero">
         <div><dt>공격력</dt><dd>{formatNumber(hero.attack)}</dd></div>
         <div><dt>방어력</dt><dd>{formatNumber(hero.defense)}</dd></div>
+        <div><dt>치명타율</dt><dd>{(hero.critChance * 100).toFixed(1)}%</dd></div>
         <div><dt>골드 배율</dt><dd>×{Number(hero.goldMultiplier.toFixed(2))}</dd></div>
         <div><dt>스킬 포인트</dt><dd>{formatNumber(state.player.skillPoints)}</dd></div>
       </dl>
+
+      <section aria-labelledby="tactical-intel-equipped-slots-title">
+        <header className="tactical-intel-panel__subheading">
+          <p className="eyebrow">EQUIPMENT SLOTS</p>
+          <h3 id="tactical-intel-equipped-slots-title">부위별 장착 장비</h3>
+        </header>
+        <div className="tactical-intel-panel__equipment-grid">
+          {EQUIPMENT_SLOTS.map((slot) => {
+            const equippedId = state.player.equipped[slot]
+            const itemDef = equippedId ? getItemDefinition(equippedId) : null
+
+            return (
+              <article key={slot} data-slot={slot} className="tactical-intel-panel__slot-interactive">
+                <div>
+                  <small>{SLOT_NAMES[slot]}</small>
+                  {itemDef ? (
+                    <>
+                      <strong>{itemDef.name}</strong>
+                      <span className="item-stat-badge" style={{ color: '#ffb74d', fontWeight: 'bold' }}>{getItemStatSummary(itemDef)}</span>
+                      <span>{itemDef.description}</span>
+                    </>
+                  ) : (
+                    <span>미장착 (빈 슬롯)</span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSlotModal(slot)}
+                  >
+                    {itemDef ? '교체' : '장착'}
+                  </button>
+                  {itemDef && onUnequipItem && (
+                    <button
+                      type="button"
+                      onClick={() => onUnequipItem(slot)}
+                    >
+                      해제
+                    </button>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+
+      {selectedSlotModal !== null && (
+        <dialog open className="tactical-intel-panel__modal" aria-labelledby="equip-modal-title">
+          <div className="tactical-intel-panel__modal-content">
+            <h4 id="equip-modal-title">{SLOT_NAMES[selectedSlotModal]} 장비 선택</h4>
+            {candidateItems.length === 0 ? (
+              <p>가방에 착용 가능한 {SLOT_NAMES[selectedSlotModal]} 장비가 없습니다.</p>
+            ) : (
+              <ul className="tactical-intel-panel__modal-list">
+                {candidateItems.map(({ itemId, count, location, def }) => (
+                  <li key={`${location}-${itemId}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <div>
+                      <strong>{def.name} ×{count} <small style={{ color: '#aaa' }}>[{location}]</small></strong>
+                      <p style={{ margin: '0.1rem 0', fontSize: '0.85rem', color: '#ffb74d' }}>{getItemStatSummary(def)}</p>
+                      <p style={{ margin: 0, fontSize: '0.85rem' }}>{def.description}</p>
+                    </div>
+                    {onEquipItem && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onEquipItem(selectedSlotModal, itemId)
+                          setSelectedSlotModal(null)
+                        }}
+                      >
+                        착용하기
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button type="button" onClick={() => setSelectedSlotModal(null)} style={{ marginTop: '0.5rem' }}>
+              닫기
+            </button>
+          </div>
+        </dialog>
+      )}
 
       <article className="tactical-intel-card tactical-intel-card--companion">
         {companion === null ? (
@@ -281,12 +419,23 @@ function InventoryIntel({
   disabledReason,
   disabledReasonId,
   onEquipQuickConsumable,
+  onEquipItem,
+  onMoveItem,
+  onSettleLoot,
 }: {
   state: GameState
   disabled: boolean
-  disabledReason?: string
+  disabledReason?: string | undefined
   disabledReasonId: string
   onEquipQuickConsumable: (id: CampQuickConsumableId | null) => void
+  onEquipItem?: ((slot: EquipmentSlot, itemId: string) => void) | undefined
+  onMoveItem?: ((
+    source: 'heroInventory' | 'campStorage',
+    target: 'heroInventory' | 'campStorage',
+    itemId: string,
+    amount?: number,
+  ) => void) | undefined
+  onSettleLoot?: (() => void) | undefined
 }) {
   const healingPotionEquipped = state.camp.quickConsumable === 'healingPotion'
   const healingPotionCount = state.camp.consumables.healingPotion
@@ -300,31 +449,117 @@ function InventoryIntel({
         </p>
       )}
 
-      <section aria-labelledby="tactical-intel-equipped-title">
+      <section aria-labelledby="tactical-intel-lootbag-title">
         <header className="tactical-intel-panel__subheading">
-          <p className="eyebrow">EQUIPPED</p>
-          <h3 id="tactical-intel-equipped-title">착용 장비</h3>
+          <p className="eyebrow">BATTLE LOOT BAG</p>
+          <h3 id="tactical-intel-lootbag-title">전투 임시 전리품</h3>
+          {onSettleLoot && (
+            <button
+              type="button"
+              disabled={disabled || Object.keys(state.inventory.lootBag).length === 0}
+              onClick={onSettleLoot}
+            >
+              보관함 이관
+            </button>
+          )}
         </header>
-        <div className="tactical-intel-panel__equipment-grid">
-          {UPGRADE_IDS.map((id) => {
-            const definition = UPGRADE_DEFINITIONS[id]
+        <div className="tactical-intel-panel__item-list">
+          {Object.entries(state.inventory.lootBag).map(([itemId, count]) => {
+            const def = getItemDefinition(itemId)
             return (
-              <article key={id}>
-                <GameAsset
-                  assetId={definition.assetId}
-                  purpose="card"
-                  decorative
-                  fallbackLabel="◆"
-                  className="tactical-intel-panel__item-art"
-                  fit="cover"
-                />
+              <article key={itemId}>
                 <div>
-                  <strong>{definition.name}</strong>
-                  <span>Lv.{state.player.upgrades[id]} · 착용 중</span>
+                  <strong>{def ? def.name : itemId} ×{formatNumber(count)}</strong>
                 </div>
               </article>
             )
           })}
+        </div>
+      </section>
+
+      <section aria-labelledby="tactical-intel-hero-inv-title">
+        <header className="tactical-intel-panel__subheading">
+          <p className="eyebrow">HERO INVENTORY</p>
+          <h3 id="tactical-intel-hero-inv-title">영웅 가방</h3>
+        </header>
+        <div className="tactical-intel-panel__item-list">
+          {Object.entries(state.inventory.heroInventory).map(([itemId, count]) => {
+            const def = getItemDefinition(itemId)
+            const slot = def?.slot
+            return (
+              <article key={itemId}>
+                <div>
+                  <strong>{def ? def.name : itemId} ×{formatNumber(count)}</strong>
+                </div>
+                <div>
+                  {slot !== undefined && onEquipItem && (
+                    <button type="button" onClick={() => onEquipItem(slot, itemId)}>
+                      착용
+                    </button>
+                  )}
+                  {state.currentMode === 'CAMP' && onMoveItem && (
+                    <button type="button" onClick={() => onMoveItem('heroInventory', 'campStorage', itemId, 1)}>
+                      보관함으로
+                    </button>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+
+      <section aria-labelledby="tactical-intel-camp-storage-title">
+        <header className="tactical-intel-panel__subheading">
+          <p className="eyebrow">CAMP STORAGE</p>
+          <h3 id="tactical-intel-camp-storage-title">캠프 대형 보관함</h3>
+        </header>
+        <div className="tactical-intel-panel__item-list">
+          {Object.entries(state.inventory.campStorage).map(([itemId, count]) => {
+            const def = getItemDefinition(itemId)
+            return (
+              <article key={itemId}>
+                <div>
+                  <strong>{def ? def.name : itemId} ×{formatNumber(count)}</strong>
+                </div>
+                {state.currentMode === 'CAMP' && onMoveItem && (
+                  <button type="button" onClick={() => onMoveItem('campStorage', 'heroInventory', itemId, 1)}>
+                    가방으로
+                  </button>
+                )}
+              </article>
+)
+          })}
+        </div>
+      </section>
+
+      <section aria-labelledby="tactical-intel-slot-upgrades-title">
+        <header className="tactical-intel-panel__subheading">
+          <p className="eyebrow">SLOT UPGRADES</p>
+          <h3 id="tactical-intel-slot-upgrades-title">부위별 강화 현황</h3>
+        </header>
+        <div className="tactical-intel-panel__equipment-grid">
+          <article>
+            <div>
+              <small>무기 슬롯</small>
+              <strong>불씨 검</strong>
+              <span>Lv.{state.player.upgrades.weapon}</span>
+            </div>
+          </article>
+          <article>
+            <div>
+              <small>갑옷 슬롯</small>
+              <strong>수호 갑옷</strong>
+              <span>Lv.{state.player.upgrades.armor}</span>
+            </div>
+          </article>
+          <article>
+            <div>
+              <small>장신구 슬롯</small>
+              <strong>행운 부적</strong>
+              <span>Lv.{state.player.upgrades.charm}</span>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -408,41 +643,135 @@ function InventoryIntel({
   )
 }
 
-function SkillIntel({ state }: { state: GameState }) {
+function SkillIntel({
+  state,
+  onEquipSkillSlot,
+  onUnequipSkillSlot,
+}: {
+  state: GameState
+  onEquipSkillSlot?: ((slotIndex: number, skillId: SkillId) => void) | undefined
+  onUnequipSkillSlot?: ((slotIndex: number) => void) | undefined
+}) {
+  const [assigningSlotIndex, setAssigningSlotIndex] = useState<number | null>(null)
+
+  const equippableSkills = SKILL_IDS.filter(
+    (id) => isSkillUnlocked(state, id) && state.player.skills[id] >= 1,
+  )
+
   return (
-    <div className="tactical-intel-panel__skill-list">
-      {SKILL_IDS.map((id) => {
-        const definition = SKILL_DEFINITIONS[id]
-        const rank = state.player.skills[id]
-        const unlocked = isSkillUnlocked(state, id)
-        const cooldownSeconds = id === 'powerStrike'
-          ? Math.ceil(state.battle.powerStrikeCooldownMs / 1_000)
-          : null
-        return (
-          <article key={id} data-skill-id={id} data-unlocked={unlocked}>
-            <GameAsset
-              assetId={definition.assetId}
-              purpose="card"
-              decorative
-              fallbackLabel="◆"
-              className="tactical-intel-panel__skill-art"
-              fit="cover"
-            />
-            <div>
-              <span>{unlocked ? `Rank ${rank}` : `Lv.${definition.unlockLevel} 해금`}</span>
-              <h3>{definition.name}</h3>
-              <p>{definition.description}</p>
-              {cooldownSeconds !== null && (
-                <small>{rank === 0
-                  ? '미각인'
-                  : cooldownSeconds === 0
-                    ? '자동 시전 준비됨'
-                    : `자동 시전 ${cooldownSeconds}초`}</small>
+    <div className="tactical-intel-panel__section-stack">
+      <section aria-labelledby="tactical-intel-active-slots-title">
+        <header className="tactical-intel-panel__subheading">
+          <p className="eyebrow">ACTIVE SKILL SLOTS</p>
+          <h3 id="tactical-intel-active-slots-title">능동 스킬 슬롯 (3개)</h3>
+        </header>
+        <div className="tactical-intel-panel__equipment-grid">
+          {state.player.skillSlots.map((skillId, index) => {
+            const definition = skillId ? SKILL_DEFINITIONS[skillId] : null
+            return (
+              <article key={index} className="tactical-intel-panel__slot-interactive">
+                <div>
+                  <small>슬롯 {index + 1}</small>
+                  <strong>{definition ? definition.name : '빈 슬롯 (미장착)'}</strong>
+                </div>
+                <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
+                  <button type="button" onClick={() => setAssigningSlotIndex(index)}>
+                    {definition ? '교체' : '장착'}
+                  </button>
+                  {definition && onUnequipSkillSlot && (
+                    <button type="button" onClick={() => onUnequipSkillSlot(index)}>
+                      해제
+                    </button>
+                  )}
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </section>
+
+      {assigningSlotIndex !== null && (
+        <dialog open className="tactical-intel-panel__modal" aria-labelledby="skill-assign-modal-title">
+          <div className="tactical-intel-panel__modal-content">
+            <h4 id="skill-assign-modal-title">슬롯 {assigningSlotIndex + 1} 능동 스킬 선택</h4>
+            {equippableSkills.length === 0 ? (
+              <p>배치 가능한 해금/각인 스킬이 없습니다. 스킬 랭크를 올려보세요.</p>
+            ) : (
+              <ul className="tactical-intel-panel__modal-list">
+                {equippableSkills.map((id) => {
+                  const def = SKILL_DEFINITIONS[id]
+                  const rank = state.player.skills[id]
+                  const isCurrentlyInThisSlot = state.player.skillSlots[assigningSlotIndex] === id
+                  return (
+                    <li key={id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                      <div>
+                        <strong>{def.name} (Rank {rank})</strong>
+                        <p style={{ margin: 0, fontSize: '0.85rem' }}>{def.description}</p>
+                      </div>
+                      {onEquipSkillSlot && (
+                        <button
+                          type="button"
+                          disabled={isCurrentlyInThisSlot}
+                          onClick={() => {
+                            onEquipSkillSlot(assigningSlotIndex, id)
+                            setAssigningSlotIndex(null)
+                          }}
+                        >
+                          {isCurrentlyInThisSlot ? '장착 중' : '선택'}
+                        </button>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            <button type="button" onClick={() => setAssigningSlotIndex(null)} style={{ marginTop: '0.5rem' }}>
+              닫기
+            </button>
+          </div>
+        </dialog>
+      )}
+
+      <div className="tactical-intel-panel__skill-list">
+        {SKILL_IDS.map((id) => {
+          const definition = SKILL_DEFINITIONS[id]
+          const rank = state.player.skills[id]
+          const unlocked = isSkillUnlocked(state, id)
+          const isEquippable = unlocked && rank >= 1
+          const cooldownSeconds = id === 'powerStrike'
+            ? Math.ceil(state.battle.powerStrikeCooldownMs / 1_000)
+            : null
+          return (
+            <article key={id} data-skill-id={id} data-unlocked={unlocked}>
+              <GameAsset
+                assetId={definition.assetId}
+                purpose="card"
+                decorative
+                fallbackLabel="◆"
+                className="tactical-intel-panel__skill-art"
+                fit="cover"
+              />
+              <div>
+                <span>{unlocked ? `Rank ${rank}` : `Lv.${definition.unlockLevel} 해금`}</span>
+                <h3>{definition.name}</h3>
+                <p>{definition.description}</p>
+                {cooldownSeconds !== null && (
+                  <small>{rank === 0
+                    ? '미각인'
+                    : cooldownSeconds === 0
+                      ? '자동 시전 준비됨'
+                      : `자동 시전 ${cooldownSeconds}초`}</small>
+                )}
+              </div>
+              {isEquippable && (
+                <button type="button" onClick={() => setAssigningSlotIndex(0)}>
+                  슬롯 장착
+                </button>
               )}
-            </div>
-          </article>
-        )
-      })}
+            </article>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -494,6 +823,12 @@ export function TacticalIntelPanel({
   state,
   onChooseStage,
   onEquipQuickConsumable,
+  onEquipItem,
+  onUnequipItem,
+  onMoveItem,
+  onSettleLoot,
+  onEquipSkillSlot,
+  onUnequipSkillSlot,
   activeTab: controlledActiveTab,
   onActiveTabChange,
   disabled = false,
@@ -610,17 +945,32 @@ export function TacticalIntelPanel({
             {...(disabledReason === undefined ? {} : { disabledReason })}
           />
         )}
-        {activeTab === 'character' && <CharacterIntel state={state} />}
+        {activeTab === 'character' && (
+          <CharacterIntel
+            state={state}
+            {...(onEquipItem === undefined ? {} : { onEquipItem })}
+            {...(onUnequipItem === undefined ? {} : { onUnequipItem })}
+          />
+        )}
         {activeTab === 'inventory' && (
           <InventoryIntel
             state={state}
             disabled={disabled}
             disabledReasonId={disabledReasonId}
             onEquipQuickConsumable={onEquipQuickConsumable}
+            {...(onEquipItem === undefined ? {} : { onEquipItem })}
+            {...(onMoveItem === undefined ? {} : { onMoveItem })}
+            {...(onSettleLoot === undefined ? {} : { onSettleLoot })}
             {...(disabledReason === undefined ? {} : { disabledReason })}
           />
         )}
-        {activeTab === 'skills' && <SkillIntel state={state} />}
+        {activeTab === 'skills' && (
+          <SkillIntel
+            state={state}
+            {...(onEquipSkillSlot === undefined ? {} : { onEquipSkillSlot })}
+            {...(onUnequipSkillSlot === undefined ? {} : { onUnequipSkillSlot })}
+          />
+        )}
         {activeTab === 'bestiary' && <BestiaryIntel state={state} />}
       </div>
     </section>

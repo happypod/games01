@@ -1,12 +1,9 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import {
-  COMPANION_ATTACK_INTERVAL_MS,
-  COMPANION_DEFINITIONS,
   getEnemyDefinition,
   getEnemyPresentationDamageState,
   getEnemyPresentationAssetId,
 } from '../game/content'
-import { getCompanionDamage, getHeroStats } from '../game/formulas'
 import { getStageRegionForStage } from '../game/stageMap'
 import type {
   CombatEventBatch,
@@ -21,7 +18,7 @@ import {
 } from '../hooks/useTacticalMotionTriggers'
 import { ExpeditionEventPanel } from './ExpeditionEventPanel'
 import { GameAsset } from './GameAsset'
-import { StatBar } from './StatBar'
+import { TacticalCardStage } from './TacticalCardStage'
 import {
   projectTacticalScenePresentation,
   TACTICAL_DAMAGE_POPUP_DURATION_MS,
@@ -87,11 +84,7 @@ export function TacticalStage({
     enemy.maxHp,
   )
   const enemyDamageLabel = getEnemyDamageStateLabel(enemyDamageState)
-  const hero = getHeroStats(state)
   const region = getStageRegionForStage(presentedStage)
-  const companionId = state.player.companion.id
-  const companion = companionId === null ? null : COMPANION_DEFINITIONS[companionId]
-  const companionDamage = getCompanionDamage(state)
   const skill = effects.scene?.events.find((event) => event.type === 'skill')
   const critical = effects.scene?.events.find((event) => event.type === 'critical')
   const assist = effects.scene?.events.find((event) => event.type === 'companionAssist')
@@ -164,16 +157,6 @@ export function TacticalStage({
     const focusTarget = firstChoice ?? heading
     focusTarget?.focus()
   }, [isEventOverlayVisible, pendingEventIdentity])
-  const cooldownPercent = companion === null
-    ? 0
-    : Math.min(
-      100,
-      Math.max(
-        0,
-        ((COMPANION_ATTACK_INTERVAL_MS - state.battle.companionCooldownMs) /
-          COMPANION_ATTACK_INTERVAL_MS) * 100,
-      ),
-    )
   const chooseExpeditionEvent = (
     eventId: string,
     choiceId: ExpeditionChoiceId,
@@ -249,84 +232,24 @@ export function TacticalStage({
           <span className="live-badge"><i aria-hidden="true" /> 자동 원정 중</span>
         </header>
 
-        <div className="tactical-canvas__actors">
-          <article className="tactical-actor tactical-actor--hero">
-            <div className="tactical-actor__copy">
-              <span>방랑 기사 · Lv. {state.player.level}</span>
-              <h3>아렌</h3>
-              <StatBar
-                label="영웅 체력"
-                value={presentation?.playerHp ?? state.player.currentHp}
-                maximum={hero.maxHp}
-                tone="health"
-              />
-              <small>공격력 {hero.attack.toLocaleString('ko-KR')} · 방어력 {hero.defense.toLocaleString('ko-KR')}</small>
-            </div>
-            <GameAsset
-              assetId="hero.ashen-knight.default"
-              purpose="character"
-              className="tactical-actor__asset tactical-actor__asset--hero"
-              fallbackLabel="아렌"
-              fit="cover"
-              loading="eager"
-              decorative
-              containerRef={heroAssetRef}
-            />
-          </article>
-
-          {companion && (
-            <article className="tactical-companion">
-              <GameAsset
-                assetId={companion.assetId}
-                purpose="character"
-                className="tactical-companion__asset"
-                fallbackLabel="루미"
-                fit="cover"
-                decorative
-                containerRef={companionAssetRef}
-              />
-              <div>
-                <span>{companion.name} · Rank {state.player.companion.rank}</span>
-                <strong>협공 {companionDamage.toLocaleString('ko-KR')}</strong>
-                <div className="mini-track" aria-hidden="true">
-                  <span style={{ width: `${cooldownPercent}%` }} />
-                </div>
-              </div>
-            </article>
-          )}
-
-          <article className={`tactical-actor tactical-actor--enemy ${enemy.isBoss ? 'tactical-actor--boss' : ''}`}>
-            <div className="tactical-actor__copy">
-              <span>{enemy.isBoss ? '지역 수호자' : '야생의 위협'}</span>
-              <h3>{enemy.name}</h3>
-              {enemyDamageLabel && (
-                <p
-                  className="tactical-actor__damage-state"
-                  data-damage-state={enemyDamageState ?? undefined}
-                >
-                  {enemyDamageLabel}
-                </p>
-              )}
-              <StatBar
-                label="적 체력"
-                value={presentedEnemyHp}
-                maximum={enemy.maxHp}
-                tone="enemy"
-              />
-              <small>공격력 {enemy.attack.toLocaleString('ko-KR')}</small>
-            </div>
-            <GameAsset
-              assetId={enemyAssetId}
-              purpose="character"
-              className="tactical-actor__asset tactical-actor__asset--enemy"
-              fallbackLabel={enemy.name}
-              fit="cover"
-              loading="eager"
-              decorative
-              containerRef={enemyAssetRef}
-            />
-          </article>
+        {/* Task 2: 2.5D 와이드 전장 & H-Costume 3단계 무대 */}
+        <div style={{ padding: '0 12px 12px' }}>
+          <TacticalCardStage
+            state={state}
+            presentation={presentation}
+            heroAssetRef={heroAssetRef}
+            enemyAssetRef={enemyAssetRef}
+            companionAssetRef={companionAssetRef}
+            heroMotionClass={heroMotionClass}
+            enemyMotionClass={enemyMotionClass}
+            companionMotionClass={companionMotionClass}
+            enemyDamageLabel={enemyDamageLabel}
+          />
         </div>
+
+
+
+
 
         {scenePresentation.damagePopups.length > 0 && effects.scene && (
           <div

@@ -13,6 +13,7 @@ import {
   advanceOfflineGame,
   createInitialState,
   equipItem,
+  equipSkillSlot,
   FOCUS_TONIC_CRITICAL_CHANCE,
   moveItem,
   performPrestige,
@@ -23,6 +24,7 @@ import {
   switchGameMode,
   trainCompanion,
   unequipItem,
+  unequipSkillSlot,
   upgradeSkill,
 } from './engine'
 import {
@@ -1054,5 +1056,51 @@ describe('game engine', () => {
       .toBe(Number.MAX_SAFE_INTEGER)
     expect(settled.inventory.lootBag['weapon.novice-sword']).toBe(1)
     expect(state).toEqual(inputSnapshot)
+  })
+
+  it('manages skill slot equips, unequips, and duplicate prevention for IRPG-704', () => {
+    let state = createInitialState(0)
+    // Unlock ironWill (level 3, rank 1)
+    state.player.level = 3
+    state.player.skills.ironWill = 1
+
+    // Rejects invalid slot index or locked skill
+    expect(equipSkillSlot(state, -1, 'ironWill').success).toBe(false)
+    expect(equipSkillSlot(state, 3, 'ironWill').success).toBe(false)
+    expect(equipSkillSlot(state, 1, 'fortune').success).toBe(false) // Locked (level < 5)
+
+    // Equip ironWill in slot 1
+    const equipResult = equipSkillSlot(state, 1, 'ironWill')
+    expect(equipResult.success).toBe(true)
+    state = equipResult.state
+    expect(state.player.skillSlots).toEqual(['powerStrike', 'ironWill', null])
+
+    // Move powerStrike from slot 0 to slot 2 (auto-clears slot 0)
+    const moveResult = equipSkillSlot(state, 2, 'powerStrike')
+    expect(moveResult.success).toBe(true)
+    state = moveResult.state
+    expect(state.player.skillSlots).toEqual([null, 'ironWill', 'powerStrike'])
+
+    // Unequip slot 1
+    const unequipResult = unequipSkillSlot(state, 1)
+    expect(unequipResult.success).toBe(true)
+    state = unequipResult.state
+    expect(state.player.skillSlots).toEqual([null, null, 'powerStrike'])
+  })
+
+  it('only activates active skills when equipped in skillSlots during combat', () => {
+    const state = createInitialState(0)
+    state.battle.enemyHp = 10_000 // High HP enemy
+    state.battle.powerStrikeCooldownMs = 0
+
+    // With powerStrike equipped in slot 0 (initial state), powerStrike activates!
+    const equippedAdv = advanceGame(state, 1_000)
+    expect(equippedAdv.state.battle.powerStrikeCooldownMs).toBe(5_000)
+
+    // Unequip powerStrike from slot 0
+    const unequippedState = unequipSkillSlot(state, 0).state
+    const unequippedAdv = advanceGame(unequippedState, 1_000)
+    // Cooldown is not set to 5_000 because powerStrike did NOT activate!
+    expect(unequippedAdv.state.battle.powerStrikeCooldownMs).toBe(0)
   })
 })

@@ -204,6 +204,7 @@ describe('IRPG-418 schema6 camp persistence', () => {
         bond: createInitialCampBondState(),
       },
       inventory: createInitialInventoryState(),
+      livingCards: {},
       player: {
         ...legacySaveV7.player,
         equipped: createInitialPlayerEquippedState(),
